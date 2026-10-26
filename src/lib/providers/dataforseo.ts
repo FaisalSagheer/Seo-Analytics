@@ -1,4 +1,5 @@
 import "server-only";
+import { bareDomain } from "@/lib/domain";
 import type {
   BacklinkRow,
   BacklinkSummary,
@@ -27,16 +28,6 @@ type Envelope<T> = {
   status_message: string;
   tasks?: { status_code: number; status_message: string; result: T[] | null }[];
 };
-
-/** Strip protocol, www. and path: DataForSEO wants a bare domain. */
-export function bareDomain(input: string) {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "")
-    .replace(/\/.*$/, "");
-}
 
 export function createDataForSeo(login: string, password: string): SeoProvider {
   const auth = `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`;

@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import { dateKeys, daysAgo, toDateKey, utcDay } from "@/lib/dates";
 import { averagePosition, visibilityScore } from "@/lib/visibility";
-import type { OverviewPoint, ProjectReport, RankingRow } from "@/lib/types";
+import type { BacklinkReport, OverviewPoint, ProjectReport, RankingRow } from "@/lib/types";
+import { BACKLINK_VIEWS, getViewSources, type BacklinkViewKey } from "@/lib/backlinks";
 
 /** Every read is scoped to the owner. Returns null rather than leaking existence. */
 export function getProject(projectId: string, userId: string) {
@@ -32,7 +33,9 @@ export async function getRankingRows(projectId: string, days: number): Promise<R
     const last = k.snapshots.at(-1);
     const first = k.snapshots[0];
     const position = last?.position ?? null;
-    const previous = first && first !== last ? first.position : null;
+    // A keyword checked only once has no earlier reading to compare against
+    const hasPrevious = Boolean(first && first !== last);
+    const previous = hasPrevious ? first!.position : null;
     const ranked = k.snapshots.map((s) => s.position).filter((p): p is number => p != null);
     return {
       keywordId: k.id,
@@ -41,7 +44,7 @@ export async function getRankingRows(projectId: string, days: number): Promise<R
       searchVolume: k.searchVolume,
       position,
       previous,
-      change: rankChange(previous, position),
+      change: hasPrevious ? rankChange(previous, position) : null,
       best: ranked.length ? Math.min(...ranked) : null,
       url: last?.url ?? null,
       history,
@@ -132,7 +135,91 @@ export async function getDomainData(projectId: string, days: number) {
 }
 
 export function getBacklinks(projectId: string) {
-  return db.backlink.findMany({ where: { projectId }, orderBy: { domainFromRank: "desc" } });
+  return db.backlink.findMany({ where: { projectId }, orderBy: [{ domainFromRank: "desc" }, { domainFrom: "asc" }] });
+}
+
+/**
+ * One shape for the backlinks page, its CSV export and the printable report,
+ * for one source view. Falls back to a view that has data when the requested one doesn't.
+ */
+export async function getBacklinkReport(
+  projectId: string,
+  days: number,
+  requested: BacklinkViewKey | null = null,
+): Promise<BacklinkReport | null> {
+  const project = await db.project.findUnique({ where: { id: projectId } });
+  if (!project) return null;
+
+  const present = await db.backlinkSnapshot.groupBy({ by: ["source"], where: { projectId } });
+  const presentSources = new Set(present.map((p) => p.source));
+  const availableViews = BACKLINK_VIEWS.filter((v) => getViewSources(v).some((s) => presentSources.has(s)));
+  const view = requested && availableViews.includes(requested) ? requested : (availableViews[0] ?? "dataforseo");
+  const sources = getViewSources(view);
+
+  const [snapshots, rows] = await Promise.all([
+    db.backlinkSnapshot.findMany({
+      where: { projectId, source: { in: sources }, capturedAt: { gte: daysAgo(days - 1) } },
+      orderBy: { capturedAt: "asc" },
+    }),
+    db.backlink.findMany({
+      where: { projectId, source: { in: sources } },
+      orderBy: [{ domainFromRank: "desc" }, { domainFrom: "asc" }],
+    }),
+  ]);
+
+  const latest = snapshots.at(-1);
+  const first = snapshots[0];
+  const typed = rows.filter((l) => l.dofollow != null);
+
+  const anchorCounts = new Map<string, number>();
+  const domainStats = new Map<string, { links: number; rank: number | null }>();
+  for (const l of rows) {
+    const a = l.anchor.trim() || "(no anchor)";
+    anchorCounts.set(a, (anchorCounts.get(a) ?? 0) + 1);
+    const d = domainStats.get(l.domainFrom) ?? { links: 0, rank: null };
+    d.links++;
+    if (l.domainFromRank != null) d.rank = Math.max(d.rank ?? 0, l.domainFromRank);
+    domainStats.set(l.domainFrom, d);
+  }
+
+  return {
+    project: { id: project.id, name: project.name, domain: project.domain, isDemo: project.isDemo },
+    generatedAt: new Date().toISOString(),
+    days,
+    view,
+    availableViews,
+    sources: [...new Set(rows.map((r) => r.source))],
+    summary: {
+      referringDomains: latest?.referringDomains ?? null,
+      referringDomainsChange: latest && first && latest !== first ? latest.referringDomains - first.referringDomains : null,
+      backlinks: latest?.backlinks ?? null,
+      domainRank: latest?.domainRank ?? null,
+      dofollowShare: typed.length ? typed.filter((l) => l.dofollow).length / typed.length : null,
+      newCount: rows.filter((l) => l.isNew && !l.isLost).length,
+      lostCount: rows.filter((l) => l.isLost).length,
+      sampleSize: rows.length,
+    },
+    history: snapshots.map((s) => ({ date: toDateKey(s.capturedAt), referringDomains: s.referringDomains })),
+    anchors: [...anchorCounts].map(([anchor, count]) => ({ anchor, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+    topDomains: [...domainStats]
+      .map(([domain, s]) => ({ domain, ...s }))
+      .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || b.links - a.links)
+      .slice(0, 15),
+    links: rows.map((l) => ({
+      id: l.id,
+      urlFrom: l.urlFrom,
+      urlTo: l.urlTo,
+      domainFrom: l.domainFrom,
+      anchor: l.anchor,
+      dofollow: l.dofollow,
+      domainFromRank: l.domainFromRank,
+      firstSeen: l.firstSeen ? toDateKey(l.firstSeen) : null,
+      lastSeen: l.lastSeen ? toDateKey(l.lastSeen) : null,
+      isNew: l.isNew,
+      isLost: l.isLost,
+      source: l.source,
+    })),
+  };
 }
 
 export function getGscQueries(projectId: string) {

@@ -77,32 +77,39 @@ model Verification {
 // ---- Projects & tracking ----
 
 model Project {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  domain        String
-  locationCode  Int      @default(2840)
-  languageCode  String   @default("en")
-  device        Device   @default(DESKTOP)
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Project_userId_fkey")
+  name                String
+  domain              String
+  locationCode        Int       @default(2840)
+  languageCode        String    @default("en")
+  device              Device    @default(DESKTOP)
   /// Search Console property, e.g. "sc-domain:example.com" or "https://example.com/"
-  gscSiteUrl    String?
+  gscSiteUrl          String?
   /// GA4 property id, digits only
-  ga4PropertyId String?
-  isDemo        Boolean  @default(false)
-  lastSyncedAt  DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  ga4PropertyId       String?
+  /// Site URL exactly as registered in Bing Webmaster Tools, e.g. "https://example.com/"
+  bingSiteUrl         String?
+  /// Which backlink sources a refresh fetches (each only when its account is connected)
+  backlinksDataForSeo Boolean   @default(true)
+  backlinksBing       Boolean   @default(true)
+  isDemo              Boolean   @default(false)
+  lastSyncedAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  keywords        Keyword[]
-  gscDaily        SearchConsoleDaily[]
-  gscQueries      SearchConsoleQuery[]
-  analyticsDaily  AnalyticsDaily[]
-  domainSnapshots DomainSnapshot[]
-  topPages        TopPage[]
-  backlinks       Backlink[]
+  keywords          Keyword[]
+  gscDaily          SearchConsoleDaily[]
+  gscQueries        SearchConsoleQuery[]
+  analyticsDaily    AnalyticsDaily[]
+  domainSnapshots   DomainSnapshot[]
+  topPages          TopPage[]
+  backlinks         Backlink[]
+  backlinkSnapshots BacklinkSnapshot[]
 
-  @@index([userId])
+  @@index([userId], map: "Project_userId_idx")
+  @@map("project")
 }
 
 enum Device {
@@ -113,7 +120,7 @@ enum Device {
 model Keyword {
   id           String         @id @default(cuid())
   projectId    String
-  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "Keyword_projectId_fkey")
   phrase       String         @db.VarChar(700)
   /// Comma-separated tags
   tags         String         @default("")
@@ -121,26 +128,30 @@ model Keyword {
   createdAt    DateTime       @default(now())
   snapshots    RankSnapshot[]
 
-  @@unique([projectId, phrase(length: 191)])
-  @@index([projectId])
+  @@unique([projectId, phrase(length: 191)], map: "Keyword_projectId_phrase_key")
+  @@index([projectId], map: "Keyword_projectId_idx")
+  @@map("keyword")
 }
 
 model RankSnapshot {
   id        String     @id @default(cuid())
   keywordId String
-  keyword   Keyword    @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  keyword   Keyword    @relation(fields: [keywordId], references: [id], onDelete: Cascade, map: "RankSnapshot_keywordId_fkey")
   checkedAt DateTime   @db.Date
   /// null = not found in the checked depth
   position  Int?
   url       String?    @db.VarChar(2048)
   source    DataSource @default(DATAFORSEO)
 
-  @@unique([keywordId, checkedAt])
-  @@index([checkedAt])
+  @@unique([keywordId, checkedAt], map: "RankSnapshot_keywordId_checkedAt_key")
+  @@index([checkedAt], map: "RankSnapshot_checkedAt_idx")
+  @@map("ranksnapshot")
 }
 
 enum DataSource {
   DATAFORSEO
+  SERPER
+  BING
   DEMO
 }
 
@@ -149,21 +160,22 @@ enum DataSource {
 model SearchConsoleDaily {
   id          String   @id @default(cuid())
   projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "SearchConsoleDaily_projectId_fkey")
   date        DateTime @db.Date
   clicks      Int
   impressions Int
   ctr         Float
   position    Float
 
-  @@unique([projectId, date])
+  @@unique([projectId, date], map: "SearchConsoleDaily_projectId_date_key")
+  @@map("searchconsoledaily")
 }
 
 /// Last-28-day query totals, replaced on every sync
 model SearchConsoleQuery {
   id          String   @id @default(cuid())
   projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "SearchConsoleQuery_projectId_fkey")
   query       String   @db.VarChar(700)
   clicks      Int
   impressions Int
@@ -171,73 +183,99 @@ model SearchConsoleQuery {
   position    Float
   syncedAt    DateTime @default(now())
 
-  @@index([projectId])
+  @@index([projectId], map: "SearchConsoleQuery_projectId_idx")
+  @@map("searchconsolequery")
 }
 
 model AnalyticsDaily {
   id             String   @id @default(cuid())
   projectId      String
-  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "AnalyticsDaily_projectId_fkey")
   date           DateTime @db.Date
   sessions       Int
   users          Int
   conversions    Int
   engagementRate Float
 
-  @@unique([projectId, date])
+  @@unique([projectId, date], map: "AnalyticsDaily_projectId_date_key")
+  @@map("analyticsdaily")
 }
 
 // ---- Domain overview & backlinks ----
 
+/// Organic fields are null when only a backlink source (Bing) was available;
+/// backlink fields are null when no backlink source was available.
 model DomainSnapshot {
   id               String   @id @default(cuid())
   projectId        String
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "DomainSnapshot_projectId_fkey")
   capturedAt       DateTime @db.Date
-  organicKeywords  Int
-  organicTraffic   Float
-  trafficCost      Float
-  pos1             Int
-  pos2to3          Int
-  pos4to10         Int
-  backlinks        Int
-  referringDomains Int
-  domainRank       Int
+  organicKeywords  Int?
+  organicTraffic   Float?
+  trafficCost      Float?
+  pos1             Int?
+  pos2to3          Int?
+  pos4to10         Int?
+  backlinks        Int?
+  referringDomains Int?
+  domainRank       Int?
 
-  @@unique([projectId, capturedAt])
+  @@unique([projectId, capturedAt], map: "DomainSnapshot_projectId_capturedAt_key")
+  @@map("domainsnapshot")
 }
 
 /// Replaced on every sync
 model TopPage {
   id        String   @id @default(cuid())
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "TopPage_projectId_fkey")
   url       String   @db.VarChar(2048)
   traffic   Float
   keywords  Int
   pos1      Int
   syncedAt  DateTime @default(now())
 
-  @@index([projectId])
+  @@index([projectId], map: "TopPage_projectId_idx")
+  @@map("toppage")
 }
 
-/// Replaced on every sync
-model Backlink {
-  id             String   @id @default(cuid())
-  projectId      String
-  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  urlFrom        String   @db.VarChar(2048)
-  urlTo          String   @db.VarChar(2048)
-  domainFrom     String
-  anchor         String   @db.Text
-  dofollow       Boolean
-  domainFromRank Int
-  firstSeen      DateTime
-  lastSeen       DateTime
-  isNew          Boolean
-  isLost         Boolean
+/// Backlink totals per source per day, so each source keeps its own history
+/// and the Backlinks page can switch between them.
+model BacklinkSnapshot {
+  id               String     @id @default(cuid())
+  projectId        String
+  project          Project    @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "BacklinkSnapshot_projectId_fkey")
+  capturedAt       DateTime   @db.Date
+  source           DataSource
+  backlinks        Int
+  referringDomains Int
+  /// null for Bing, which doesn't report a rank
+  domainRank       Int?
 
-  @@index([projectId])
+  @@unique([projectId, capturedAt, source], map: "BacklinkSnapshot_projectId_capturedAt_source_key")
+  @@map("backlinksnapshot")
+}
+
+/// Replaced per source on every sync. Bing only reports source URL + anchor, so
+/// dofollow / rank / seen dates are null for Bing rows.
+model Backlink {
+  id             String     @id @default(cuid())
+  projectId      String
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "Backlink_projectId_fkey")
+  urlFrom        String     @db.VarChar(2048)
+  urlTo          String     @db.VarChar(2048)
+  domainFrom     String
+  anchor         String     @db.Text
+  dofollow       Boolean?
+  domainFromRank Int?
+  firstSeen      DateTime?
+  lastSeen       DateTime?
+  isNew          Boolean    @default(false)
+  isLost         Boolean    @default(false)
+  source         DataSource @default(DATAFORSEO)
+
+  @@index([projectId, source], map: "Backlink_projectId_source_idx")
+  @@map("backlink")
 }
 
 // ---- Provider accounts, cache, API keys ----
@@ -245,19 +283,25 @@ model Backlink {
 model ProviderCredential {
   id              String   @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "ProviderCredential_userId_fkey")
   provider        Provider
+  /// Empty for key-only providers (Serper)
   login           String
   /// AES-256-GCM encrypted with APP_ENCRYPTION_KEY
   secretEncrypted String   @db.Text
+  /// Serper only: how deep a rank check pages (10–100). Each page of 10 costs a credit.
+  rankDepth       Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([userId, provider])
+  @@unique([userId, provider], map: "ProviderCredential_userId_provider_key")
+  @@map("providercredential")
 }
 
 enum Provider {
   DATAFORSEO
+  SERPER
+  BING
 }
 
 model ProviderCache {
@@ -265,21 +309,23 @@ model ProviderCache {
   payload   Json
   expiresAt DateTime
 
-  @@index([expiresAt])
+  @@index([expiresAt], map: "ProviderCache_expiresAt_idx")
+  @@map("providercache")
 }
 
 model ApiKey {
   id         String    @id @default(cuid())
   userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "ApiKey_userId_fkey")
   name       String
   /// First characters shown in the UI, e.g. "bsk_ab12"
   prefix     String
   /// sha256 of the full key
-  hashedKey  String    @unique @db.VarChar(64)
+  hashedKey  String    @unique(map: "ApiKey_hashedKey_key") @db.VarChar(64)
   lastUsedAt DateTime?
   revokedAt  DateTime?
   createdAt  DateTime  @default(now())
 
-  @@index([userId])
+  @@index([userId], map: "ApiKey_userId_idx")
+  @@map("apikey")
 }

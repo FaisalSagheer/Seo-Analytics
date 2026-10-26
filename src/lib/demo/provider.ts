@@ -45,6 +45,31 @@ export function demoVolume(keyword: string) {
   return Math.round(Math.pow(10, r.float(1.6, 4.6)) / 10) * 10;
 }
 
+/**
+ * What Bing Webmaster Tools would report for the demo domain: a different,
+ * smaller sample with only URL + anchor, so the source toggle has something
+ * to switch to.
+ */
+export function demoBingBacklinks(domain: string) {
+  const r = rng(`bing:${domain}`);
+  const links: BacklinkRow[] = Array.from({ length: 60 }, (_, i) => {
+    const from = REFERRERS[(i * 7 + 3) % REFERRERS.length];
+    return {
+      urlFrom: `https://${from}/${r.pick(["blog", "news", "resources", "links"])}/${hashString(`bing${from}${i}`).toString(36)}`,
+      urlTo: `https://${domain}/${PAGE_SLUGS[i % PAGE_SLUGS.length]}`,
+      domainFrom: from,
+      anchor: r.pick([domain, "SEO dashboard", "open source rank tracker", "this guide", "website", ""]),
+      dofollow: null,
+      domainFromRank: null,
+      firstSeen: null,
+      lastSeen: null,
+      isNew: false,
+      isLost: false,
+    };
+  });
+  return { links, total: 4_000 + (hashString(domain) % 3_000), referringDomains: new Set(links.map((l) => l.domainFrom)).size };
+}
+
 export const demoProvider: SeoProvider = {
   name: "demo",
 

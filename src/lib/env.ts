@@ -19,6 +19,9 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   DATAFORSEO_LOGIN: z.string().optional(),
   DATAFORSEO_PASSWORD: z.string().optional(),
+  SERPER_API_KEY: z.string().optional(),
+  SERPER_RANK_DEPTH: z.coerce.number().int().min(10).max(100).default(50),
+  BING_WEBMASTER_API_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   ALLOW_SIGNUP: z
     .enum(["true", "false", "1", "0", ""])

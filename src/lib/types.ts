@@ -53,15 +53,16 @@ export type BacklinkSummary = {
   nofollowDomains: number;
 };
 
+/** null = the source doesn't report it (Bing gives only URL + anchor) */
 export type BacklinkRow = {
   urlFrom: string;
   urlTo: string;
   domainFrom: string;
   anchor: string;
-  dofollow: boolean;
-  domainFromRank: number;
-  firstSeen: Date;
-  lastSeen: Date;
+  dofollow: boolean | null;
+  domainFromRank: number | null;
+  firstSeen: Date | null;
+  lastSeen: Date | null;
   isNew: boolean;
   isLost: boolean;
 };
@@ -96,6 +97,48 @@ export type RankingRow = {
   best: number | null;
   url: string | null;
   history: { date: string; position: number | null }[];
+};
+
+/** A stored backlink, serialisable for client components and CSV */
+export type BacklinkView = {
+  id: string;
+  urlFrom: string;
+  urlTo: string;
+  domainFrom: string;
+  anchor: string;
+  dofollow: boolean | null;
+  domainFromRank: number | null;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  isNew: boolean;
+  isLost: boolean;
+  source: "DATAFORSEO" | "SERPER" | "BING" | "DEMO";
+};
+
+export type BacklinkReport = {
+  project: { id: string; name: string; domain: string; isDemo: boolean };
+  generatedAt: string;
+  days: number;
+  /** The source view this report shows */
+  view: "dataforseo" | "bing";
+  /** Views that have any stored data for this project */
+  availableViews: ("dataforseo" | "bing")[];
+  sources: BacklinkView["source"][];
+  summary: {
+    referringDomains: number | null;
+    referringDomainsChange: number | null;
+    backlinks: number | null;
+    domainRank: number | null;
+    /** Share of links with a known type that are dofollow; null when no link reports it */
+    dofollowShare: number | null;
+    newCount: number;
+    lostCount: number;
+    sampleSize: number;
+  };
+  history: { date: string; referringDomains: number | null }[];
+  anchors: { anchor: string; count: number }[];
+  topDomains: { domain: string; links: number; rank: number | null }[];
+  links: BacklinkView[];
 };
 
 export type OverviewPoint = {
