@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---- Auth (Better Auth core tables) ----
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  projects            Project[]
+  providerCredentials ProviderCredential[]
+  apiKeys             ApiKey[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?  @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---- Projects & tracking ----
+
+model Project {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  domain        String
+  locationCode  Int      @default(2840)
+  languageCode  String   @default("en")
+  device        Device   @default(DESKTOP)
+  /// Search Console property, e.g. "sc-domain:example.com" or "https://example.com/"
+  gscSiteUrl    String?
+  /// GA4 property id, digits only
+  ga4PropertyId String?
+  isDemo        Boolean  @default(false)
+  lastSyncedAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  keywords        Keyword[]
+  gscDaily        SearchConsoleDaily[]
+  gscQueries      SearchConsoleQuery[]
+  analyticsDaily  AnalyticsDaily[]
+  domainSnapshots DomainSnapshot[]
+  topPages        TopPage[]
+  backlinks       Backlink[]
+
+  @@index([userId])
+}
+
+enum Device {
+  DESKTOP
+  MOBILE
+}
+
+model Keyword {
+  id           String         @id @default(cuid())
+  projectId    String
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phrase       String         @db.VarChar(700)
+  /// Comma-separated tags
+  tags         String         @default("")
+  searchVolume Int?
+  createdAt    DateTime       @default(now())
+  snapshots    RankSnapshot[]
+
+  @@unique([projectId, phrase(length: 191)])
+  @@index([projectId])
+}
+
+model RankSnapshot {
+  id        String     @id @default(cuid())
+  keywordId String
+  keyword   Keyword    @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  checkedAt DateTime   @db.Date
+  /// null = not found in the checked depth
+  position  Int?
+  url       String?    @db.VarChar(2048)
+  source    DataSource @default(DATAFORSEO)
+
+  @@unique([keywordId, checkedAt])
+  @@index([checkedAt])
+}
+
+enum DataSource {
+  DATAFORSEO
+  DEMO
+}
+
+// ---- Search Console & GA4 ----
+
+model SearchConsoleDaily {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float
+
+  @@unique([projectId, date])
+}
+
+/// Last-28-day query totals, replaced on every sync
+model SearchConsoleQuery {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  query       String   @db.VarChar(700)
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float
+  syncedAt    DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model AnalyticsDaily {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date           DateTime @db.Date
+  sessions       Int
+  users          Int
+  conversions    Int
+  engagementRate Float
+
+  @@unique([projectId, date])
+}
+
+// ---- Domain overview & backlinks ----
+
+model DomainSnapshot {
+  id               String   @id @default(cuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  capturedAt       DateTime @db.Date
+  organicKeywords  Int
+  organicTraffic   Float
+  trafficCost      Float
+  pos1             Int
+  pos2to3          Int
+  pos4to10         Int
+  backlinks        Int
+  referringDomains Int
+  domainRank       Int
+
+  @@unique([projectId, capturedAt])
+}
+
+/// Replaced on every sync
+model TopPage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  url       String   @db.VarChar(2048)
+  traffic   Float
+  keywords  Int
+  pos1      Int
+  syncedAt  DateTime @default(now())
+
+  @@index([projectId])
+}
+
+/// Replaced on every sync
+model Backlink {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  urlFrom        String   @db.VarChar(2048)
+  urlTo          String   @db.VarChar(2048)
+  domainFrom     String
+  anchor         String   @db.Text
+  dofollow       Boolean
+  domainFromRank Int
+  firstSeen      DateTime
+  lastSeen       DateTime
+  isNew          Boolean
+  isLost         Boolean
+
+  @@index([projectId])
+}
+
+// ---- Provider accounts, cache, API keys ----
+
+model ProviderCredential {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        Provider
+  login           String
+  /// AES-256-GCM encrypted with APP_ENCRYPTION_KEY
+  secretEncrypted String   @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+enum Provider {
+  DATAFORSEO
+}
+
+model ProviderCache {
+  key       String   @id @db.VarChar(64)
+  payload   Json
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  /// First characters shown in the UI, e.g. "bsk_ab12"
+  prefix     String
+  /// sha256 of the full key
+  hashedKey  String    @unique @db.VarChar(64)
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
