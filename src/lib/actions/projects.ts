@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { denied, requireProject, requireUser } from "@/lib/session";
 import { seedDemoProject } from "@/lib/demo/seed-project";
+import { env } from "@/lib/env";
 import { syncProject, type SyncPart, type SyncResult } from "@/lib/sync";
 import {
   addKeywordsSchema,
@@ -79,6 +80,7 @@ export async function deleteProject(projectId: string): Promise<ActionResult> {
 export async function createDemoProject(): Promise<ActionResult<{ id: string }>> {
   const blocked = await denied("projects.create");
   if (blocked) return blocked;
+  if (!env().DEMO_MODE) return fail("Demo mode is disabled on this server.");
   const user = await requireUser();
   const project = await seedDemoProject(db, user.id);
   revalidatePath("/projects");

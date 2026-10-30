@@ -11,6 +11,7 @@ import { formatRelative } from "@/lib/format";
 import { locationLabel } from "@/lib/markets";
 import { listProjects } from "@/lib/queries";
 import { can, requireUser } from "@/lib/session";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -18,6 +19,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
   await requireUser();
   const [projects, sp, canCreate] = await Promise.all([listProjects(), searchParams, can("projects.create")]);
   const openNew = sp.new === "1" && canCreate;
+  const demoEnabled = canCreate && env().DEMO_MODE;
 
   return (
     <>
@@ -27,7 +29,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
         actions={
           canCreate && (
             <>
-              <DemoProjectButton />
+              {demoEnabled && <DemoProjectButton />}
               <NewProjectDialog defaultOpen={openNew} />
             </>
           )
@@ -42,12 +44,14 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
             </EmptyMedia>
             <EmptyTitle>No projects yet</EmptyTitle>
             <EmptyDescription>
-              {canCreate
+              {demoEnabled
                 ? "Create a project for your domain, or load a demo project with six months of sample data to look around first."
-                : "Your team hasn't created any projects yet. Ask an admin or editor to add one."}
+                : canCreate
+                  ? "Create a project for your domain to start tracking it."
+                  : "Your team hasn't created any projects yet. Ask an admin or editor to add one."}
             </EmptyDescription>
           </EmptyHeader>
-          {canCreate && (
+          {demoEnabled && (
             <EmptyContent className="flex-row justify-center">
               <DemoProjectButton variant="default" />
             </EmptyContent>
