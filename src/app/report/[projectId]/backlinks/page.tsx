@@ -15,9 +15,9 @@ import { requireUser } from "@/lib/session";
 export const metadata: Metadata = { title: "Backlink report" };
 
 async function Report({ params, searchParams }: PageProps<"/report/[projectId]/backlinks">) {
-  const user = await requireUser();
+  await requireUser();
   const { projectId } = await params;
-  const project = await getProject(projectId, user.id);
+  const project = await getProject(projectId);
   if (!project) notFound();
   const sp = await searchParams;
   const days = parseRange(sp.days, 180);

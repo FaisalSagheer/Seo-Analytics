@@ -1,12 +1,14 @@
 "use server";
 
-import { requireProject } from "@/lib/session";
+import { denied, requireProject } from "@/lib/session";
 import { cached, getSeoProvider } from "@/lib/providers";
 import { domainLookupSchema, keywordIdeasSchema, type DomainLookupInput, type KeywordIdeasInput } from "@/lib/validations";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 import type { BacklinkSummary, DomainMetrics, KeywordIdea, TopPageRow } from "@/lib/types";
 
 export async function lookupKeywordIdeas(input: KeywordIdeasInput): Promise<ActionResult<KeywordIdea[]>> {
+  const blocked = await denied("research.use");
+  if (blocked) return blocked;
   const parsed = keywordIdeasSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { project } = await requireProject(parsed.data.projectId);
@@ -26,6 +28,8 @@ export async function lookupKeywordIdeas(input: KeywordIdeasInput): Promise<Acti
 export type DomainLookup = { domain: string; metrics: DomainMetrics; backlinks: BacklinkSummary; pages: TopPageRow[] };
 
 export async function lookupDomain(input: DomainLookupInput): Promise<ActionResult<DomainLookup>> {
+  const blocked = await denied("research.use");
+  if (blocked) return blocked;
   const parsed = domainLookupSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { project } = await requireProject(parsed.data.projectId);

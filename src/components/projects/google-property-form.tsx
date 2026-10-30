@@ -30,10 +30,10 @@ export function GooglePropertyForm({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    // Property lists live in the user's Google account, so this one fetch is client-driven
+    // Property lists live in the project owner's Google account, so this one fetch is client-driven
     if (!connected) return;
     let cancelled = false;
-    listGoogleProperties().then((res) => {
+    listGoogleProperties(initial.projectId).then((res) => {
       if (cancelled) return;
       if (res.ok) setOptions(res.data);
       else setError(res.error);
@@ -41,7 +41,7 @@ export function GooglePropertyForm({
     return () => {
       cancelled = true;
     };
-  }, [connected]);
+  }, [connected, initial.projectId]);
 
   function save(e: React.FormEvent) {
     e.preventDefault();

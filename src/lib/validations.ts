@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { bareDomain } from "@/lib/domain";
+import { PERMISSION_KEYS, type Permission } from "@/lib/permissions";
 
 const domain = z
   .string()
@@ -115,6 +116,13 @@ export const apiKeySchema = z.object({
   name: z.string().trim().min(1, "Name the key").max(60),
 });
 export type ApiKeyInput = z.input<typeof apiKeySchema>;
+
+export const roleSchema = z.object({
+  name: z.string().trim().min(1, "Name the role").max(40),
+  description: z.string().trim().max(255).default(""),
+  permissions: z.array(z.enum(PERMISSION_KEYS as [Permission, ...Permission[]])).default([]),
+});
+export type RoleInput = z.input<typeof roleSchema>;
 
 // ---- Public API query params ----
 

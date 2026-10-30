@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useCan } from "@/components/permissions-provider";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,8 @@ export function KeywordIdeas({ projectId, locationCode, languageCode }: { projec
   const [difficulty, setDifficulty] = useState<Difficulty>("all");
   const [intent, setIntent] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const canResearch = useCan("research.use");
+  const canTrack = useCan("keywords.manage");
 
   const visible = useMemo(() => {
     const min = Number(minVolume) || 0;
@@ -122,7 +125,7 @@ export function KeywordIdeas({ projectId, locationCode, languageCode }: { projec
                 onChange={(e) => setDraft({ ...draft, seeds: e.target.value })}
               />
             </Field>
-            <Button type="submit" disabled={searching}>
+            <Button type="submit" disabled={searching || !canResearch} title={canResearch ? undefined : "Your role can't run paid lookups"}>
               {searching ? <Spinner data-icon="inline-start" /> : <SearchIcon data-icon="inline-start" />}
               Get ideas
             </Button>
@@ -173,7 +176,7 @@ export function KeywordIdeas({ projectId, locationCode, languageCode }: { projec
             <span className="text-muted-foreground ml-auto text-sm">
               {visible.length} ideas · {formatNumber(totalVolume)} searches/mo
             </span>
-            {selected.size > 0 && (
+            {canTrack && selected.size > 0 && (
               <Button size="sm" disabled={tracking} onClick={track}>
                 <PlusIcon data-icon="inline-start" />
                 Track {selected.size}

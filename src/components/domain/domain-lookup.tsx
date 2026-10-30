@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { useCan } from "@/components/permissions-provider";
 import { TopPagesTable } from "@/components/domain/top-pages-table";
 
 /** Ad-hoc overview of any domain, e.g. a competitor. Not stored as history. */
@@ -16,6 +17,7 @@ export function DomainLookup({ projectId }: { projectId: string }) {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const canResearch = useCan("research.use");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,7 +51,7 @@ export function DomainLookup({ projectId }: { projectId: string }) {
       <CardContent className="flex flex-col gap-4">
         <form onSubmit={submit} className="flex gap-2">
           <Input placeholder="competitor.com" value={domain} onChange={(e) => setDomain(e.target.value)} aria-label="Domain" />
-          <Button type="submit" disabled={pending || !domain.trim()}>
+          <Button type="submit" disabled={pending || !domain.trim() || !canResearch} title={canResearch ? undefined : "Your role can't run paid lookups"}>
             {pending ? <Spinner data-icon="inline-start" /> : <SearchIcon data-icon="inline-start" />}
             Analyze
           </Button>

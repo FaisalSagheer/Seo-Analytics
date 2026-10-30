@@ -27,4 +27,4 @@ export const POST = withApiAuth<{ projectId: string }>(async ({ request, project
     skipDuplicates: true,
   });
   return NextResponse.json({ data: { added: count } }, { status: 201 });
-});
+}, { permission: "keywords.manage" });

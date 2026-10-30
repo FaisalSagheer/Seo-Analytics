@@ -4,6 +4,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { assignInitialRole } from "@/lib/roles";
 
 const e = env();
 const google =
@@ -34,6 +35,9 @@ export const auth = betterAuth({
     // Lets an email/password user attach Google for Search Console + GA4
     accountLinking: { enabled: true, trustedProviders: ["google"], allowDifferentEmails: true },
     encryptOAuthTokens: true,
+  },
+  databaseHooks: {
+    user: { create: { after: (user) => assignInitialRole(user.id) } },
   },
   plugins: [nextCookies()],
 });

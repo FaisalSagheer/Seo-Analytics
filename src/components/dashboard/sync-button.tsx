@@ -8,12 +8,15 @@ import { runSync } from "@/lib/actions/projects";
 import type { SyncPart, SyncResult } from "@/lib/sync";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useCan } from "@/components/permissions-provider";
 
 const PART_LABELS: Record<SyncPart, string> = { rankings: "Rankings", domain: "Domain & backlinks", google: "Search Console & GA4" };
 
 export function SyncButton({ projectId, parts, label = "Refresh data" }: { projectId: string; parts?: SyncPart[]; label?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const allowed = useCan("data.sync");
+  if (!allowed) return null;
 
   return (
     <Button

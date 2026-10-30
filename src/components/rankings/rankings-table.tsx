@@ -13,6 +13,7 @@ import { Delta } from "@/components/dashboard/delta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useCan } from "@/components/permissions-provider";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -96,6 +97,7 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
   const [movement, setMovement] = useState<Movement>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "position", dir: 1 });
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const canEdit = useCan("keywords.manage");
 
   const tags = useMemo(() => [...new Set(rows.flatMap((r) => r.tags))].sort(), [rows]);
   const tagItems = [{ value: "all", label: "All tags" }, ...tags.map((t) => ({ value: t, label: t }))];
@@ -151,7 +153,7 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
         <span className="text-muted-foreground ml-auto text-sm">
           {visible.length} of {rows.length}
         </span>
-        {selected.size > 0 && (
+        {canEdit && selected.size > 0 && (
           <Button variant="destructive" size="sm" disabled={pending} onClick={removeSelected}>
             <Trash2Icon data-icon="inline-start" />
             Remove {selected.size}
@@ -163,13 +165,15 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8">
-                <Checkbox
-                  aria-label="Select all"
-                  checked={allSelected}
-                  onCheckedChange={(c) => setSelected(c ? new Set(visible.map((r) => r.keywordId)) : new Set())}
-                />
-              </TableHead>
+              {canEdit && (
+                <TableHead className="w-8">
+                  <Checkbox
+                    aria-label="Select all"
+                    checked={allSelected}
+                    onCheckedChange={(c) => setSelected(c ? new Set(visible.map((r) => r.keywordId)) : new Set())}
+                  />
+                </TableHead>
+              )}
               <SortHead k="phrase" {...sortProps}>Keyword</SortHead>
               <SortHead k="position" className="text-right" {...sortProps}>Position</SortHead>
               <SortHead k="change" {...sortProps}>Change</SortHead>
@@ -182,25 +186,27 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
           <TableBody>
             {visible.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground h-24 text-center">
+                <TableCell colSpan={canEdit ? 8 : 7} className="text-muted-foreground h-24 text-center">
                   {rows.length === 0 ? "No keywords tracked yet. Add some to start the history." : "No keywords match these filters."}
                 </TableCell>
               </TableRow>
             ) : (
               visible.map((r) => (
                 <TableRow key={r.keywordId} data-state={selected.has(r.keywordId) ? "selected" : undefined}>
-                  <TableCell>
-                    <Checkbox
-                      aria-label={`Select ${r.phrase}`}
-                      checked={selected.has(r.keywordId)}
-                      onCheckedChange={(c) => {
-                        const next = new Set(selected);
-                        if (c) next.add(r.keywordId);
-                        else next.delete(r.keywordId);
-                        setSelected(next);
-                      }}
-                    />
-                  </TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <Checkbox
+                        aria-label={`Select ${r.phrase}`}
+                        checked={selected.has(r.keywordId)}
+                        onCheckedChange={(c) => {
+                          const next = new Set(selected);
+                          if (c) next.add(r.keywordId);
+                          else next.delete(r.keywordId);
+                          setSelected(next);
+                        }}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="max-w-72">
                     <div className="flex flex-col gap-1">
                       <Link href={`/projects/${projectId}/rankings/${r.keywordId}`} className="truncate font-medium hover:underline">

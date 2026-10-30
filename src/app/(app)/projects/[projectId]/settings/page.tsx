@@ -4,17 +4,19 @@ import { GooglePropertyForm } from "@/components/projects/google-property-form";
 import { ProjectSettingsForm } from "@/components/projects/project-settings-form";
 import { BacklinkSourcesForm } from "@/components/projects/backlink-sources-form";
 import { getBingApiKey, getGoogleAccount, hasDataForSeo } from "@/lib/providers";
-import { requireProject } from "@/lib/session";
+import { requirePermission, requireProject } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Project settings" };
 
 export default async function ProjectSettingsPage({ params }: PageProps<"/projects/[projectId]/settings">) {
   const { projectId } = await params;
-  const { user, project } = await requireProject(projectId);
+  await requirePermission("projects.edit");
+  const { project } = await requireProject(projectId);
+  // Syncs run on the owner's connected accounts, whoever is editing
   const [google, bingKey, dataForSeo] = await Promise.all([
-    getGoogleAccount(user.id),
-    getBingApiKey(user.id),
-    hasDataForSeo(user.id),
+    getGoogleAccount(project.userId),
+    getBingApiKey(project.userId),
+    hasDataForSeo(project.userId),
   ]);
 
   return (

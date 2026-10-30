@@ -8,13 +8,14 @@ import { BingCard } from "@/components/settings/bing-card";
 import { db } from "@/lib/db";
 import { env, googleConfigured } from "@/lib/env";
 import { getGoogleAccount } from "@/lib/providers";
-import { requireUser } from "@/lib/session";
+import { can, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Providers & API" };
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const e = env();
+  const [canProviders, canApiKeys] = await Promise.all([can("providers.manage"), can("apikeys.manage")]);
   const [cred, serper, bing, google, keys] = await Promise.all([
     db.providerCredential.findUnique({ where: { userId_provider: { userId: user.id, provider: "DATAFORSEO" } } }),
     db.providerCredential.findUnique({ where: { userId_provider: { userId: user.id, provider: "SERPER" } } }),
@@ -27,14 +28,22 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Providers & API" description="Connect your own data accounts and manage API access." />
       <div className="flex max-w-3xl flex-col gap-6">
-        <SerperCard
-          connected={Boolean(serper)}
-          rankDepth={serper?.rankDepth ?? e.SERPER_RANK_DEPTH}
-          envFallback={Boolean(e.SERPER_API_KEY)}
-        />
-        <DataForSeoCard login={cred?.login ?? null} envFallback={Boolean(e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD)} />
-        <BingCard connected={Boolean(bing)} envFallback={Boolean(e.BING_WEBMASTER_API_KEY)} />
-        <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} />
+        {!canProviders && !canApiKeys && (
+          <p className="text-muted-foreground text-sm">Your role doesn&apos;t include connecting providers or creating API keys.</p>
+        )}
+        {canProviders && (
+          <>
+            <SerperCard
+              connected={Boolean(serper)}
+              rankDepth={serper?.rankDepth ?? e.SERPER_RANK_DEPTH}
+              envFallback={Boolean(e.SERPER_API_KEY)}
+            />
+            <DataForSeoCard login={cred?.login ?? null} envFallback={Boolean(e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD)} />
+            <BingCard connected={Boolean(bing)} envFallback={Boolean(e.BING_WEBMASTER_API_KEY)} />
+            <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} />
+          </>
+        )}
+        {canApiKeys && (
         <ApiKeysCard
           baseUrl={e.BETTER_AUTH_URL}
           keys={keys.map((k) => ({
@@ -46,6 +55,7 @@ export default async function SettingsPage() {
             revokedAt: k.revokedAt?.toISOString() ?? null,
           }))}
         />
+        )}
       </div>
     </>
   );

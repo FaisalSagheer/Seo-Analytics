@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireProject, requireUser } from "@/lib/session";
+import { denied, requireProject, requireUser } from "@/lib/session";
 import { seedDemoProject } from "@/lib/demo/seed-project";
 import { syncProject, type SyncPart, type SyncResult } from "@/lib/sync";
 import {
@@ -22,6 +22,8 @@ import {
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
 export async function createProject(input: ProjectInput): Promise<ActionResult<{ id: string }>> {
+  const blocked = await denied("projects.create");
+  if (blocked) return blocked;
   const user = await requireUser();
   const parsed = projectSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -31,6 +33,8 @@ export async function createProject(input: ProjectInput): Promise<ActionResult<{
 }
 
 export async function updateProject(projectId: string, input: ProjectInput): Promise<ActionResult> {
+  const blocked = await denied("projects.edit");
+  if (blocked) return blocked;
   await requireProject(projectId);
   const parsed = projectSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -40,6 +44,8 @@ export async function updateProject(projectId: string, input: ProjectInput): Pro
 }
 
 export async function updateProjectGoogle(input: ProjectGoogleInput): Promise<ActionResult> {
+  const blocked = await denied("projects.edit");
+  if (blocked) return blocked;
   const parsed = projectGoogleSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   await requireProject(parsed.data.projectId);
@@ -50,6 +56,8 @@ export async function updateProjectGoogle(input: ProjectGoogleInput): Promise<Ac
 }
 
 export async function updateProjectBacklinkSources(input: ProjectBacklinkSourcesInput): Promise<ActionResult> {
+  const blocked = await denied("projects.edit");
+  if (blocked) return blocked;
   const parsed = projectBacklinkSourcesSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { projectId, ...data } = parsed.data;
@@ -60,6 +68,8 @@ export async function updateProjectBacklinkSources(input: ProjectBacklinkSources
 }
 
 export async function deleteProject(projectId: string): Promise<ActionResult> {
+  const blocked = await denied("projects.delete");
+  if (blocked) return blocked;
   await requireProject(projectId);
   await db.project.delete({ where: { id: projectId } });
   revalidatePath("/projects");
@@ -67,6 +77,8 @@ export async function deleteProject(projectId: string): Promise<ActionResult> {
 }
 
 export async function createDemoProject(): Promise<ActionResult<{ id: string }>> {
+  const blocked = await denied("projects.create");
+  if (blocked) return blocked;
   const user = await requireUser();
   const project = await seedDemoProject(db, user.id);
   revalidatePath("/projects");
@@ -74,6 +86,8 @@ export async function createDemoProject(): Promise<ActionResult<{ id: string }>>
 }
 
 export async function addKeywords(input: AddKeywordsInput): Promise<ActionResult<{ added: number }>> {
+  const blocked = await denied("keywords.manage");
+  if (blocked) return blocked;
   const parsed = addKeywordsSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { project } = await requireProject(parsed.data.projectId);
@@ -91,6 +105,8 @@ export async function addKeywords(input: AddKeywordsInput): Promise<ActionResult
 }
 
 export async function trackIdeas(input: TrackIdeasInput): Promise<ActionResult<{ added: number }>> {
+  const blocked = await denied("keywords.manage");
+  if (blocked) return blocked;
   const parsed = trackIdeasSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { project } = await requireProject(parsed.data.projectId);
@@ -103,6 +119,8 @@ export async function trackIdeas(input: TrackIdeasInput): Promise<ActionResult<{
 }
 
 export async function deleteKeywords(input: DeleteKeywordsInput): Promise<ActionResult<{ deleted: number }>> {
+  const blocked = await denied("keywords.manage");
+  if (blocked) return blocked;
   const parsed = deleteKeywordsSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { project } = await requireProject(parsed.data.projectId);
@@ -112,6 +130,8 @@ export async function deleteKeywords(input: DeleteKeywordsInput): Promise<Action
 }
 
 export async function runSync(projectId: string, parts?: SyncPart[]): Promise<ActionResult<SyncResult>> {
+  const blocked = await denied("data.sync");
+  if (blocked) return blocked;
   const { project } = await requireProject(projectId);
   try {
     const result = await syncProject(project, parts);

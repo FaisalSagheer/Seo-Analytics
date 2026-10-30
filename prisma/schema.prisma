@@ -19,12 +19,37 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  /// Null resolves to the default role (see lib/roles.ts)
+  roleId        String?
+  role          Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   projects            Project[]
   providerCredentials ProviderCredential[]
   apiKeys             ApiKey[]
 
+  @@index([roleId])
   @@map("user")
+}
+
+// ---- Roles ----
+
+/// Team-wide roles. Every signed-in user can view every project; a role only
+/// decides what they can change.
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(64)
+  description String   @default("") @db.VarChar(255)
+  /// Permission keys from lib/permissions.ts
+  permissions Json
+  /// The built-in Admin role: holds every permission, can't be edited or deleted
+  isSystem    Boolean  @default(false)
+  /// Given to new sign-ups and to users whose role is deleted. Exactly one.
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+
+  @@map("role")
 }
 
 model Session {

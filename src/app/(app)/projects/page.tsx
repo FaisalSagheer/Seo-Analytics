@@ -10,14 +10,14 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { formatRelative } from "@/lib/format";
 import { locationLabel } from "@/lib/markets";
 import { listProjects } from "@/lib/queries";
-import { requireUser } from "@/lib/session";
+import { can, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Projects" };
 
 export default async function ProjectsPage({ searchParams }: PageProps<"/projects">) {
-  const user = await requireUser();
-  const [projects, sp] = await Promise.all([listProjects(user.id), searchParams]);
-  const openNew = sp.new === "1";
+  await requireUser();
+  const [projects, sp, canCreate] = await Promise.all([listProjects(), searchParams, can("projects.create")]);
+  const openNew = sp.new === "1" && canCreate;
 
   return (
     <>
@@ -25,10 +25,12 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
         title="Projects"
         description="Each project tracks one domain: rankings, search performance, backlinks."
         actions={
-          <>
-            <DemoProjectButton />
-            <NewProjectDialog defaultOpen={openNew} />
-          </>
+          canCreate && (
+            <>
+              <DemoProjectButton />
+              <NewProjectDialog defaultOpen={openNew} />
+            </>
+          )
         }
       />
 
@@ -40,12 +42,16 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
             </EmptyMedia>
             <EmptyTitle>No projects yet</EmptyTitle>
             <EmptyDescription>
-              Create a project for your domain, or load a demo project with six months of sample data to look around first.
+              {canCreate
+                ? "Create a project for your domain, or load a demo project with six months of sample data to look around first."
+                : "Your team hasn't created any projects yet. Ask an admin or editor to add one."}
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent className="flex-row justify-center">
-            <DemoProjectButton variant="default" />
-          </EmptyContent>
+          {canCreate && (
+            <EmptyContent className="flex-row justify-center">
+              <DemoProjectButton variant="default" />
+            </EmptyContent>
+          )}
         </Empty>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

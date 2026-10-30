@@ -5,14 +5,13 @@ import { averagePosition, visibilityScore } from "@/lib/visibility";
 import type { BacklinkReport, OverviewPoint, ProjectReport, RankingRow } from "@/lib/types";
 import { BACKLINK_VIEWS, getViewSources, type BacklinkViewKey } from "@/lib/backlinks";
 
-/** Every read is scoped to the owner. Returns null rather than leaking existence. */
-export function getProject(projectId: string, userId: string) {
-  return db.project.findFirst({ where: { id: projectId, userId } });
+/** Projects are shared by the whole team; roles decide who can change them. */
+export function getProject(projectId: string) {
+  return db.project.findUnique({ where: { id: projectId } });
 }
 
-export function listProjects(userId: string) {
+export function listProjects() {
   return db.project.findMany({
-    where: { userId },
     orderBy: { createdAt: "asc" },
     include: { _count: { select: { keywords: true } } },
   });

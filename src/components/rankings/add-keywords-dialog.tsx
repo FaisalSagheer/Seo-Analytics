@@ -19,9 +19,11 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { useCan } from "@/components/permissions-provider";
 import { Textarea } from "@/components/ui/textarea";
 
 export function AddKeywordsDialog({ projectId }: { projectId: string }) {
+  const allowed = useCan("keywords.manage");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -42,6 +44,8 @@ export function AddKeywordsDialog({ projectId }: { projectId: string }) {
       router.refresh();
     });
   }
+
+  if (!allowed) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

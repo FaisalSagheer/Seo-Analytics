@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { encrypt, generateApiKey } from "@/lib/crypto";
-import { requireUser } from "@/lib/session";
+import { denied, requireProject, requireUser } from "@/lib/session";
 import { createDataForSeo } from "@/lib/providers/dataforseo";
 import { getBingApiKey, getGoogleAccessToken } from "@/lib/providers";
 import { listGa4Properties, listGscSites } from "@/lib/providers/google";
@@ -22,6 +22,8 @@ import {
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
 export async function saveDataForSeo(input: ProviderCredentialInput): Promise<ActionResult> {
+  const blocked = await denied("providers.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   const parsed = providerCredentialSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -45,6 +47,8 @@ export async function saveDataForSeo(input: ProviderCredentialInput): Promise<Ac
 }
 
 export async function removeDataForSeo(): Promise<ActionResult> {
+  const blocked = await denied("providers.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   await db.providerCredential.deleteMany({ where: { userId: user.id, provider: "DATAFORSEO" } });
   revalidatePath("/settings");
@@ -52,6 +56,8 @@ export async function removeDataForSeo(): Promise<ActionResult> {
 }
 
 export async function saveSerper(input: SerperCredentialInput): Promise<ActionResult> {
+  const blocked = await denied("providers.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   const parsed = serperCredentialSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -80,6 +86,8 @@ export async function saveSerper(input: SerperCredentialInput): Promise<ActionRe
 }
 
 export async function removeSerper(): Promise<ActionResult> {
+  const blocked = await denied("providers.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   await db.providerCredential.deleteMany({ where: { userId: user.id, provider: "SERPER" } });
   revalidatePath("/settings");
@@ -87,6 +95,8 @@ export async function removeSerper(): Promise<ActionResult> {
 }
 
 export async function saveBing(input: BingCredentialInput): Promise<ActionResult<{ sites: number }>> {
+  const blocked = await denied("providers.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   const parsed = bingCredentialSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -108,16 +118,21 @@ export async function saveBing(input: BingCredentialInput): Promise<ActionResult
 }
 
 export async function removeBing(): Promise<ActionResult> {
+  const blocked = await denied("providers.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   await db.providerCredential.deleteMany({ where: { userId: user.id, provider: "BING" } });
   revalidatePath("/settings");
   return ok(undefined);
 }
 
-export async function listBingProperties(): Promise<ActionResult<string[]>> {
-  const user = await requireUser();
-  const apiKey = await getBingApiKey(user.id);
-  if (!apiKey) return fail("Connect Bing Webmaster Tools in Settings → Providers first.");
+// Property pickers list the project owner's accounts: sync runs on those, not the editor's
+export async function listBingProperties(projectId: string): Promise<ActionResult<string[]>> {
+  const blocked = await denied("projects.edit");
+  if (blocked) return blocked;
+  const { project } = await requireProject(projectId);
+  const apiKey = await getBingApiKey(project.userId);
+  if (!apiKey) return fail("The project owner hasn't connected Bing Webmaster Tools in Settings → Providers.");
   try {
     return ok(await listBingSites(apiKey));
   } catch (err) {
@@ -125,12 +140,14 @@ export async function listBingProperties(): Promise<ActionResult<string[]>> {
   }
 }
 
-export async function listGoogleProperties(): Promise<
+export async function listGoogleProperties(projectId: string): Promise<
   ActionResult<{ sites: string[]; properties: { id: string; name: string }[] }>
 > {
-  const user = await requireUser();
+  const blocked = await denied("projects.edit");
+  if (blocked) return blocked;
+  const { project } = await requireProject(projectId);
   try {
-    const token = await getGoogleAccessToken(user.id);
+    const token = await getGoogleAccessToken(project.userId);
     const [sites, properties] = await Promise.all([
       listGscSites(token),
       // GA4 Admin API may be disabled on the Cloud project; don't lose GSC over it
@@ -143,6 +160,8 @@ export async function listGoogleProperties(): Promise<
 }
 
 export async function createApiKey(input: ApiKeyInput): Promise<ActionResult<{ key: string }>> {
+  const blocked = await denied("apikeys.manage");
+  if (blocked) return blocked;
   const user = await requireUser();
   const parsed = apiKeySchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);

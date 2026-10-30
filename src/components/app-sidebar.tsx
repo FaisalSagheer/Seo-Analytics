@@ -17,9 +17,12 @@ import {
   Settings2Icon,
   SettingsIcon,
   TrendingUpIcon,
+  UsersIcon,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import type { Permission } from "@/lib/permissions";
 import { AppLogo } from "@/components/app-logo";
+import { useViewerRole } from "@/components/permissions-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -51,8 +54,8 @@ const PROJECT_NAV = [
   { segment: "keywords", label: "Keyword research", icon: SearchIcon },
   { segment: "domain", label: "Domain overview", icon: GaugeIcon },
   { segment: "backlinks", label: "Backlinks", icon: Link2Icon },
-  { segment: "settings", label: "Project settings", icon: Settings2Icon },
-] as const;
+  { segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" },
+] as const satisfies readonly { segment: string; label: string; icon: unknown; permission?: Permission }[];
 
 export function AppSidebar({
   projects,
@@ -65,6 +68,8 @@ export function AppSidebar({
   const router = useRouter();
   const params = useParams<{ projectId?: string }>();
   const current = projects.find((p) => p.id === params.projectId);
+  const role = useViewerRole();
+  const allowed = (permission?: Permission) => !permission || Boolean(role?.permissions.includes(permission));
 
   async function signOut() {
     await authClient.signOut();
@@ -103,13 +108,17 @@ export function AppSidebar({
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem render={<Link href="/projects?new=1" />}>
-                    <PlusIcon />
-                    New project
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
+                {allowed("projects.create") && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem render={<Link href="/projects?new=1" />}>
+                        <PlusIcon />
+                        New project
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -121,7 +130,7 @@ export function AppSidebar({
           <SidebarGroup>
             <SidebarGroupLabel>{current.domain}</SidebarGroupLabel>
             <SidebarMenu>
-              {PROJECT_NAV.map((item) => {
+              {PROJECT_NAV.filter((item) => allowed("permission" in item ? item.permission : undefined)).map((item) => {
                 const href = `/projects/${current.id}${item.segment ? `/${item.segment}` : ""}`;
                 const active = item.segment ? pathname.startsWith(href) : pathname === href;
                 return (
@@ -160,6 +169,14 @@ export function AppSidebar({
                 <span>Providers & API</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {role?.isAdmin && (
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={pathname === "/team"} tooltip="Team & roles" render={<Link href="/team" />}>
+                  <UsersIcon />
+                  <span>Team & roles</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
             <SidebarMenuItem>
               <SidebarMenuButton tooltip="API docs" render={<Link href="/api/v1/openapi.json" target="_blank" />}>
                 <KeyRoundIcon />
@@ -186,6 +203,14 @@ export function AppSidebar({
                 <ChevronsUpDownIcon className="ml-auto" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" className="min-w-56">
+                {role && (
+                  <>
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>Role: {role.name}</DropdownMenuLabel>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={signOut}>
                     <LogOutIcon />

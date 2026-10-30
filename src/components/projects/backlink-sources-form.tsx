@@ -41,7 +41,7 @@ export function BacklinkSourcesForm({
   useEffect(() => {
     if (!showBingSite || sites) return;
     let cancelled = false;
-    listBingProperties().then((res) => {
+    listBingProperties(initial.projectId).then((res) => {
       if (cancelled) return;
       if (res.ok) setSites(res.data);
       else setError(res.error);
@@ -49,7 +49,7 @@ export function BacklinkSourcesForm({
     return () => {
       cancelled = true;
     };
-  }, [showBingSite, sites]);
+  }, [showBingSite, sites, initial.projectId]);
 
   function save(e: React.FormEvent) {
     e.preventDefault();

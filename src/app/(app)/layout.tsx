@@ -4,7 +4,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listProjects } from "@/lib/queries";
-import { requireUser } from "@/lib/session";
+import { getViewerRole, requireUser } from "@/lib/session";
+import { PermissionsProvider } from "@/components/permissions-provider";
 
 /**
  * The signed-in shell is per-user (session + project list). SidebarProvider and
@@ -15,8 +16,9 @@ import { requireUser } from "@/lib/session";
  */
 async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const projects = await listProjects(user.id);
+  const [projects, role] = await Promise.all([listProjects(), getViewerRole()]);
   return (
+    <PermissionsProvider role={role}>
     <SidebarProvider>
       <AppSidebar
         projects={projects.map((p) => ({ id: p.id, name: p.name, domain: p.domain, isDemo: p.isDemo }))}
@@ -32,6 +34,7 @@ async function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
+    </PermissionsProvider>
   );
 }
 
