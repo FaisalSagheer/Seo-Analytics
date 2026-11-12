@@ -132,6 +132,7 @@ model Project {
   topPages          TopPage[]
   backlinks         Backlink[]
   backlinkSnapshots BacklinkSnapshot[]
+  auditRuns         AuditRun[]
 
   @@index([userId], map: "Project_userId_idx")
   @@map("project")
@@ -301,6 +302,58 @@ model Backlink {
 
   @@index([projectId, source], map: "Backlink_projectId_source_idx")
   @@map("backlink")
+}
+
+// ---- Site audit (our own crawler, no third-party API) ----
+
+/// One crawl of a project's site. Each run keeps its pages; older runs are pruned.
+model AuditRun {
+  id           String      @id @default(cuid())
+  projectId    String
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "AuditRun_projectId_fkey")
+  status       AuditStatus @default(RUNNING)
+  startUrl     String      @db.VarChar(2048)
+  pagesCrawled Int         @default(0)
+  /// 0-100, share of crawled pages without errors, weighted by severity
+  score        Int?
+  /// Site-wide findings (robots.txt, sitemap, https, ...): [{ code, severity, message }]
+  siteIssues   Json?
+  error        String?     @db.VarChar(500)
+  startedAt    DateTime    @default(now())
+  finishedAt   DateTime?
+  pages        AuditPage[]
+
+  @@index([projectId, startedAt], map: "AuditRun_projectId_startedAt_idx")
+  @@map("auditrun")
+}
+
+enum AuditStatus {
+  RUNNING
+  DONE
+  FAILED
+}
+
+model AuditPage {
+  id              String   @id @default(cuid())
+  runId           String
+  run             AuditRun @relation(fields: [runId], references: [id], onDelete: Cascade, map: "AuditPage_runId_fkey")
+  url             String   @db.VarChar(2048)
+  /// 0 = request failed (DNS, timeout, blocked)
+  statusCode      Int
+  title           String?  @db.VarChar(1000)
+  metaDescription String?  @db.VarChar(2000)
+  h1              String?  @db.VarChar(1000)
+  h1Count         Int      @default(0)
+  canonical       String?  @db.VarChar(2048)
+  wordCount       Int      @default(0)
+  loadMs          Int      @default(0)
+  internalLinks   Int      @default(0)
+  externalLinks   Int      @default(0)
+  /// Issue codes from lib/audit/issues.ts
+  issues          Json
+
+  @@index([runId], map: "AuditPage_runId_idx")
+  @@map("auditpage")
 }
 
 // ---- Provider accounts, cache, API keys ----
