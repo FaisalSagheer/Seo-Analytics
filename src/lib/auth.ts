@@ -1,45 +1,149 @@
 import "server-only";
-import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
-import { nextCookies } from "better-auth/next-js";
+import { randomUUID } from "node:crypto";
+import NextAuth, { type Account, type NextAuthConfig, type Profile } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import type { Provider } from "next-auth/providers";
 import { db } from "@/lib/db";
+import { encrypt } from "@/lib/crypto";
 import { env } from "@/lib/env";
+import { hashPassword, verifyPassword } from "@/lib/password";
+import { GOOGLE_DATA_SCOPES } from "@/lib/providers/google";
 import { assignInitialRole } from "@/lib/roles";
 
 const e = env();
-const google =
-  e.GOOGLE_CLIENT_ID && e.GOOGLE_CLIENT_SECRET
-    ? {
-        google: {
-          clientId: e.GOOGLE_CLIENT_ID,
-          clientSecret: e.GOOGLE_CLIENT_SECRET,
-          // Offline access so Search Console / GA4 can be synced by the cron job
-          accessType: "offline" as const,
-          prompt: "select_account consent" as const,
-          disableSignUp: !e.ALLOW_SIGNUP,
-        },
+
+const hasDataScopes = (scope: string | null | undefined) => {
+  const scopes = (scope ?? "").split(/[ ,]+/);
+  return GOOGLE_DATA_SCOPES.every((s) => scopes.includes(s));
+};
+
+const providers: Provider[] = [];
+
+if (e.GOOGLE_CLIENT_ID && e.GOOGLE_CLIENT_SECRET) {
+  providers.push(
+    Google({
+      clientId: e.GOOGLE_CLIENT_ID,
+      clientSecret: e.GOOGLE_CLIENT_SECRET,
+      // Offline access so Search Console / GA4 can be synced by the cron job.
+      // include_granted_scopes keeps the data scopes on a later plain sign-in.
+      authorization: { params: { access_type: "offline", prompt: "select_account consent", include_granted_scopes: "true" } },
+    }),
+  );
+}
+
+providers.push(
+  Credentials({
+    credentials: { email: { label: "Email", type: "email" }, password: { label: "Password", type: "password" } },
+    // Return null, never throw, on a failed check: Auth.js reports anything
+    // thrown here as a server configuration error instead of a bad sign-in.
+    async authorize(credentials) {
+      const email = typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : "";
+      const password = typeof credentials?.password === "string" ? credentials.password : "";
+      if (!email || !password) return null;
+      const user = await db.user.findUnique({
+        where: { email },
+        include: { accounts: { where: { providerId: "credential" } } },
+      });
+      const account = user?.accounts[0];
+      if (!user || !account?.password) return null;
+      const { ok, needsRehash } = await verifyPassword(account.password, password);
+      if (!ok) return null;
+      if (needsRehash) {
+        await db.account.update({ where: { id: account.id }, data: { password: await hashPassword(password) } });
       }
-    : undefined;
+      return { id: user.id, name: user.name, email: user.email, image: user.image };
+    },
+  }),
+);
 
-export const auth = betterAuth({
-  baseURL: e.BETTER_AUTH_URL,
-  secret: e.BETTER_AUTH_SECRET,
-  database: prismaAdapter(db, { provider: "mysql" }),
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 8,
-    disableSignUp: !e.ALLOW_SIGNUP,
-  },
-  socialProviders: google,
-  account: {
-    // Lets an email/password user attach Google for Search Console + GA4
-    accountLinking: { enabled: true, trustedProviders: ["google"], allowDifferentEmails: true },
-    encryptOAuthTokens: true,
-  },
-  databaseHooks: {
-    user: { create: { after: (user) => assignInitialRole(user.id) } },
-  },
-  plugins: [nextCookies()],
-});
+/**
+ * Decides which of our users a Google sign-in belongs to and stores its tokens.
+ * Signed in already: attaches Google to that user (Settings → Connect Google),
+ * even under a different email. Otherwise: the user already linked to this
+ * Google account, else one with the same verified email, else a new user.
+ * Returns true, or a URL to send the browser to when refused.
+ */
+async function linkGoogle(account: Account, profile: Profile | undefined): Promise<true | string> {
+  const sub = account.providerAccountId;
+  const existing = await db.account.findFirst({ where: { providerId: "google", accountId: sub } });
+  const session = await auth();
+  const current = session?.user?.id ? await db.user.findUnique({ where: { id: session.user.id } }) : null;
 
-export type Session = typeof auth.$Infer.Session;
+  let userId: string;
+  if (current) {
+    if (existing && existing.userId !== current.id) return "/settings?google=in-use";
+    userId = current.id;
+  } else if (existing) {
+    userId = existing.userId;
+  } else {
+    const email = profile?.email?.toLowerCase();
+    if (!email || profile?.email_verified !== true) return "/sign-in?error=google-email";
+    const byEmail = await db.user.findUnique({ where: { email } });
+    if (byEmail) {
+      userId = byEmail.id;
+    } else {
+      if (!e.ALLOW_SIGNUP) return "/sign-in?error=signup-disabled";
+      userId = randomUUID();
+      await db.user.create({
+        data: {
+          id: userId,
+          email,
+          name: profile?.name ?? email.split("@")[0],
+          image: typeof profile?.picture === "string" ? profile.picture : null,
+          emailVerified: true,
+        },
+      });
+      await assignInitialRole(userId);
+    }
+  }
+
+  // A plain sign-in must not replace tokens that carry the Search Console / GA4 scopes with ones that don't
+  const keepStored = existing && hasDataScopes(existing.scope) && !hasDataScopes(account.scope);
+  const tokens = keepStored
+    ? {}
+    : {
+        accessToken: account.access_token ? encrypt(account.access_token) : null,
+        // Google only returns a refresh token on consent; keep the one we have otherwise
+        ...(account.refresh_token ? { refreshToken: encrypt(account.refresh_token) } : {}),
+        accessTokenExpiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+        scope: account.scope ?? null,
+      };
+  if (existing) {
+    await db.account.update({ where: { id: existing.id }, data: tokens });
+  } else {
+    await db.account.create({ data: { id: randomUUID(), accountId: sub, providerId: "google", userId, ...tokens } });
+  }
+  return true;
+}
+
+const config: NextAuthConfig = {
+  secret: e.AUTH_SECRET,
+  trustHost: true,
+  providers,
+  // No adapter: users and accounts are written by our own code, sessions are JWTs
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+  pages: { signIn: "/sign-in", error: "/sign-in" },
+  callbacks: {
+    async signIn({ account, profile }) {
+      if (account?.provider === "google") return linkGoogle(account, profile);
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (account?.provider === "google") {
+        // linkGoogle (above) has already decided the owner
+        const row = await db.account.findFirst({ where: { providerId: "google", accountId: account.providerAccountId } });
+        token.userId = row?.userId;
+      } else if (account && user?.id) {
+        token.userId = user.id;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (typeof token.userId === "string") session.user.id = token.userId;
+      return session;
+    },
+  },
+};
+
+export const { auth, handlers, signIn, signOut } = NextAuth(config);

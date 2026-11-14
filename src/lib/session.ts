@@ -1,14 +1,27 @@
 import "server-only";
 import { cache } from "react";
-import { headers } from "next/headers";
+import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { getProject } from "@/lib/queries";
 import { resolveRole } from "@/lib/roles";
 import type { Permission } from "@/lib/permissions";
 import { fail } from "@/lib/actions/result";
 
-export const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));
+/**
+ * The session is a signed JWT, so it outlives a deleted account. Loading the
+ * user on every request makes removal from the team take effect immediately.
+ */
+export const getSession = cache(async () => {
+  // auth() mints a random CSRF token, which Next only allows once the render is fully request-time
+  await connection();
+  const session = await auth();
+  const id = session?.user?.id;
+  if (!id) return null;
+  const user = await db.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, image: true } });
+  return user ? { user } : null;
+});
 
 /** Gate for every signed-in page and action. */
 export async function requireUser() {

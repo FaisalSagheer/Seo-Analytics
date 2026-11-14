@@ -11,7 +11,7 @@ An open source, self-hosted SEO dashboard. Track Google rankings over time, rese
 - **Sign-in:** email and password, and optionally Google
 - **REST API:** API keys for scripts and agents, with an OpenAPI spec at `/api/v1/openapi.json`
 
-Stack: Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Recharts, Prisma 7 + MySQL, Better Auth, Zod.
+Stack: Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Recharts, Prisma 7 + MySQL, NextAuth (Auth.js v5), Zod.
 
 ## Quick start
 
@@ -32,8 +32,8 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 | Variable | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | yes | `mysql://user:pass@host:3306/bisibility`. Create the database first. |
-| `BETTER_AUTH_URL` | yes | The public URL of the app. |
-| `BETTER_AUTH_SECRET` | yes | 32+ random characters. |
+| `AUTH_URL` | yes | The public URL of the app. |
+| `AUTH_SECRET` | yes | 32+ random characters. |
 | `APP_ENCRYPTION_KEY` | yes | 64 hex characters. Encrypts the DataForSEO passwords users save. |
 | `DEMO_MODE`, `DEMO_EMAIL`, `DEMO_PASSWORD` | no | Demo sign-in button and the seeded account. |
 | `ALLOW_SIGNUP` | no | `false` closes registration. |
@@ -46,7 +46,7 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 Generate the secrets:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # BETTER_AUTH_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # AUTH_SECRET
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"      # APP_ENCRYPTION_KEY
 ```
 
@@ -111,7 +111,7 @@ Endpoints: `GetUserSites`, `GetLinkCounts`, `GetUrlLinks` on `https://ssl.bing.c
 
 1. In [Google Cloud console](https://console.cloud.google.com/), create a project and enable the **Google Search Console API**, **Google Analytics Data API** and **Google Analytics Admin API**.
 2. Configure the OAuth consent screen. While the app is in "Testing", add your own Google account as a test user.
-3. Create an **OAuth client ID** (Web application) with this redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google`.
+3. Create an **OAuth client ID** (Web application) with this redirect URI: `{AUTH_URL}/api/auth/callback/google`.
 4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the server.
 5. In **Providers & API**, click **Connect Google**. This asks for read-only `webmasters.readonly` and `analytics.readonly` access with offline consent, so the daily sync can refresh the token.
 6. In each project's **Project settings**, pick the Search Console property and the GA4 property.
@@ -126,7 +126,7 @@ Rank checks and data pulls run when you click **Refresh** or **Check now**, and 
 POST /api/cron/sync        Authorization: Bearer $CRON_SECRET
 ```
 
-`npm run sync` calls it for you, using `BETTER_AUTH_URL` and `CRON_SECRET` from `.env`. Run it once a day.
+`npm run sync` calls it for you, using `AUTH_URL` and `CRON_SECRET` from `.env`. Run it once a day.
 
 **Linux (crontab):**
 
@@ -145,7 +145,7 @@ npm run build
 npm start            # listens on PORT (default 3000)
 ```
 
-Put it behind a reverse proxy (Caddy, nginx) with HTTPS, set `BETTER_AUTH_URL` to the public URL, and keep a process manager such as pm2 or systemd running `npm start`.
+Put it behind a reverse proxy (Caddy, nginx) with HTTPS, set `AUTH_URL` to the public URL, and keep a process manager such as pm2 or systemd running `npm start`.
 
 ## API
 
@@ -177,7 +177,7 @@ Keys are stored only as SHA-256 hashes, can be revoked, and only reach projects 
 ## Project layout
 
 ```
-prisma/schema.prisma        data model (Better Auth tables + SEO data)
+prisma/schema.prisma        data model (auth tables + SEO data)
 prisma/seed.ts              demo account + demo project
 src/lib/providers/          DataForSEO, Google (GSC/GA4), provider selection + cache
 src/lib/demo/               deterministic demo data

@@ -20,7 +20,7 @@ import {
   TrendingUpIcon,
   UsersIcon,
 } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { signOut as authSignOut } from "next-auth/react";
 import type { Permission } from "@/lib/permissions";
 import { AppLogo } from "@/components/app-logo";
 import { useViewerRole } from "@/components/permissions-provider";
@@ -74,7 +74,7 @@ export function AppSidebar({
   const allowed = (permission?: Permission) => !permission || Boolean(role?.permissions.includes(permission));
 
   async function signOut() {
-    await authClient.signOut();
+    await authSignOut({ redirect: false });
     router.push("/sign-in");
     router.refresh();
   }

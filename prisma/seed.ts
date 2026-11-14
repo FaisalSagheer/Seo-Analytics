@@ -5,7 +5,7 @@
  */
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
-import { hashPassword } from "better-auth/crypto";
+import { hashPassword } from "../src/lib/password";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { seedDemoProject } from "../src/lib/demo/seed-project";

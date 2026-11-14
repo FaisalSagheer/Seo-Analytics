@@ -7,7 +7,10 @@ datasource db {
   provider = "mysql"
 }
 
-// ---- Auth (Better Auth core tables) ----
+// ---- Auth ----
+// NextAuth with JWT sessions and no adapter: lib/auth.ts writes User and Account itself.
+// Account holds a "credential" row (password hash) and/or a "google" row (encrypted tokens).
+// Session and Verification are left from the previous auth library and are no longer used.
 
 model User {
   id            String    @id

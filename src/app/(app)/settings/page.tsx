@@ -12,8 +12,9 @@ import { can, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Providers & API" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: PageProps<"/settings">) {
   const user = await requireUser();
+  const googleInUse = (await searchParams).google === "in-use";
   const e = env();
   const [canProviders, canApiKeys] = await Promise.all([can("providers.manage"), can("apikeys.manage")]);
   const [cred, serper, bing, google, keys] = await Promise.all([
@@ -40,12 +41,12 @@ export default async function SettingsPage() {
             />
             <DataForSeoCard login={cred?.login ?? null} envFallback={Boolean(e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD)} />
             <BingCard connected={Boolean(bing)} envFallback={Boolean(e.BING_WEBMASTER_API_KEY)} />
-            <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} />
+            <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} inUse={googleInUse} />
           </>
         )}
         {canApiKeys && (
         <ApiKeysCard
-          baseUrl={e.BETTER_AUTH_URL}
+          baseUrl={e.AUTH_URL}
           keys={keys.map((k) => ({
             id: k.id,
             name: k.name,

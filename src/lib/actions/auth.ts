@@ -1,19 +1,51 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { AuthError } from "next-auth";
+import { z } from "zod";
+import { signIn } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { fail, type ActionResult } from "@/lib/actions/result";
+import { MIN_PASSWORD_LENGTH, hashPassword } from "@/lib/password";
+import { assignInitialRole } from "@/lib/roles";
+import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
+
+const registerSchema = z.object({
+  name: z.string().trim().min(1, "Enter your name").max(100),
+  email: z.email("Enter a valid email").trim().toLowerCase().max(191),
+  password: z.string().min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`).max(128),
+});
+
+/** Creates an email + password account. The client signs in afterwards. */
+export async function registerUser(input: { name: string; email: string; password: string }): Promise<ActionResult> {
+  if (!env().ALLOW_SIGNUP) return fail("Sign-ups are disabled on this server.");
+  const parsed = registerSchema.safeParse(input);
+  if (!parsed.success) return zodError(parsed.error);
+  const { name, email, password } = parsed.data;
+  if (await db.user.findUnique({ where: { email } })) return fail("An account with this email already exists.");
+  const id = randomUUID();
+  await db.user.create({
+    data: {
+      id,
+      name,
+      email,
+      accounts: { create: { id: randomUUID(), accountId: id, providerId: "credential", password: await hashPassword(password) } },
+    },
+  });
+  await assignInitialRole(id);
+  return ok(undefined);
+}
 
 /** One-click sign-in to the seeded demo account. Only available with DEMO_MODE=true. */
 export async function signInDemo(): Promise<ActionResult> {
   const e = env();
   if (!e.DEMO_MODE) return fail("Demo mode is disabled on this server.");
   try {
-    // nextCookies() sets the session cookie from inside the action
-    await auth.api.signInEmail({ body: { email: e.DEMO_EMAIL, password: e.DEMO_PASSWORD } });
-  } catch {
-    return fail("Demo account not found. Run `npm run db:seed` first.");
+    await signIn("credentials", { email: e.DEMO_EMAIL, password: e.DEMO_PASSWORD, redirect: false });
+  } catch (err) {
+    if (err instanceof AuthError) return fail("Demo account not found. Run `npm run db:seed` first.");
+    throw err;
   }
   redirect("/projects");
 }

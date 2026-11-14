@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth-client";
-import { signInDemo } from "@/lib/actions/auth";
+import { signIn } from "next-auth/react";
+import { registerUser, signInDemo } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
@@ -17,9 +17,11 @@ type Props = {
   googleEnabled: boolean;
   demoEnabled: boolean;
   signupAllowed: boolean;
+  /** Why the last attempt was refused, from the `error` query parameter */
+  error?: string;
 };
 
-export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed }: Props) {
+export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, error }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -28,11 +30,16 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed }: Pr
   function submit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const { error } = isSignUp
-        ? await authClient.signUp.email({ name: form.name, email: form.email, password: form.password })
-        : await authClient.signIn.email({ email: form.email, password: form.password });
-      if (error) {
-        toast.error(error.message ?? "Could not sign in");
+      if (isSignUp) {
+        const created = await registerUser(form);
+        if (!created.ok) {
+          toast.error(created.error);
+          return;
+        }
+      }
+      const res = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
+      if (!res || res.error) {
+        toast.error(res?.error === "CredentialsSignin" || !res?.error ? "Wrong email or password." : "Could not sign in. Try again.");
         return;
       }
       router.push("/projects");
@@ -42,8 +49,7 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed }: Pr
 
   function google() {
     startTransition(async () => {
-      const { error } = await authClient.signIn.social({ provider: "google", callbackURL: "/projects" });
-      if (error) toast.error(error.message ?? "Google sign-in failed");
+      await signIn("google", { redirectTo: "/projects" });
     });
   }
 
@@ -64,6 +70,11 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed }: Pr
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
         {demoEnabled && (
           <Button variant="secondary" onClick={demo} disabled={pending}>
             Explore the demo

@@ -2,8 +2,7 @@
 
 import { useTransition } from "react";
 import { CheckCircle2Icon } from "lucide-react";
-import { toast } from "sonner";
-import { authClient } from "@/lib/auth-client";
+import { signIn } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,14 +10,14 @@ import { Spinner } from "@/components/ui/spinner";
 
 const SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly", "https://www.googleapis.com/auth/analytics.readonly"];
 
-export function GoogleCard({ configured, connected }: { configured: boolean; connected: boolean }) {
+export function GoogleCard({ configured, connected, inUse = false }: { configured: boolean; connected: boolean; inUse?: boolean }) {
   const [pending, startTransition] = useTransition();
 
   function connect() {
     startTransition(async () => {
       // Links (or re-consents) the Google account with read-only GSC + GA4 scopes
-      const { error } = await authClient.linkSocial({ provider: "google", scopes: SCOPES, callbackURL: "/settings" });
-      if (error) toast.error(error.message ?? "Could not start Google sign-in");
+      // While signed in, the server attaches this Google account to the current user instead of switching user
+      await signIn("google", { redirectTo: "/settings" }, { scope: ["openid", "email", "profile", ...SCOPES].join(" "), prompt: "consent" });
     });
   }
 
@@ -41,7 +40,12 @@ export function GoogleCard({ configured, connected }: { configured: boolean; con
           )}
         </CardAction>
       </CardHeader>
-      <CardFooter>
+      <CardFooter className="flex-col items-start gap-2">
+        {inUse && (
+          <p role="alert" className="text-destructive text-sm">
+            That Google account is already connected to another user here. Pick a different Google account.
+          </p>
+        )}
         {configured ? (
           <Button variant={connected ? "outline" : "default"} disabled={pending} onClick={connect}>
             {pending && <Spinner data-icon="inline-start" />}
