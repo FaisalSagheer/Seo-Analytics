@@ -15,12 +15,20 @@ const ERRORS: Record<string, string> = {
   Configuration: "Sign-in is misconfigured on the server. Check the server logs.",
 };
 
+const NOTICES: Record<string, string> = {
+  "signin-required": "Sign in to continue.",
+};
+
 async function SignInForm({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection();
   const e = env();
-  const code = (await searchParams).error;
+  const sp = await searchParams;
+  const code = sp.error;
   const error = typeof code === "string" ? (ERRORS[code] ?? "Could not sign in. Try again.") : undefined;
-  return <AuthForm mode="sign-in" googleEnabled={googleConfigured()} demoEnabled={e.DEMO_MODE} signupAllowed={e.ALLOW_SIGNUP} error={error} />;
+  const notice = typeof sp.notice === "string" ? NOTICES[sp.notice] : undefined;
+  return (
+    <AuthForm mode="sign-in" googleEnabled={googleConfigured()} demoEnabled={e.DEMO_MODE} signupAllowed={e.ALLOW_SIGNUP} error={error} warning={error ? undefined : notice} />
+  );
 }
 
 export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {

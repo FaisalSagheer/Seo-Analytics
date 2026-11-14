@@ -41,7 +41,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             />
             <DataForSeoCard login={cred?.login ?? null} envFallback={Boolean(e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD)} />
             <BingCard connected={Boolean(bing)} envFallback={Boolean(e.BING_WEBMASTER_API_KEY)} />
-            <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} inUse={googleInUse} />
+            <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} linked={Boolean(google)} inUse={googleInUse} />
           </>
         )}
         {canApiKeys && (

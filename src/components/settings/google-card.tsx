@@ -10,7 +10,18 @@ import { Spinner } from "@/components/ui/spinner";
 
 const SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly", "https://www.googleapis.com/auth/analytics.readonly"];
 
-export function GoogleCard({ configured, connected, inUse = false }: { configured: boolean; connected: boolean; inUse?: boolean }) {
+export function GoogleCard({
+  configured,
+  connected,
+  linked = false,
+  inUse = false,
+}: {
+  configured: boolean;
+  connected: boolean;
+  /** A Google account is attached, whether or not it granted the data permissions */
+  linked?: boolean;
+  inUse?: boolean;
+}) {
   const [pending, startTransition] = useTransition();
 
   function connect() {
@@ -41,15 +52,21 @@ export function GoogleCard({ configured, connected, inUse = false }: { configure
         </CardAction>
       </CardHeader>
       <CardFooter className="flex-col items-start gap-2">
+        {linked && !connected && (
+          <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
+            Google is connected, but Search Console and GA4 access wasn&apos;t granted, so syncing won&apos;t work. Click Reconnect Google and
+            tick both permissions.
+          </p>
+        )}
         {inUse && (
           <p role="alert" className="text-destructive text-sm">
             That Google account is already connected to another user here. Pick a different Google account.
           </p>
         )}
         {configured ? (
-          <Button variant={connected ? "outline" : "default"} disabled={pending} onClick={connect}>
+          <Button variant={connected || linked ? "outline" : "default"} disabled={pending} onClick={connect}>
             {pending && <Spinner data-icon="inline-start" />}
-            {connected ? "Reconnect Google" : "Connect Google"}
+            {connected || linked ? "Reconnect Google" : "Connect Google"}
           </Button>
         ) : (
           <p className="text-muted-foreground text-sm">

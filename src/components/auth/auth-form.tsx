@@ -19,9 +19,11 @@ type Props = {
   signupAllowed: boolean;
   /** Why the last attempt was refused, from the `error` query parameter */
   error?: string;
+  /** A heads-up rather than a failure, e.g. being sent here from a page that needs sign-in */
+  warning?: string;
 };
 
-export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, error }: Props) {
+export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, error, warning }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -79,6 +81,11 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
         {error && (
           <p role="alert" className="text-destructive text-sm">
             {error}
+          </p>
+        )}
+        {warning && (
+          <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
+            {warning}
           </p>
         )}
         {demoEnabled && (

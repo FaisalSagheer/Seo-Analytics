@@ -9,7 +9,7 @@ const SESSION_COOKIE = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?$/;
  */
 export function proxy(request: NextRequest) {
   if (!request.cookies.getAll().some((c) => SESSION_COOKIE.test(c.name))) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL("/sign-in?notice=signin-required", request.url));
   }
   return NextResponse.next();
 }
