@@ -42,3 +42,15 @@ export function locationLabel(code: number) {
 export function countryCode(code: number): string | null {
   return LOCATIONS.find((l) => l.code === code)?.gl ?? null;
 }
+
+/** ISO 3166-1 alpha-3 codes, which Search Console's country filter wants, keyed by the alpha-2 `gl` above. */
+const ALPHA3: Record<string, string> = {
+  us: "USA", gb: "GBR", ca: "CAN", au: "AUS", de: "DEU", fr: "FRA", es: "ESP", it: "ITA",
+  nl: "NLD", in: "IND", pk: "PAK", ae: "ARE", sa: "SAU", br: "BRA", mx: "MEX", jp: "JPN",
+};
+
+/** Search Console country code for a DataForSEO location code, or undefined for an unlisted market. */
+export function gscCountry(locationCode: number): string | undefined {
+  const gl = LOCATIONS.find((l) => l.code === locationCode)?.gl;
+  return gl ? ALPHA3[gl] : undefined;
+}

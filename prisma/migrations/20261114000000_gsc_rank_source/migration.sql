@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE `ranksnapshot` MODIFY `source` ENUM('DATAFORSEO', 'SERPER', 'BING', 'GOOGLE', 'DEMO') NOT NULL DEFAULT 'DATAFORSEO';
+
+-- AlterTable
+ALTER TABLE `backlinksnapshot` MODIFY `source` ENUM('DATAFORSEO', 'SERPER', 'BING', 'GOOGLE', 'DEMO') NOT NULL;
+
+-- AlterTable
+ALTER TABLE `backlink` MODIFY `source` ENUM('DATAFORSEO', 'SERPER', 'BING', 'GOOGLE', 'DEMO') NOT NULL DEFAULT 'DATAFORSEO';

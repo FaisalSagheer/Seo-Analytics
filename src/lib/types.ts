@@ -112,7 +112,7 @@ export type BacklinkView = {
   lastSeen: string | null;
   isNew: boolean;
   isLost: boolean;
-  source: "DATAFORSEO" | "SERPER" | "BING" | "DEMO";
+  source: "DATAFORSEO" | "SERPER" | "BING" | "GOOGLE" | "DEMO";
 };
 
 export type BacklinkReport = {

@@ -5,7 +5,8 @@ import { ProviderNotConfiguredError, getBingApiKey, getGoogleAccessToken, getRan
 import { fetchBingBacklinks, listBingSites } from "@/lib/providers/bing";
 import { bareDomain } from "@/lib/domain";
 import type { BacklinkRow, DomainMetrics, TopPageRow } from "@/lib/types";
-import { ga4Daily, gscDaily, gscQueries } from "@/lib/providers/google";
+import { ga4Daily, gscDaily, gscKeywordHistory, gscQueries } from "@/lib/providers/google";
+import { gscCountry } from "@/lib/markets";
 import { demoTraffic } from "@/lib/demo/series";
 import { demoBingBacklinks } from "@/lib/demo/provider";
 import type { Project } from "@/generated/prisma/client";
@@ -28,10 +29,18 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 }
 
 export async function syncRankings(project: Project, keywordIds?: string[]) {
-  const { source, checkRank } = await getRankChecker(project);
   const keywords = await db.keyword.findMany({
     where: { projectId: project.id, ...(keywordIds ? { id: { in: keywordIds } } : {}) },
   });
+  let checker: Awaited<ReturnType<typeof getRankChecker>>;
+  try {
+    checker = await getRankChecker(project);
+  } catch (err) {
+    // No Serper / DataForSEO key: Search Console is free and already connected for most projects
+    if (err instanceof ProviderNotConfiguredError && project.gscSiteUrl) return syncRankingsFromSearchConsole(project, keywords);
+    throw err;
+  }
+  const { source, checkRank } = checker;
   const today = utcDay();
   let failed = 0;
   let lastError = "";
@@ -58,6 +67,52 @@ export async function syncRankings(project: Project, keywordIds?: string[]) {
   // Every check failing (bad key, no credits) is a provider problem, not a partial result
   if (keywords.length > 0 && failed === keywords.length) throw new Error(lastError);
   return { checked: keywords.length - failed, failed, source };
+}
+
+/**
+ * Rank history from Search Console: the average position of the site for each
+ * tracked keyword, per day, back 90 days. Days with no impressions get no row.
+ */
+async function syncRankingsFromSearchConsole(project: Project, keywords: { id: string; phrase: string }[]) {
+  const token = await getGoogleAccessToken(project.userId);
+  const siteUrl = project.gscSiteUrl!;
+  const start = toDateKey(daysAgo(90));
+  const end = toDateKey(utcDay());
+  const filters = { device: project.device === "MOBILE" ? ("MOBILE" as const) : ("DESKTOP" as const), country: gscCountry(project.locationCode) };
+  let failed = 0;
+  let noData = 0;
+  let lastError = "";
+  await mapLimit(keywords, 5, async (k) => {
+    try {
+      const { days, url } = await gscKeywordHistory(token, siteUrl, k.phrase, start, end, filters);
+      if (days.length === 0) {
+        noData++;
+        return;
+      }
+      await db.$transaction(
+        days.map((d) => {
+          const checkedAt = new Date(`${d.date}T00:00:00Z`);
+          return db.rankSnapshot.upsert({
+            where: { keywordId_checkedAt: { keywordId: k.id, checkedAt } },
+            create: { keywordId: k.id, checkedAt, position: d.position, url, source: "GOOGLE" },
+            update: { position: d.position, url, source: "GOOGLE" },
+          });
+        }),
+      );
+    } catch (err) {
+      failed++;
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`[sync] Search Console rank history failed for "${k.phrase}":`, err);
+    }
+  });
+  if (keywords.length > 0 && failed === keywords.length) throw new Error(lastError);
+  const warnings: string[] = [];
+  if (noData > 0) {
+    warnings.push(
+      `${noData} keyword${noData === 1 ? "" : "s"} had no Search Console impressions in the last 90 days (${filters.country ? "this country, " : ""}${filters.device.toLowerCase()}), so there's no position yet.`,
+    );
+  }
+  return { checked: keywords.length - failed - noData, failed, source: "GOOGLE" as const, warnings };
 }
 
 export async function syncDomain(project: Project) {

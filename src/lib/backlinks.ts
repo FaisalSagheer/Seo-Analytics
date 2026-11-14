@@ -48,6 +48,8 @@ export function getSourceLabel(source: BacklinkView["source"]) {
       return "DataForSEO";
     case "BING":
       return "Bing Webmaster Tools";
+    case "GOOGLE":
+      return "Google Search Console";
     case "DEMO":
       return "Demo data";
     default:

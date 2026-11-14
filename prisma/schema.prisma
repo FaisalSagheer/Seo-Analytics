@@ -178,6 +178,8 @@ enum DataSource {
   DATAFORSEO
   SERPER
   BING
+  /// Google Search Console: average position of a query, not a one-off SERP check
+  GOOGLE
   DEMO
 }
 

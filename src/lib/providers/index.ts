@@ -58,7 +58,7 @@ export async function getRankChecker(project: { isDemo: boolean; userId: string 
     return { source: "DATAFORSEO", checkRank: provider.checkRank };
   } catch (err) {
     if (err instanceof ProviderNotConfiguredError) {
-      throw new ProviderNotConfiguredError("Connect Serper (free tier) or DataForSEO in Settings → Providers to check rankings.");
+      throw new ProviderNotConfiguredError("Pick a Search Console site in Project settings (free), or connect Serper or DataForSEO in Settings → Providers, to track rankings.");
     }
     throw err;
   }

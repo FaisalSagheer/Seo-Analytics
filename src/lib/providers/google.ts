@@ -88,6 +88,59 @@ export async function gscQueries(token: string, siteUrl: string, startDate: stri
   }));
 }
 
+export type GscKeywordFilters = { device?: "DESKTOP" | "MOBILE"; country?: string };
+export type GscKeywordHistory = {
+  /** Average position per day (impression-weighted across pages), YYYY-MM-DD */
+  days: { date: string; position: number }[];
+  /** The page that got the most impressions for the query */
+  url: string | null;
+};
+
+/**
+ * Position history for one exact query. Search Console reports the average
+ * position of the site's results for that query, so a day exists only when the
+ * site was shown at least once that day.
+ */
+export async function gscKeywordHistory(
+  token: string,
+  siteUrl: string,
+  phrase: string,
+  startDate: string,
+  endDate: string,
+  filters: GscKeywordFilters = {},
+): Promise<GscKeywordHistory> {
+  const dimensionFilters = [
+    { dimension: "query", operator: "equals", expression: phrase.trim().toLowerCase() },
+    ...(filters.device ? [{ dimension: "device", operator: "equals", expression: filters.device }] : []),
+    ...(filters.country ? [{ dimension: "country", operator: "equals", expression: filters.country }] : []),
+  ];
+  const r = await call<{ rows?: GscRow[] }>(token, gscUrl(siteUrl), {
+    startDate,
+    endDate,
+    dimensions: ["date", "page"],
+    type: "web",
+    dimensionFilterGroups: [{ groupType: "and", filters: dimensionFilters }],
+    rowLimit: 25_000,
+    dataState: "all",
+  });
+  const byDate = new Map<string, { weighted: number; impressions: number }>();
+  const byPage = new Map<string, number>();
+  for (const row of r.rows ?? []) {
+    const [date, page] = row.keys;
+    const d = byDate.get(date) ?? { weighted: 0, impressions: 0 };
+    d.weighted += row.position * row.impressions;
+    d.impressions += row.impressions;
+    byDate.set(date, d);
+    byPage.set(page, (byPage.get(page) ?? 0) + row.impressions);
+  }
+  const days = [...byDate]
+    .filter(([, v]) => v.impressions > 0)
+    .map(([date, v]) => ({ date, position: Math.max(1, Math.round(v.weighted / v.impressions)) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const url = [...byPage].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  return { days, url };
+}
+
 // ---- GA4 ----
 
 export async function listGa4Properties(token: string) {
