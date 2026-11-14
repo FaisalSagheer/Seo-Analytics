@@ -1,7 +1,6 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { z } from "zod";
 import { signIn } from "@/lib/auth";
@@ -47,5 +46,5 @@ export async function signInDemo(): Promise<ActionResult> {
     if (err instanceof AuthError) return fail("Demo account not found. Run `npm run db:seed` first.");
     throw err;
   }
-  redirect("/projects");
+  return ok(undefined);
 }

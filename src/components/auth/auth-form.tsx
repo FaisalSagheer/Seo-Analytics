@@ -42,6 +42,7 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
         toast.error(res?.error === "CredentialsSignin" || !res?.error ? "Wrong email or password." : "Could not sign in. Try again.");
         return;
       }
+      toast.success(isSignUp ? "Account created. Welcome!" : "Signed in.");
       router.push("/projects");
       router.refresh();
     });
@@ -56,8 +57,13 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
   function demo() {
     startTransition(async () => {
       const res = await signInDemo();
-      // A successful demo sign-in redirects, so only failures return here
-      if (res && !res.ok) toast.error(res.error);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Signed in to the demo.");
+      router.push("/projects");
+      router.refresh();
     });
   }
 

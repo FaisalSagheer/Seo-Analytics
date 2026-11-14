@@ -21,6 +21,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { signOut as authSignOut } from "next-auth/react";
+import { toast } from "sonner";
 import type { Permission } from "@/lib/permissions";
 import { AppLogo } from "@/components/app-logo";
 import { useViewerRole } from "@/components/permissions-provider";
@@ -75,6 +76,7 @@ export function AppSidebar({
 
   async function signOut() {
     await authSignOut({ redirect: false });
+    toast.success("Signed out.");
     router.push("/sign-in");
     router.refresh();
   }
