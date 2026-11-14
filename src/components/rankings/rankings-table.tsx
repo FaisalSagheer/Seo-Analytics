@@ -12,6 +12,7 @@ import { Sparkline } from "@/components/charts/sparkline";
 import { Delta } from "@/components/dashboard/delta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCan } from "@/components/permissions-provider";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -125,6 +126,8 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
     setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "change" || key === "searchVolume" ? -1 : 1 }));
   }
 
+  const removing = rows.filter((r) => selected.has(r.keywordId)).map((r) => r.phrase);
+
   function removeSelected() {
     const keywordIds = [...selected];
     startTransition(async () => {
@@ -154,10 +157,22 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
           {visible.length} of {rows.length}
         </span>
         {canEdit && selected.size > 0 && (
-          <Button variant="destructive" size="sm" disabled={pending} onClick={removeSelected}>
+          <ConfirmDelete
+            triggerRender={<Button variant="destructive" size="sm" disabled={pending} />}
+            title={`Remove ${selected.size} keyword${selected.size === 1 ? "" : "s"}?`}
+            description="Their ranking history is deleted with them and can't be recovered."
+            details={[
+              { label: "Keywords", value: formatNumber(selected.size) },
+              ...(removing.length > 0
+                ? [{ label: "Including", value: `${removing.slice(0, 5).join(", ")}${removing.length > 5 ? ` and ${removing.length - 5} more` : ""}` }]
+                : []),
+            ]}
+            confirmLabel={`Remove ${selected.size}`}
+            onConfirm={removeSelected}
+          >
             <Trash2Icon data-icon="inline-start" />
             Remove {selected.size}
-          </Button>
+          </ConfirmDelete>
         )}
       </div>
 

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { removeBing, saveBing } from "@/lib/actions/settings";
 import type { BingCredentialInput } from "@/lib/validations";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -86,9 +87,16 @@ export function BingCard({ connected, envFallback }: { connected: boolean; envFa
             {connected ? "Replace key" : "Connect"}
           </Button>
           {connected && (
-            <Button type="button" variant="ghost" disabled={pending} onClick={remove}>
+            <ConfirmDelete
+              triggerRender={<Button type="button" variant="ghost" disabled={pending} />}
+              title="Disconnect Bing Webmaster Tools?"
+              description="Your stored Bing API key is deleted. Bing backlinks stop refreshing for every project."
+              note="Backlinks already synced are kept."
+              confirmLabel="Disconnect"
+              onConfirm={remove}
+            >
               Disconnect
-            </Button>
+            </ConfirmDelete>
           )}
         </CardFooter>
       </form>

@@ -7,17 +7,7 @@ import { toast } from "sonner";
 import { createRole, deleteRole, setDefaultRole, updateRole } from "@/lib/actions/team";
 import { PERMISSION_KEYS, PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { RoleInput } from "@/lib/validations";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,29 +106,24 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
                     <PencilIcon />
                   </Button>
                 </RoleDialog>
-                <AlertDialog>
-                  <AlertDialogTrigger
-                    render={<Button size="icon-sm" variant="ghost" aria-label={`Delete ${role.name}`} disabled={pending || role.isDefault} />}
-                  >
-                    <Trash2Icon />
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete {role.name}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {role.memberCount
-                          ? `${role.memberCount} member${role.memberCount === 1 ? "" : "s"} will move to ${fallback?.name ?? "the default role"}.`
-                          : "No one has this role."}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction variant="destructive" onClick={() => run(() => deleteRole(role.id), "Role deleted")}>
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDelete
+                  triggerRender={<Button size="icon-sm" variant="ghost" aria-label={`Delete ${role.name}`} disabled={pending || role.isDefault} />}
+                  title={`Delete ${role.name}?`}
+                  description={
+                    role.memberCount
+                      ? `${role.memberCount} member${role.memberCount === 1 ? "" : "s"} will move to ${fallback?.name ?? "the default role"}.`
+                      : "No one has this role."
+                  }
+                  details={[
+                    { label: "Role", value: role.name },
+                    { label: "Members", value: String(role.memberCount) },
+                    { label: "Permissions", value: String(role.permissions.length) },
+                  ]}
+                  confirmLabel="Delete role"
+                  onConfirm={() => run(() => deleteRole(role.id), "Role deleted")}
+                >
+                  <Trash2Icon />
+                </ConfirmDelete>
               </div>
             )}
           </div>

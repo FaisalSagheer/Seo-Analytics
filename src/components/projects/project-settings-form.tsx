@@ -5,23 +5,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteProject, updateProject } from "@/lib/actions/projects";
 import type { ProjectInput } from "@/lib/validations";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { ProjectFields } from "@/components/projects/project-fields";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
-export function ProjectSettingsForm({ projectId, initial }: { projectId: string; initial: ProjectInput }) {
+export type ProjectCounts = { keywords: number; rankChecks: number; backlinks: number; audits: number; gscDays: number };
+
+export function ProjectSettingsForm({ projectId, initial, counts }: { projectId: string; initial: ProjectInput; counts: ProjectCounts }) {
   const router = useRouter();
   const [draft, setDraft] = useState<ProjectInput>(initial);
   const [pending, startTransition] = useTransition();
@@ -40,7 +33,9 @@ export function ProjectSettingsForm({ projectId, initial }: { projectId: string;
     startTransition(async () => {
       const res = await deleteProject(projectId);
       if (!res.ok) return void toast.error(res.error);
+      toast.success(`Deleted ${initial.name}`);
       router.push("/projects");
+      router.refresh();
     });
   }
 
@@ -70,21 +65,25 @@ export function ProjectSettingsForm({ projectId, initial }: { projectId: string;
           <CardDescription>Removes the project, its keywords and all ranking history. This can&apos;t be undone.</CardDescription>
         </CardHeader>
         <CardFooter>
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="destructive" />}>Delete project</AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {initial.name}?</AlertDialogTitle>
-                <AlertDialogDescription>All keywords, ranking history and synced data for {initial.domain} will be removed.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={remove}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <ConfirmDelete
+            triggerRender={<Button variant="destructive" />}
+            title={`Delete ${initial.name}?`}
+            description="This permanently deletes the project and everything stored for it. It can't be undone."
+            details={[
+              { label: "Project", value: initial.name },
+              { label: "Domain", value: initial.domain },
+              { label: "Tracked keywords", value: formatNumber(counts.keywords) },
+              { label: "Ranking checks", value: formatNumber(counts.rankChecks) },
+              { label: "Search Console days", value: formatNumber(counts.gscDays) },
+              { label: "Backlinks", value: formatNumber(counts.backlinks) },
+              { label: "Site audits", value: formatNumber(counts.audits) },
+            ]}
+            note="Your Google, Bing and other provider connections are not affected."
+            confirmLabel="Delete project"
+            onConfirm={remove}
+          >
+            Delete project
+          </ConfirmDelete>
         </CardFooter>
       </Card>
     </>

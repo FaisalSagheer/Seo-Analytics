@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { removeSerper, saveSerper } from "@/lib/actions/settings";
 import type { SerperCredentialInput } from "@/lib/validations";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -113,9 +114,20 @@ export function SerperCard({ connected, rankDepth, envFallback }: { connected: b
             {connected ? "Save" : "Connect"}
           </Button>
           {connected && (
-            <Button type="button" variant="ghost" disabled={pending} onClick={remove}>
+            <ConfirmDelete
+              triggerRender={<Button type="button" variant="ghost" disabled={pending} />}
+              title="Disconnect Serper?"
+              description="Your stored Serper key is deleted. Rank checks stop using Serper."
+              details={[
+                { label: "Check depth", value: `Top ${rankDepth}` },
+                { label: "Rank checks then use", value: envFallback ? "The server's Serper key" : "DataForSEO if connected, otherwise Search Console" },
+              ]}
+              note="Rankings already collected are kept."
+              confirmLabel="Disconnect"
+              onConfirm={remove}
+            >
               Disconnect
-            </Button>
+            </ConfirmDelete>
           )}
         </CardFooter>
       </form>

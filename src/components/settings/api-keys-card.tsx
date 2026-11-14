@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createApiKey, revokeApiKey } from "@/lib/actions/settings";
 import type { ApiKeyInput } from "@/lib/validations";
 import { formatDate, formatRelative } from "@/lib/format";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,9 +115,20 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
                     {k.revokedAt ? (
                       <span className="text-muted-foreground text-xs">Revoked</span>
                     ) : (
-                      <Button size="sm" variant="ghost" disabled={pending} onClick={() => revoke(k.id)}>
+                      <ConfirmDelete
+                        triggerRender={<Button size="sm" variant="ghost" disabled={pending} />}
+                        title={`Revoke ${k.name}?`}
+                        description="Anything using this key stops working right away. A revoked key can't be restored; create a new one instead."
+                        details={[
+                          { label: "Key", value: <span className="font-mono">{k.prefix}…</span> },
+                          { label: "Created", value: formatDate(k.createdAt.slice(0, 10), "long") },
+                          { label: "Last used", value: k.lastUsedAt ? formatRelative(new Date(k.lastUsedAt)) : "never" },
+                        ]}
+                        confirmLabel="Revoke key"
+                        onConfirm={() => revoke(k.id)}
+                      >
                         Revoke
-                      </Button>
+                      </ConfirmDelete>
                     )}
                   </TableCell>
                 </TableRow>

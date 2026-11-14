@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { removeDataForSeo, saveDataForSeo } from "@/lib/actions/settings";
 import type { ProviderCredentialInput } from "@/lib/validations";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -91,9 +92,17 @@ export function DataForSeoCard({ login, envFallback }: { login: string | null; e
             {login ? "Update" : "Connect"}
           </Button>
           {login && (
-            <Button type="button" variant="ghost" disabled={pending} onClick={remove}>
+            <ConfirmDelete
+              triggerRender={<Button type="button" variant="ghost" disabled={pending} />}
+              title="Disconnect DataForSEO?"
+              description="Your stored DataForSEO login is deleted. Keyword ideas, domain overview, top pages and DataForSEO backlinks stop refreshing."
+              details={[{ label: "Login", value: login }]}
+              note="Data already synced is kept."
+              confirmLabel="Disconnect"
+              onConfirm={remove}
+            >
               Disconnect
-            </Button>
+            </ConfirmDelete>
           )}
         </CardFooter>
       </form>
