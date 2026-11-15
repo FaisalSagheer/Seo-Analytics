@@ -34,7 +34,7 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | yes | The database connection. Defaults: `localhost`, `3306`, `root`, no password, `bisibility`. Create the database first. |
 | `DATABASE_URL` | no | A single connection string, `mysql://user:pass@host:3306/bisibility`, instead of the five `DB_*` values. It wins if set. |
 | `SEED_ADMIN_EMAIL`, `SEED_PASSWORD` | no | Used by `npm run db:seed` to create the first admin account (password at least 8 characters). An existing account with that email is made Admin and keeps its password. Remove `SEED_PASSWORD` afterwards. |
-| `AUTH_URL` | yes | The public URL of the app. |
+| `APP_URL` | yes | The public URL of the app, e.g. `https://seo.example.com`. Used for Google sign-in callbacks, API examples and `npm run sync`. `AUTH_URL` still works as the old name. |
 | `AUTH_SECRET` | yes | 32+ random characters. |
 | `APP_ENCRYPTION_KEY` | yes | 64 hex characters. Encrypts the DataForSEO passwords users save. |
 | `DEMO_MODE`, `DEMO_EMAIL`, `DEMO_PASSWORD` | no | Demo sign-in button and the seeded account. |
@@ -117,7 +117,7 @@ Endpoints: `GetUserSites`, `GetLinkCounts`, `GetUrlLinks` on `https://ssl.bing.c
 
 1. In [Google Cloud console](https://console.cloud.google.com/), create a project and enable the **Google Search Console API**, **Google Analytics Data API** and **Google Analytics Admin API**.
 2. Configure the OAuth consent screen. While the app is in "Testing", add your own Google account as a test user.
-3. Create an **OAuth client ID** (Web application) with this redirect URI: `{AUTH_URL}/api/auth/callback/google`.
+3. Create an **OAuth client ID** (Web application) with this redirect URI: `{APP_URL}/api/auth/callback/google`.
 4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the server.
 5. In **Providers & API**, click **Connect Google**. This asks for read-only `webmasters.readonly` and `analytics.readonly` access with offline consent, so the daily sync can refresh the token.
 6. In each project's **Project settings**, pick the Search Console property and the GA4 property.
@@ -132,7 +132,7 @@ Rank checks and data pulls run when you click **Refresh** or **Check now**, and 
 POST /api/cron/sync        Authorization: Bearer $CRON_SECRET
 ```
 
-`npm run sync` calls it for you, using `AUTH_URL` and `CRON_SECRET` from `.env`. Run it once a day.
+`npm run sync` calls it for you, using `APP_URL` and `CRON_SECRET` from `.env`. Run it once a day.
 
 **Linux (crontab):**
 
@@ -151,7 +151,7 @@ npm run build
 npm start            # listens on PORT (default 3000)
 ```
 
-Put it behind a reverse proxy (Caddy, nginx) with HTTPS, set `AUTH_URL` to the public URL, and keep a process manager such as pm2 or systemd running `npm start`.
+Put it behind a reverse proxy (Caddy, nginx) with HTTPS, set `APP_URL` to the public URL, and keep a process manager such as pm2 or systemd running `npm start`.
 
 ## API
 

@@ -46,7 +46,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
         )}
         {canApiKeys && (
         <ApiKeysCard
-          baseUrl={e.AUTH_URL}
+          baseUrl={e.APP_URL}
           keys={keys.map((k) => ({
             id: k.id,
             name: k.name,

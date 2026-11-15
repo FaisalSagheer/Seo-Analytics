@@ -2,7 +2,7 @@
 // Schedule it with cron (`0 6 * * * cd /app && npm run sync`) or Windows Task Scheduler.
 import "dotenv/config";
 
-const base = process.env.AUTH_URL ?? "http://localhost:3000";
+const base = process.env.APP_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
 const secret = process.env.CRON_SECRET;
 if (!secret) {
   console.error("CRON_SECRET is not set.");

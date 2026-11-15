@@ -15,7 +15,9 @@ const envSchema = z.object({
   DB_PASSWORD: z.string().optional(),
   DB_NAME: z.string().optional(),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
-  AUTH_URL: z.url().default("http://localhost:3000"),
+  // Public URL of the app. AUTH_URL is the previous name and still works.
+  APP_URL: z.url().optional(),
+  AUTH_URL: z.url().optional(),
   /// 64 hex chars (32 bytes) used to encrypt stored provider secrets
   APP_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, "APP_ENCRYPTION_KEY must be 64 hex characters"),
   DEMO_MODE: bool,
@@ -35,7 +37,7 @@ const envSchema = z.object({
     .transform((v) => v === undefined || v === "" || v === "true" || v === "1"),
 });
 
-export type Env = z.infer<typeof envSchema>;
+export type Env = z.infer<typeof envSchema> & { APP_URL: string };
 
 let cached: Env | null = null;
 
@@ -46,7 +48,8 @@ export function env(): Env {
     const issues = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${issues}\nSee .env.example.`);
   }
-  cached = parsed.data;
+  // APP_URL wins, then the legacy AUTH_URL, then local development
+  cached = { ...parsed.data, APP_URL: parsed.data.APP_URL ?? parsed.data.AUTH_URL ?? "http://localhost:3000" };
   return cached;
 }
 

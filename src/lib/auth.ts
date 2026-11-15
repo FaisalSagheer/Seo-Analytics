@@ -13,6 +13,9 @@ import { assignInitialRole } from "@/lib/roles";
 
 const e = env();
 
+// NextAuth reads its public origin from AUTH_URL; feed it from APP_URL so there's one setting
+process.env.AUTH_URL = e.APP_URL;
+
 const hasDataScopes = (scope: string | null | undefined) => {
   const scopes = (scope ?? "").split(/[ ,]+/);
   return GOOGLE_DATA_SCOPES.every((s) => scopes.includes(s));
