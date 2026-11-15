@@ -1,6 +1,6 @@
 /**
- * Common DataForSEO / Google Ads location codes. Any code from DataForSEO's
- * locations list works via the API. `gl` is the Google country code Serper needs.
+ * Markets a project can target. `code` is the Google Ads location code stored on the
+ * project, `gl` the two-letter country code. Search Console filters by country, see gscCountry below.
  */
 export const LOCATIONS = [
   { code: 2840, gl: "us", label: "United States" },
@@ -49,7 +49,7 @@ const ALPHA3: Record<string, string> = {
   nl: "NLD", in: "IND", pk: "PAK", ae: "ARE", sa: "SAU", br: "BRA", mx: "MEX", jp: "JPN",
 };
 
-/** Search Console country code for a DataForSEO location code, or undefined for an unlisted market. */
+/** Search Console country code (ISO alpha-3) for a project location code, or undefined for an unlisted market. */
 export function gscCountry(locationCode: number): string | undefined {
   const gl = LOCATIONS.find((l) => l.code === locationCode)?.gl;
   return gl ? ALPHA3[gl] : undefined;

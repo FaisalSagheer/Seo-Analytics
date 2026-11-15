@@ -386,6 +386,8 @@ enum Provider {
   DATAFORSEO
   SERPER
   BING
+  /// A Google service account key (Search Console + GA4), stored per project
+  GOOGLE
 }
 
 /// A provider key that belongs to one project (typically the client's own). Used before the
@@ -395,7 +397,7 @@ model ProjectCredential {
   projectId       String
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "ProjectCredential_projectId_fkey")
   provider        Provider
-  /// Empty for key-only providers (Serper, Bing)
+  /// The service account email for GOOGLE; empty for key-only providers
   login           String
   /// AES-256-GCM encrypted with APP_ENCRYPTION_KEY
   secretEncrypted String   @db.Text

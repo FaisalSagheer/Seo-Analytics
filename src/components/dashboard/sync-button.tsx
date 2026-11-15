@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useCan } from "@/components/permissions-provider";
 
-const PART_LABELS: Record<SyncPart, string> = { rankings: "Rankings", domain: "Domain & backlinks", google: "Search Console & GA4" };
+const PART_LABELS: Record<SyncPart, string> = { rankings: "Rankings", google: "Search Console & GA4" };
 
 export function SyncButton({ projectId, parts, label = "Refresh data" }: { projectId: string; parts?: SyncPart[]; label?: string }) {
   const router = useRouter();

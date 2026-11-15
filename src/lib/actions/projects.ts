@@ -11,10 +11,6 @@ import {
   deleteKeywordsSchema,
   projectGoogleSchema,
   projectSchema,
-  projectBacklinkSourcesSchema,
-  type ProjectBacklinkSourcesInput,
-  trackIdeasSchema,
-  type TrackIdeasInput,
   type AddKeywordsInput,
   type DeleteKeywordsInput,
   type ProjectGoogleInput,
@@ -56,18 +52,6 @@ export async function updateProjectGoogle(input: ProjectGoogleInput): Promise<Ac
   return ok(undefined);
 }
 
-export async function updateProjectBacklinkSources(input: ProjectBacklinkSourcesInput): Promise<ActionResult> {
-  const blocked = await denied("projects.edit");
-  if (blocked) return blocked;
-  const parsed = projectBacklinkSourcesSchema.safeParse(input);
-  if (!parsed.success) return zodError(parsed.error);
-  const { projectId, ...data } = parsed.data;
-  await requireProject(projectId);
-  await db.project.update({ where: { id: projectId }, data });
-  revalidatePath(`/projects/${projectId}`, "layout");
-  return ok(undefined);
-}
-
 export async function deleteProject(projectId: string): Promise<ActionResult> {
   const blocked = await denied("projects.delete");
   if (blocked) return blocked;
@@ -100,20 +84,6 @@ export async function addKeywords(input: AddKeywordsInput): Promise<ActionResult
       tags: parsed.data.tags,
       searchVolume: parsed.data.searchVolume,
     })),
-    skipDuplicates: true,
-  });
-  revalidatePath(`/projects/${project.id}`, "layout");
-  return ok({ added: count });
-}
-
-export async function trackIdeas(input: TrackIdeasInput): Promise<ActionResult<{ added: number }>> {
-  const blocked = await denied("keywords.manage");
-  if (blocked) return blocked;
-  const parsed = trackIdeasSchema.safeParse(input);
-  if (!parsed.success) return zodError(parsed.error);
-  const { project } = await requireProject(parsed.data.projectId);
-  const { count } = await db.keyword.createMany({
-    data: parsed.data.ideas.map((i) => ({ projectId: project.id, phrase: i.keyword, searchVolume: i.searchVolume, tags: "research" })),
     skipDuplicates: true,
   });
   revalidatePath(`/projects/${project.id}`, "layout");

@@ -1,61 +1,47 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ApiKeysCard } from "@/components/settings/api-keys-card";
-import { DataForSeoCard } from "@/components/settings/dataforseo-card";
 import { GoogleCard } from "@/components/settings/google-card";
-import { SerperCard } from "@/components/settings/serper-card";
-import { BingCard } from "@/components/settings/bing-card";
 import { db } from "@/lib/db";
 import { env, googleConfigured } from "@/lib/env";
 import { getGoogleAccount } from "@/lib/providers";
 import { can, requireUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Providers & API" };
+export const metadata: Metadata = { title: "Google & API" };
 
 export default async function SettingsPage({ searchParams }: PageProps<"/settings">) {
   const user = await requireUser();
   const googleInUse = (await searchParams).google === "in-use";
   const e = env();
-  const [canProviders, canApiKeys] = await Promise.all([can("providers.manage"), can("apikeys.manage")]);
-  const [cred, serper, bing, google, keys] = await Promise.all([
-    db.providerCredential.findUnique({ where: { userId_provider: { userId: user.id, provider: "DATAFORSEO" } } }),
-    db.providerCredential.findUnique({ where: { userId_provider: { userId: user.id, provider: "SERPER" } } }),
-    db.providerCredential.findUnique({ where: { userId_provider: { userId: user.id, provider: "BING" } } }),
+  const [canGoogle, canApiKeys] = await Promise.all([can("providers.manage"), can("apikeys.manage")]);
+  const [google, keys] = await Promise.all([
     getGoogleAccount(user.id),
     db.apiKey.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }),
   ]);
 
   return (
     <>
-      <PageHeader title="Providers & API" description="Connect your own data accounts and manage API access. A project can use its own keys instead, under Project settings." />
+      <PageHeader
+        title="Google & API"
+        description="Connect your Google account and manage API access. A project can use its own Google service account instead, under Project settings."
+      />
       <div className="flex max-w-3xl flex-col gap-6">
-        {!canProviders && !canApiKeys && (
-          <p className="text-muted-foreground text-sm">Your role doesn&apos;t include connecting providers or creating API keys.</p>
+        {!canGoogle && !canApiKeys && (
+          <p className="text-muted-foreground text-sm">Your role doesn&apos;t include connecting Google or creating API keys.</p>
         )}
-        {canProviders && (
-          <>
-            <SerperCard
-              connected={Boolean(serper)}
-              rankDepth={serper?.rankDepth ?? e.SERPER_RANK_DEPTH}
-              envFallback={Boolean(e.SERPER_API_KEY)}
-            />
-            <DataForSeoCard login={cred?.login ?? null} envFallback={Boolean(e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD)} />
-            <BingCard connected={Boolean(bing)} envFallback={Boolean(e.BING_WEBMASTER_API_KEY)} />
-            <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} linked={Boolean(google)} inUse={googleInUse} />
-          </>
-        )}
+        {canGoogle && <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} linked={Boolean(google)} inUse={googleInUse} />}
         {canApiKeys && (
-        <ApiKeysCard
-          baseUrl={e.APP_URL}
-          keys={keys.map((k) => ({
-            id: k.id,
-            name: k.name,
-            prefix: k.prefix,
-            createdAt: k.createdAt.toISOString(),
-            lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
-            revokedAt: k.revokedAt?.toISOString() ?? null,
-          }))}
-        />
+          <ApiKeysCard
+            baseUrl={e.APP_URL}
+            keys={keys.map((k) => ({
+              id: k.id,
+              name: k.name,
+              prefix: k.prefix,
+              createdAt: k.createdAt.toISOString(),
+              lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
+              revokedAt: k.revokedAt?.toISOString() ?? null,
+            }))}
+          />
         )}
       </div>
     </>

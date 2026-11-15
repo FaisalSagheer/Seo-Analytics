@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
-export type ProjectCounts = { keywords: number; rankChecks: number; backlinks: number; audits: number; gscDays: number };
+export type ProjectCounts = { keywords: number; rankChecks: number; audits: number; gscDays: number };
 
 export function ProjectSettingsForm({ projectId, initial, counts }: { projectId: string; initial: ProjectInput; counts: ProjectCounts }) {
   const router = useRouter();
@@ -75,10 +75,9 @@ export function ProjectSettingsForm({ projectId, initial, counts }: { projectId:
               { label: "Tracked keywords", value: formatNumber(counts.keywords) },
               { label: "Ranking checks", value: formatNumber(counts.rankChecks) },
               { label: "Search Console days", value: formatNumber(counts.gscDays) },
-              { label: "Backlinks", value: formatNumber(counts.backlinks) },
               { label: "Site audits", value: formatNumber(counts.audits) },
             ]}
-            note="Your Google, Bing and other provider connections are not affected."
+            note="Your Google connection and the client's service account in other projects are not affected."
             confirmLabel="Delete project"
             onConfirm={remove}
           >

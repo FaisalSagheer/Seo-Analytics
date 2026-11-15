@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { GooglePropertyForm } from "@/components/projects/google-property-form";
+import { ProjectGoogleCard } from "@/components/projects/project-google-card";
 import { ProjectSettingsForm } from "@/components/projects/project-settings-form";
-import { BacklinkSourcesForm } from "@/components/projects/backlink-sources-form";
 import { db } from "@/lib/db";
-import { getBingApiKey, getGoogleAccount, hasDataForSeo } from "@/lib/providers";
-import { getCredentialSummary } from "@/lib/providers/credentials";
-import { ProjectKeysCard } from "@/components/projects/project-keys-card";
+import { getGoogleSource } from "@/lib/providers";
 import { can, requirePermission, requireProject } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Project settings" };
@@ -15,17 +13,12 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
   const { projectId } = await params;
   await requirePermission("projects.edit");
   const { project } = await requireProject(projectId);
-  // Syncs run on the owner's connected accounts, whoever is editing
-  const [google, bingKey, dataForSeo, keywords, rankChecks, backlinks, audits, gscDays, keySummary, canKeys] = await Promise.all([
-    getGoogleAccount(project.userId),
-    getBingApiKey(project),
-    hasDataForSeo(project),
+  const [google, keywords, rankChecks, audits, gscDays, canGoogle] = await Promise.all([
+    getGoogleSource(project),
     db.keyword.count({ where: { projectId } }),
     db.rankSnapshot.count({ where: { keyword: { projectId } } }),
-    db.backlink.count({ where: { projectId } }),
     db.auditRun.count({ where: { projectId } }),
     db.searchConsoleDaily.count({ where: { projectId } }),
-    getCredentialSummary(project),
     can("providers.manage"),
   ]);
 
@@ -35,7 +28,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
       <div className="flex max-w-3xl flex-col gap-6">
         <ProjectSettingsForm
           projectId={project.id}
-          counts={{ keywords, rankChecks, backlinks, audits, gscDays }}
+          counts={{ keywords, rankChecks, audits, gscDays }}
           initial={{
             name: project.name,
             domain: project.domain,
@@ -44,21 +37,10 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
             device: project.device,
           }}
         />
-        <BacklinkSourcesForm
-          isDemo={project.isDemo}
-          dataForSeoConnected={dataForSeo}
-          bingConnected={Boolean(bingKey)}
-          initial={{
-            projectId: project.id,
-            backlinksDataForSeo: project.backlinksDataForSeo,
-            backlinksBing: project.backlinksBing,
-            bingSiteUrl: project.bingSiteUrl,
-          }}
-        />
-        {!project.isDemo && canKeys && <ProjectKeysCard projectId={project.id} summary={keySummary} />}
+        {!project.isDemo && canGoogle && <ProjectGoogleCard projectId={project.id} source={google.source} email={google.email} />}
         {!project.isDemo && (
           <GooglePropertyForm
-            connected={Boolean(google?.hasDataScopes)}
+            connected={google.source !== "none"}
             initial={{ projectId: project.id, gscSiteUrl: project.gscSiteUrl, ga4PropertyId: project.ga4PropertyId }}
           />
         )}

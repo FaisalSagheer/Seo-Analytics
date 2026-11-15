@@ -10,7 +10,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: { default: "Seo Engine", template: "%s · Seo Engine" },
-  description: "Open source, self-hosted SEO dashboard: rank tracking, keyword research, backlinks, Search Console and GA4.",
+  description: "Open source, self-hosted SEO dashboard: rank tracking, Search Console, GA4 and site audits.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

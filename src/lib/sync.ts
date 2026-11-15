@@ -1,17 +1,14 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { daysAgo, toDateKey, utcDay } from "@/lib/dates";
-import { ProviderNotConfiguredError, getBingApiKey, getGoogleAccessToken, getRankChecker, getSeoProvider } from "@/lib/providers";
-import { fetchBingBacklinks, listBingSites } from "@/lib/providers/bing";
-import { bareDomain } from "@/lib/domain";
-import type { BacklinkRow, DomainMetrics, TopPageRow } from "@/lib/types";
+import { ProviderNotConfiguredError, getGoogleAccessToken } from "@/lib/providers";
 import { ga4Daily, gscDaily, gscKeywordHistory, gscQueries } from "@/lib/providers/google";
 import { gscCountry } from "@/lib/markets";
 import { demoTraffic } from "@/lib/demo/series";
-import { demoBingBacklinks } from "@/lib/demo/provider";
+import { dayIndex, demoPosition } from "@/lib/demo/rankings";
 import type { Project } from "@/generated/prisma/client";
 
-export type SyncPart = "rankings" | "domain" | "google";
+export type SyncPart = "rankings" | "google";
 export type SyncResult = Record<SyncPart, { ok: boolean; message: string; warning?: string } | undefined>;
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -32,41 +29,25 @@ export async function syncRankings(project: Project, keywordIds?: string[]) {
   const keywords = await db.keyword.findMany({
     where: { projectId: project.id, ...(keywordIds ? { id: { in: keywordIds } } : {}) },
   });
-  let checker: Awaited<ReturnType<typeof getRankChecker>>;
-  try {
-    checker = await getRankChecker(project);
-  } catch (err) {
-    // No Serper / DataForSEO key: Search Console is free and already connected for most projects
-    if (err instanceof ProviderNotConfiguredError && project.gscSiteUrl) return syncRankingsFromSearchConsole(project, keywords);
-    throw err;
-  }
-  const { source, checkRank } = checker;
+  if (project.isDemo) return syncDemoRankings(project, keywords);
+  if (!project.gscSiteUrl) throw new ProviderNotConfiguredError("Pick a Search Console site in Project settings to track rankings.");
+  return syncRankingsFromSearchConsole(project, keywords);
+}
+
+/** The demo project has no Google account behind it, so its positions are generated. */
+async function syncDemoRankings(project: Project, keywords: { id: string; phrase: string }[]) {
   const today = utcDay();
-  let failed = 0;
-  let lastError = "";
+  const day = dayIndex();
   await mapLimit(keywords, 5, async (k) => {
-    try {
-      const r = await checkRank({
-        keyword: k.phrase,
-        domain: project.domain,
-        locationCode: project.locationCode,
-        languageCode: project.languageCode,
-        device: project.device === "MOBILE" ? "mobile" : "desktop",
-      });
-      await db.rankSnapshot.upsert({
-        where: { keywordId_checkedAt: { keywordId: k.id, checkedAt: today } },
-        create: { keywordId: k.id, checkedAt: today, position: r.position, url: r.url, source },
-        update: { position: r.position, url: r.url, source },
-      });
-    } catch (err) {
-      failed++;
-      lastError = err instanceof Error ? err.message : String(err);
-      console.error(`[sync] rank check failed for "${k.phrase}":`, err);
-    }
+    const position = demoPosition(k.phrase, day);
+    const url = position ? `https://${project.domain}/${k.phrase.replace(/\s+/g, "-")}` : null;
+    await db.rankSnapshot.upsert({
+      where: { keywordId_checkedAt: { keywordId: k.id, checkedAt: today } },
+      create: { keywordId: k.id, checkedAt: today, position, url, source: "DEMO" },
+      update: { position, url, source: "DEMO" },
+    });
   });
-  // Every check failing (bad key, no credits) is a provider problem, not a partial result
-  if (keywords.length > 0 && failed === keywords.length) throw new Error(lastError);
-  return { checked: keywords.length - failed, failed, source };
+  return { checked: keywords.length, failed: 0, source: "DEMO" as const };
 }
 
 /**
@@ -74,7 +55,7 @@ export async function syncRankings(project: Project, keywordIds?: string[]) {
  * tracked keyword, per day, back 90 days. Days with no impressions get no row.
  */
 async function syncRankingsFromSearchConsole(project: Project, keywords: { id: string; phrase: string }[]) {
-  const token = await getGoogleAccessToken(project.userId);
+  const token = await getGoogleAccessToken(project);
   const siteUrl = project.gscSiteUrl!;
   const start = toDateKey(daysAgo(90));
   const end = toDateKey(utcDay());
@@ -115,137 +96,6 @@ async function syncRankingsFromSearchConsole(project: Project, keywords: { id: s
   return { checked: keywords.length - failed - noData, failed, source: "GOOGLE" as const, warnings };
 }
 
-export async function syncDomain(project: Project) {
-  const provider = await getSeoProvider(project).catch((err) => {
-    if (err instanceof ProviderNotConfiguredError) return null;
-    throw err;
-  });
-  const market = { locationCode: project.locationCode, languageCode: project.languageCode };
-  const warnings: string[] = [];
-
-  // Organic footprint: DataForSEO (or demo) only
-  let overview: DomainMetrics | null = null;
-  let pages: TopPageRow[] | null = null;
-  if (provider) {
-    [overview, pages] = await Promise.all([
-      provider.domainOverview({ ...market, domain: project.domain }),
-      provider.topPages({ ...market, domain: project.domain, limit: 50 }),
-    ]);
-  }
-
-  // Backlinks: every source the project has switched on, fetched independently
-  // and stored side by side so the Backlinks page can switch between them.
-  // One source failing (e.g. no DataForSEO Backlinks subscription) is a warning.
-  const fetched: BacklinkSourceResult[] = [];
-  let attempted = 0;
-  if (project.backlinksDataForSeo && provider) {
-    attempted++;
-    try {
-      const [summary, links] = await Promise.all([
-        provider.backlinkSummary({ domain: project.domain }),
-        provider.backlinks({ domain: project.domain, limit: 200 }),
-      ]);
-      fetched.push({
-        source: provider.name === "demo" ? "DEMO" : "DATAFORSEO",
-        links,
-        total: summary.backlinks,
-        referringDomains: summary.referringDomains,
-        domainRank: summary.domainRank,
-      });
-    } catch (err) {
-      warnings.push(`DataForSEO backlinks failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-  if (project.backlinksBing) {
-    if (project.isDemo) {
-      attempted++;
-      fetched.push({ source: "BING", ...demoBingBacklinks(project.domain), domainRank: null });
-    } else if (await getBingApiKey(project)) {
-      attempted++;
-      try {
-        const bing = (await getBingForProject(project))!;
-        const r = await fetchBingBacklinks(bing.apiKey, bing.siteUrl);
-        fetched.push({ source: "BING", links: r.links, total: r.total, referringDomains: r.referringDomains, domainRank: null });
-      } catch (err) {
-        warnings.push(`Bing backlinks failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-  }
-
-  if (!overview && fetched.length === 0) {
-    if (attempted > 0) throw new Error(warnings.join(" "));
-    throw new ProviderNotConfiguredError(
-      "Connect DataForSEO for domain data, or Bing Webmaster Tools (free) for your own site's backlinks, in Settings → Providers.",
-    );
-  }
-
-  const today = utcDay();
-  // DomainSnapshot keeps one backlink figure (the richest source) for the domain API;
-  // per-source history lives in BacklinkSnapshot.
-  const primary = fetched.find((f) => f.source !== "BING") ?? fetched[0];
-  const snapshot = {
-    ...(overview && {
-      organicKeywords: overview.organicKeywords,
-      organicTraffic: overview.organicTraffic,
-      trafficCost: overview.trafficCost,
-      pos1: overview.pos1,
-      pos2to3: overview.pos2to3,
-      pos4to10: overview.pos4to10,
-    }),
-    ...(primary && { backlinks: primary.total, referringDomains: primary.referringDomains, domainRank: primary.domainRank }),
-  };
-  await db.$transaction([
-    db.domainSnapshot.upsert({
-      where: { projectId_capturedAt: { projectId: project.id, capturedAt: today } },
-      create: { projectId: project.id, capturedAt: today, ...snapshot },
-      update: snapshot,
-    }),
-    ...(pages
-      ? [
-          db.topPage.deleteMany({ where: { projectId: project.id } }),
-          db.topPage.createMany({ data: pages.map((p) => ({ ...p, projectId: project.id })) }),
-        ]
-      : []),
-    ...fetched.flatMap((f) => {
-      const totals = { backlinks: f.total, referringDomains: f.referringDomains, domainRank: f.domainRank };
-      return [
-        db.backlink.deleteMany({ where: { projectId: project.id, source: f.source } }),
-        db.backlink.createMany({ data: f.links.map((l) => ({ ...l, projectId: project.id, source: f.source })) }),
-        db.backlinkSnapshot.upsert({
-          where: { projectId_capturedAt_source: { projectId: project.id, capturedAt: today, source: f.source } },
-          create: { projectId: project.id, capturedAt: today, source: f.source, ...totals },
-          update: totals,
-        }),
-      ];
-    }),
-  ]);
-  return { organic: Boolean(overview), backlinkSources: fetched.map((f) => f.source), warnings };
-}
-
-type BacklinkSourceResult = {
-  source: "DATAFORSEO" | "DEMO" | "BING";
-  links: BacklinkRow[];
-  total: number;
-  referringDomains: number;
-  domainRank: number | null;
-};
-
-/** The owner's Bing key (or the server's) plus the project's Bing site, auto-matched by domain if unset. */
-async function getBingForProject(project: Project) {
-  const apiKey = await getBingApiKey(project);
-  if (!apiKey) return null;
-  let siteUrl = project.bingSiteUrl;
-  if (!siteUrl) {
-    const sites = await listBingSites(apiKey);
-    siteUrl = sites.find((s) => bareDomain(s) === bareDomain(project.domain)) ?? null;
-    if (!siteUrl) {
-      throw new Error(`${project.domain} isn't a verified site in your Bing Webmaster Tools account. Add and verify it there, then pick it in Project settings.`);
-    }
-    await db.project.update({ where: { id: project.id }, data: { bingSiteUrl: siteUrl } });
-  }
-  return { apiKey, siteUrl };
-}
-
 async function syncDemoGoogle(project: Project) {
   const days = Array.from({ length: 7 }, (_, i) => daysAgo(i));
   await db.$transaction(
@@ -273,7 +123,7 @@ export async function syncGoogle(project: Project) {
   if (!project.gscSiteUrl && !project.ga4PropertyId) {
     return { skipped: "No Search Console site or GA4 property selected in project settings." };
   }
-  const token = await getGoogleAccessToken(project.userId);
+  const token = await getGoogleAccessToken(project);
   // GSC data lags ~2 days; pull a rolling window so late rows are corrected
   const end = toDateKey(utcDay());
   const start = toDateKey(daysAgo(90));
@@ -320,11 +170,10 @@ export async function syncGoogle(project: Project) {
 }
 
 /** Runs each part independently so one failing provider doesn't block the rest. */
-export async function syncProject(project: Project, parts: SyncPart[] = ["rankings", "domain", "google"]): Promise<SyncResult> {
-  const result: SyncResult = { rankings: undefined, domain: undefined, google: undefined };
+export async function syncProject(project: Project, parts: SyncPart[] = ["rankings", "google"]): Promise<SyncResult> {
+  const result: SyncResult = { rankings: undefined, google: undefined };
   const runners: Record<SyncPart, () => Promise<unknown>> = {
     rankings: () => syncRankings(project),
-    domain: () => syncDomain(project),
     google: () => syncGoogle(project),
   };
   for (const part of parts) {

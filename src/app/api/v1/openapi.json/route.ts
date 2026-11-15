@@ -13,7 +13,7 @@ export function GET(request: Request) {
       title: "Seo Engine API",
       version: "1.0.0",
       description:
-        "Read SEO reports, ranking history, backlinks and domain data for your projects. Authenticate with an API key from Settings → Providers & API.",
+        "Read SEO reports and ranking history, and manage tracked keywords, for your projects. Authenticate with an API key from Settings → Google & API.",
     },
     servers: [{ url: `${origin}/api/v1` }],
     security: [{ bearer: [] }],
@@ -63,17 +63,6 @@ export function GET(request: Request) {
             },
           },
           responses: { 201: { description: "Added" }, 400: { description: "Invalid body" } },
-        },
-      },
-      "/projects/{projectId}/backlinks": {
-        get: { summary: "Strongest backlinks (sample of 200)", operationId: "getBacklinks", parameters: [projectId], responses: ok("Backlinks") },
-      },
-      "/projects/{projectId}/domain": {
-        get: {
-          summary: "Domain snapshots over time and top pages",
-          operationId: "getDomain",
-          parameters: [projectId, days(180)],
-          responses: ok("Domain data"),
         },
       },
     },

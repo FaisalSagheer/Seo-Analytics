@@ -25,7 +25,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
     <>
       <PageHeader
         title="Projects"
-        description="Each project tracks one domain: rankings, search performance, backlinks."
+        description="Each project tracks one domain: rankings, search performance, site health."
         actions={
           canCreate && (
             <>

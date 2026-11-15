@@ -7,14 +7,11 @@ import {
   ChevronsUpDownIcon,
   CompassIcon,
   FolderIcon,
-  GaugeIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
-  Link2Icon,
   LogOutIcon,
   PlusIcon,
   ScanSearchIcon,
-  SearchIcon,
   Settings2Icon,
   SettingsIcon,
   TrendingUpIcon,
@@ -53,9 +50,6 @@ const PROJECT_NAV = [
   { segment: "", label: "Overview", icon: LayoutDashboardIcon },
   { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
   { segment: "performance", label: "Search performance", icon: ChartLineIcon },
-  { segment: "keywords", label: "Keyword research", icon: SearchIcon },
-  { segment: "domain", label: "Domain overview", icon: GaugeIcon },
-  { segment: "backlinks", label: "Backlinks", icon: Link2Icon },
   { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
   { segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" },
 ] as const satisfies readonly { segment: string; label: string; icon: unknown; permission?: Permission }[];
@@ -166,11 +160,11 @@ export function AppSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname === "/settings" && !current}
-                tooltip="Providers & API"
+                tooltip="Google & API"
                 render={<Link href="/settings" />}
               >
                 <SettingsIcon />
-                <span>Providers & API</span>
+                <span>Google & API</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             {role?.isAdmin && (

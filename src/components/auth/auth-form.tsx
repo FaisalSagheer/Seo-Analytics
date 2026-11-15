@@ -74,7 +74,7 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
       <CardHeader>
         <CardTitle>{isSignUp ? "Create your account" : "Sign in"}</CardTitle>
         <CardDescription>
-          {isSignUp ? "Track rankings, research keywords and watch backlinks." : "Welcome back. Pick up where you left off."}
+          {isSignUp ? "Track rankings, search performance and site health." : "Welcome back. Pick up where you left off."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

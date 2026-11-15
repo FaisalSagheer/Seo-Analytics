@@ -11,8 +11,7 @@ export const PERMISSIONS = {
   "projects.delete": "Delete projects",
   "keywords.manage": "Add and remove keywords",
   "data.sync": "Run data syncs",
-  "research.use": "Keyword and domain research (paid lookups)",
-  "providers.manage": "Connect data providers",
+  "providers.manage": "Connect Google (Search Console and GA4)",
   "apikeys.manage": "Create and use API keys",
 } as const;
 
