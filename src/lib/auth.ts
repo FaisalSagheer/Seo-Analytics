@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import NextAuth, { type Account, type NextAuthConfig, type Profile } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { CredentialsSignin } from "next-auth";
 import Google from "next-auth/providers/google";
 import type { Provider } from "next-auth/providers";
 import { db } from "@/lib/db";
@@ -20,6 +21,11 @@ const hasDataScopes = (scope: string | null | undefined) => {
   const scopes = (scope ?? "").split(/[ ,]+/);
   return GOOGLE_DATA_SCOPES.every((s) => scopes.includes(s));
 };
+
+/** Thrown only after the right password, so a deactivated account can't be told apart from a wrong one by probing. */
+class AccountDisabledError extends CredentialsSignin {
+  code = "account_disabled";
+}
 
 const providers: Provider[] = [];
 
@@ -52,6 +58,7 @@ providers.push(
       if (!user || !account?.password) return null;
       const { ok, needsRehash } = await verifyPassword(account.password, password);
       if (!ok) return null;
+      if (!user.isActive) throw new AccountDisabledError();
       if (needsRehash) {
         await db.account.update({ where: { id: account.id }, data: { password: await hashPassword(password) } });
       }
@@ -103,6 +110,10 @@ async function linkGoogle(account: Account, profile: Profile | undefined): Promi
 
   // A plain sign-in must not replace tokens that carry the Search Console / GA4 scopes with ones that don't
   const keepStored = existing && hasDataScopes(existing.scope) && !hasDataScopes(account.scope);
+  // A deactivated person can't sign in with Google either
+  const owner = await db.user.findUnique({ where: { id: userId }, select: { isActive: true } });
+  if (owner && !owner.isActive) return "/sign-in?error=account-disabled";
+
   const tokens = keepStored
     ? {}
     : {

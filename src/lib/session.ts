@@ -19,8 +19,9 @@ export const getSession = cache(async () => {
   const session = await auth();
   const id = session?.user?.id;
   if (!id) return null;
-  const user = await db.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, image: true } });
-  return user ? { user } : null;
+  const user = await db.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, image: true, isActive: true } });
+  if (!user?.isActive) return null;
+  return { user: { id: user.id, name: user.name, email: user.email, image: user.image } };
 });
 
 /** Gate for every signed-in page and action. */

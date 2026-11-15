@@ -3,18 +3,30 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { assignRole } from "@/lib/actions/team";
+import { assignRole, setMemberActive } from "@/lib/actions/team";
+import { ConfirmDelete } from "@/components/confirm-delete";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatRelative } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export type MemberView = { id: string; name: string; email: string; roleId: string; createdAt: string; isYou: boolean };
+export type MemberView = { id: string; name: string; email: string; roleId: string; roleName: string; createdAt: string; isYou: boolean; isActive: boolean };
 
 export function MembersCard({ members, roles }: { members: MemberView[]; roles: { id: string; name: string }[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const items = roles.map((r) => ({ value: r.id, label: r.name }));
+
+  function setActive(member: MemberView, active: boolean) {
+    startTransition(async () => {
+      const res = await setMemberActive(member.id, active);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(active ? `${member.name} can sign in again` : `${member.name} is deactivated`);
+      router.refresh();
+    });
+  }
 
   function change(member: MemberView, roleId: string) {
     startTransition(async () => {
@@ -31,7 +43,10 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
     <Card>
       <CardHeader>
         <CardTitle>Members</CardTitle>
-        <CardDescription>Everyone who has signed in. A role change applies on their next page load.</CardDescription>
+        <CardDescription>
+          Everyone who has an account. A role change applies on their next page load. Deactivating blocks sign-in and API keys at once, and keeps
+          everything they created.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -41,13 +56,14 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
               <TableHead>Email</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="w-44">Role</TableHead>
+              <TableHead className="w-40 text-right">Access</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {members.map((m) => (
               <TableRow key={m.id}>
                 <TableCell className="font-medium">
-                  {m.name}
+                  <span className={m.isActive ? undefined : "text-muted-foreground"}>{m.name}</span>
                   {m.isYou && <span className="text-muted-foreground font-normal"> (you)</span>}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{m.email}</TableCell>
@@ -67,6 +83,30 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
                       </SelectGroup>
                     </SelectContent>
                   </Select>
+                </TableCell>
+                <TableCell className="text-right">
+                  {!m.isActive && <Badge variant="outline" className="mr-2">Deactivated</Badge>}
+                  {m.isYou ? null : m.isActive ? (
+                    <ConfirmDelete
+                      triggerRender={<Button size="sm" variant="ghost" disabled={pending} />}
+                      title={`Deactivate ${m.name}?`}
+                      description="They can't sign in, and their API keys stop working. Their projects, keywords and history stay in place."
+                      details={[
+                        { label: "Name", value: m.name },
+                        { label: "Email", value: m.email },
+                        { label: "Role", value: m.roleName },
+                      ]}
+                      note="You can reactivate them at any time from this page."
+                      confirmLabel="Deactivate"
+                      onConfirm={() => setActive(m, false)}
+                    >
+                      Deactivate
+                    </ConfirmDelete>
+                  ) : (
+                    <Button size="sm" variant="ghost" disabled={pending} onClick={() => setActive(m, true)}>
+                      Reactivate
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

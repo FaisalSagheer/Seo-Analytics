@@ -57,6 +57,19 @@ export const deleteKeywordsSchema = z.object({
 });
 export type DeleteKeywordsInput = z.input<typeof deleteKeywordsSchema>;
 
+export const inviteSchema = z.object({
+  email: z.email("Enter a valid email").trim().toLowerCase().max(191),
+  roleId: z.string().min(1, "Pick a role"),
+});
+export type InviteInput = z.input<typeof inviteSchema>;
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(20).max(200),
+  name: z.string().trim().min(1, "Enter your name").max(100),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+export type AcceptInviteInput = z.input<typeof acceptInviteSchema>;
+
 export const apiKeySchema = z.object({
   name: z.string().trim().min(1, "Name the key").max(60),
 });

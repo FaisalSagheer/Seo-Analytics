@@ -10,6 +10,8 @@ export const metadata: Metadata = { title: "Sign in" };
 /** Reads env at request time so DEMO_MODE / Google flags aren't frozen into the build. */
 const ERRORS: Record<string, string> = {
   "signup-disabled": "New sign-ups are disabled. Ask an admin for an account.",
+  "account-disabled": "This account has been deactivated. Ask an admin to reactivate it.",
+  account_disabled: "This account has been deactivated. Ask an admin to reactivate it.",
   "google-email": "That Google account has no verified email address.",
   AccessDenied: "Sign-in was refused.",
   Configuration: "Sign-in is misconfigured on the server. Check the server logs.",

@@ -1,9 +1,12 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getViewerRole } from "@/lib/session";
-import { roleSchema, type RoleInput } from "@/lib/validations";
+import { env } from "@/lib/env";
+import { sha256 } from "@/lib/crypto";
+import { getViewerRole, requireUser } from "@/lib/session";
+import { inviteSchema, roleSchema, type InviteInput, type RoleInput } from "@/lib/validations";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
 /** Team and role changes are the Admin role's alone. */
@@ -84,5 +87,49 @@ export async function assignRole(userId: string, roleId: string): Promise<Action
     if (admins <= 1) return fail("The team needs at least one admin. Make someone else an admin first.");
   }
   await db.user.update({ where: { id: userId }, data: { roleId } });
+  return done();
+}
+
+const INVITE_DAYS = 7;
+
+/** Blocks sign-in and existing sessions without deleting anything the person created. */
+export async function setMemberActive(userId: string, active: boolean): Promise<ActionResult> {
+  const blocked = await adminOnly();
+  if (blocked) return blocked;
+  const me = await requireUser();
+  if (userId === me.id) return fail("You can't deactivate your own account. Ask another admin.");
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) return fail("That user no longer exists.");
+  await db.user.update({ where: { id: userId }, data: { isActive: active } });
+  return done();
+}
+
+/**
+ * Creates a one-time sign-up link for a new person. The link is shown once; only
+ * its hash is stored, so it can't be recovered later, only revoked or replaced.
+ */
+export async function createInvite(input: InviteInput): Promise<ActionResult<{ link: string; expiresAt: string }>> {
+  const blocked = await adminOnly();
+  if (blocked) return blocked;
+  const parsed = inviteSchema.safeParse(input);
+  if (!parsed.success) return zodError(parsed.error);
+  const { email, roleId } = parsed.data;
+  if (await db.user.findUnique({ where: { email } })) return fail("That email already has an account. Change their role on Team instead.");
+  const role = await db.role.findUnique({ where: { id: roleId } });
+  if (!role) return fail("That role no longer exists.");
+
+  // A new invite for the same person replaces the old link
+  await db.invitation.deleteMany({ where: { email, acceptedAt: null } });
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
+  const me = await requireUser();
+  await db.invitation.create({ data: { email, roleId, tokenHash: sha256(token), invitedById: me.id, expiresAt } });
+  return ok({ link: `${env().APP_URL}/invite/${token}`, expiresAt: expiresAt.toISOString() });
+}
+
+export async function revokeInvite(invitationId: string): Promise<ActionResult> {
+  const blocked = await adminOnly();
+  if (blocked) return blocked;
+  await db.invitation.deleteMany({ where: { id: invitationId, acceptedAt: null } });
   return done();
 }

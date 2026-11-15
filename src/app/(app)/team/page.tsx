@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { InviteCard } from "@/components/team/invite-card";
 import { MembersCard } from "@/components/team/members-card";
 import { RolesCard } from "@/components/team/roles-card";
 import { db } from "@/lib/db";
@@ -10,10 +11,18 @@ export const metadata: Metadata = { title: "Team & roles" };
 
 export default async function TeamPage() {
   const viewer = await requireAdmin();
-  const [roles, users] = await Promise.all([
+  const [roles, users, invitations] = await Promise.all([
     // Admin first, then the rest alphabetically
     db.role.findMany({ orderBy: [{ isSystem: "desc" }, { name: "asc" }], include: { _count: { select: { users: true } } } }),
-    db.user.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, roleId: true, createdAt: true } }),
+    db.user.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, email: true, roleId: true, isActive: true, createdAt: true, role: { select: { name: true } } },
+    }),
+    db.invitation.findMany({
+      where: { acceptedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      include: { role: { select: { name: true } } },
+    }),
   ]);
   const fallback = roles.find((r) => r.isDefault);
   // Users with no role row resolve to the default role, so count and show them there
@@ -21,8 +30,12 @@ export default async function TeamPage() {
 
   return (
     <>
-      <PageHeader title="Team & roles" description="Who's on the team and what each role can change." />
+      <PageHeader title="Team & roles" description="Who's on the team, what each role can change, and who can sign in." />
       <div className="flex max-w-4xl flex-col gap-6">
+        <InviteCard
+          roles={roles.map((r) => ({ id: r.id, name: r.name }))}
+          invitations={invitations.map((i) => ({ id: i.id, email: i.email, roleName: i.role.name, expiresAt: i.expiresAt.toISOString() }))}
+        />
         <MembersCard
           roles={roles.map((r) => ({ id: r.id, name: r.name }))}
           members={users.map((u) => ({
@@ -30,8 +43,10 @@ export default async function TeamPage() {
             name: u.name,
             email: u.email,
             roleId: u.roleId ?? fallback?.id ?? "",
+            roleName: u.role?.name ?? fallback?.name ?? "No role",
             createdAt: u.createdAt.toISOString(),
             isYou: u.id === viewer.id,
+            isActive: u.isActive,
           }))}
         />
         <RolesCard

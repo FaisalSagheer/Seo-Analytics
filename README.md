@@ -86,7 +86,11 @@ Each user has one role. A role decides what they can change (for example create 
 
 A client's API key follows the same rules: it lists only the projects they can see, and any other project returns 404.
 
-To give a client their own login: create a role with **See every project** turned off. The client signs up themselves (admins can't create accounts for others yet), then an admin sets their role on **Team & roles** and ticks their projects under each project's **Who can see this project**.
+**Inviting people.** On **Team & roles**, click **Invite someone**, enter the email and pick the role. You get a one-time link, shown once and valid for 7 days. The person opens it, sets their name and password, and is signed in with that role. An invite works even when public sign-up is turned off (`ALLOW_SIGNUP="false"`), and the link only works for the invited email. Revoke a pending invitation from the same page.
+
+**Deactivating people.** On **Team & roles**, **Deactivate** blocks sign-in and API keys at once, including sessions that are already open, and keeps everything the person created. **Reactivate** restores access. You can't deactivate your own account.
+
+To give a client their own login: create a role with **See every project** turned off, invite them with the client role, then tick their projects under each project's **Who can see this project**.
 
 ## Site audit
 

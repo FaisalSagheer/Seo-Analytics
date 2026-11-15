@@ -13,18 +13,21 @@ datasource db {
 // Session and Verification are left from the previous auth library and are no longer used.
 
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id              String       @id
+  name            String
+  email           String       @unique
+  emailVerified   Boolean      @default(false)
+  image           String?      @db.Text
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  sessions        Session[]
+  accounts        Account[]
   /// Null resolves to the default role (see lib/roles.ts)
-  roleId        String?
-  role          Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  roleId          String?
+  role            Role?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  /// Deactivated users can't sign in or use an existing session or API key. Their data is kept.
+  isActive        Boolean      @default(true)
+  invitationsSent Invitation[] @relation("InvitedBy")
 
   projects            Project[]
   projectMemberships  ProjectMember[]
@@ -40,20 +43,21 @@ model User {
 /// Team-wide roles. Every signed-in user can view every project; a role only
 /// decides what they can change.
 model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique @db.VarChar(64)
-  description String   @default("") @db.VarChar(255)
+  id             String       @id @default(cuid())
+  name           String       @unique @db.VarChar(64)
+  description    String       @default("") @db.VarChar(255)
   /// Permission keys from lib/permissions.ts
-  permissions Json
+  permissions    Json
   /// The built-in Admin role: holds every permission, can't be edited or deleted
-  isSystem    Boolean  @default(false)
+  isSystem       Boolean      @default(false)
   /// Sees every project. Off for client roles: they see only the projects they're a member of
-  seeAllProjects Boolean @default(true)
+  seeAllProjects Boolean      @default(true)
   /// Given to new sign-ups and to users whose role is deleted. Exactly one.
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  users       User[]
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  users          User[]
+  invitations    Invitation[]
 
   @@map("role")
 }
@@ -405,6 +409,23 @@ enum Provider {
   BING
   /// A Google service account key (Search Console + GA4), stored per project
   GOOGLE
+}
+
+/// An invite link for someone new. Only a hash of the link is stored; it works once, until it expires.
+model Invitation {
+  id          String    @id @default(cuid())
+  email       String    @db.VarChar(191)
+  roleId      String
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade, map: "Invitation_roleId_fkey")
+  tokenHash   String    @unique(map: "Invitation_tokenHash_key") @db.VarChar(64)
+  invitedById String?
+  invitedBy   User?     @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: SetNull, map: "Invitation_invitedById_fkey")
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([email], map: "Invitation_email_idx")
+  @@map("invitation")
 }
 
 /// A provider key that belongs to one project (typically the client's own). Used before the

@@ -17,6 +17,8 @@ export async function authenticate(request: Request) {
   if (!match) return null;
   const key = await db.apiKey.findUnique({ where: { hashedKey: sha256(match[1]) } });
   if (!key || key.revokedAt) return null;
+  const owner = await db.user.findUnique({ where: { id: key.userId }, select: { isActive: true } });
+  if (!owner?.isActive) return null;
   // A key acts as its owner, so it stops working the moment their role loses API access
   const role = await resolveRole(key.userId);
   if (!role.permissions.includes("apikeys.manage")) return null;

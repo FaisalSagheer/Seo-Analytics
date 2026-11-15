@@ -41,7 +41,9 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
       }
       const res = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
       if (!res || res.error) {
-        toast.error(res?.error === "CredentialsSignin" || !res?.error ? "Wrong email or password." : "Could not sign in. Try again.");
+        // NextAuth reports the specific reason in `code`; `error` is only the generic type
+        if (res?.code === "account_disabled") toast.error("This account has been deactivated. Ask an admin to reactivate it.");
+        else toast.error(res?.error === "CredentialsSignin" || !res?.error ? "Wrong email or password." : "Could not sign in. Try again.");
         return;
       }
       toast.success(isSignUp ? "Account created. Welcome!" : "Signed in.");
