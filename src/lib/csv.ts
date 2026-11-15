@@ -3,7 +3,8 @@ export function toCsv(headers: string[], rows: (string | number | boolean | null
   const cell = (v: string | number | boolean | null | undefined) => {
     if (v == null) return "";
     let s = String(v);
-    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    // numbers are safe (a negative one starts with -), only text can be read as a formula
+    if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");

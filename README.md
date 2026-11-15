@@ -98,7 +98,7 @@ To give a client their own login: create a role with **See every project** turne
 
 There is no free way to see every backlink: that takes a crawler of the whole web. What GA4 does know is every visit that arrived from another website, so **Referrals** shows the links that work. For each site it shows sessions, users and conversions, the change against the previous period of the same length, the date it first sent a visit, and a **New** badge for sites that started in the selected range. **Gone quiet** lists sites that sent visits in the previous period and none now. **Referring pages** lists the exact pages from the last 28 days, so you can open one and check the link.
 
-It needs the project's GA4 property (see above) and fills in on **Sync Google** or the daily sync, which keeps 6 months of history. The comparison is available for 7 days, 28 days and 3 months. A link nobody clicks never appears, and a drop can mean the link was removed or just stopped getting clicks. The page list is best-effort: if GA4 refuses that one request, the sites list is still updated and the sync reports a warning.
+It needs the project's GA4 property (see above) and fills in on **Sync Google** or the daily sync, which keeps 6 months of history. The comparison is available for 7 days, 28 days and 3 months. **Export CSV** on that page saves the sites list for the selected range. A link nobody clicks never appears, and a drop can mean the link was removed or just stopped getting clicks. The page list is best-effort: if GA4 refuses that one request, the sites list is still updated and the sync reports a warning.
 
 ### Backlinks: import Search Console's Links report
 

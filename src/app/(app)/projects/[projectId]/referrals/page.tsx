@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLinkIcon, Link2Icon, PlugIcon } from "lucide-react";
 import { TrendChart } from "@/components/charts/trend-chart";
+import { ReferralsExport } from "@/components/referrals/export-button";
 import { Delta } from "@/components/dashboard/delta";
 import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -42,6 +43,7 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
         actions={
           <>
             <RangePicker value={days} />
+            {report.sites.length > 0 && <ReferralsExport domain={project.domain} days={days} sites={report.sites} />}
             <SyncButton projectId={project.id} parts={["google"]} label="Sync Google" />
           </>
         }
