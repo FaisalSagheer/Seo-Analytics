@@ -101,3 +101,38 @@ export function demoReferralPages(domain: string) {
     }),
   );
 }
+
+const DEMO_LINK_SITES = [
+  "searchenginejournal.com", "moz.com", "ahrefs.com", "backlinko.com", "hubspot.com", "reddit.com", "medium.com", "dev.to",
+  "producthunt.com", "indiehackers.com", "news.ycombinator.com", "github.com", "wikipedia.org", "quora.com", "linkedin.com",
+  "smashingmagazine.com", "css-tricks.com", "sitepoint.com", "digitalocean.com", "freecodecamp.org",
+];
+const DEMO_LINK_TEXT = ["bisibility", "demo site", "seo tool", "click here", "this guide", "read more", "https://demo.bisibility.dev", "keyword tracking", "free seo dashboard"];
+const DEMO_LINK_PATHS = ["", "pricing", "blog/seo-basics", "blog/keyword-research", "features", "docs", "blog/site-audit", "about"];
+
+/**
+ * Three demo uploads of Search Console's Links export, about two months apart,
+ * so the page shows growth, new sites and a lost site.
+ */
+export function demoLinkImports(domain: string) {
+  return [60, 30, 0].map((daysAgo, step) => {
+    const count = 14 + step * 2;
+    // the last upload gains sites at the end and drops the first two, so both new and lost sites show
+    const sites = DEMO_LINK_SITES.slice(step === 2 ? 2 : 0, step === 2 ? count + 2 : count);
+    return {
+      daysAgo,
+      sites: sites.map((label, i) => {
+        const r = rng(`links:${domain}:${label}:${step}`);
+        return { label, links: Math.max(1, Math.round(120 / (i + 1) * r.float(0.8, 1.3)) + step * 2), related: r.int(1, 6) };
+      }),
+      pages: DEMO_LINK_PATHS.map((p, i) => {
+        const r = rng(`linkp:${domain}:${p}:${step}`);
+        return { label: `https://${domain}/${p}`, links: Math.max(2, Math.round(300 / (i + 1) * r.float(0.8, 1.2)) + step * 5), related: r.int(2, 14) };
+      }),
+      texts: DEMO_LINK_TEXT.map((label, i) => {
+        const r = rng(`linkt:${domain}:${label}:${step}`);
+        return { label, links: Math.max(1, Math.round(200 / (i + 1) * r.float(0.8, 1.2))) };
+      }),
+    };
+  });
+}

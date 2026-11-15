@@ -10,6 +10,7 @@ import {
   KeyRoundIcon,
   LayoutDashboardIcon,
   Link2Icon,
+  LinkIcon,
   LogOutIcon,
   PlusIcon,
   ScanSearchIcon,
@@ -52,6 +53,7 @@ const PROJECT_NAV = [
   { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
   { segment: "performance", label: "Search performance", icon: ChartLineIcon },
   { segment: "referrals", label: "Referrals", icon: Link2Icon },
+  { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
   { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
   { segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" },
 ] as const satisfies readonly { segment: string; label: string; icon: unknown; permission?: Permission }[];

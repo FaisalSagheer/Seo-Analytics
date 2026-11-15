@@ -100,6 +100,12 @@ There is no free way to see every backlink: that takes a crawler of the whole we
 
 It needs the project's GA4 property (see above) and fills in on **Sync Google** or the daily sync, which keeps 6 months of history. The comparison is available for 7 days, 28 days and 3 months. A link nobody clicks never appears, and a drop can mean the link was removed or just stopped getting clicks. The page list is best-effort: if GA4 refuses that one request, the sites list is still updated and the sync reports a warning.
 
+### Backlinks: import Search Console's Links report
+
+Search Console shows who links to you, but Google offers no API for it, so **Backlinks** takes the export. In Search Console open **Links**, press **Export external links**, choose **Download CSV** (or Excel, then save as CSV), and upload the ZIP or the CSV files on the project's **Backlinks** page. The files can be in any language and use commas, semicolons or tabs. Each table is recognised by what it holds: top linking sites, top linked pages and top linking text. A file that is none of these (for example the internal links table) is skipped with a note.
+
+Every upload is a snapshot with the date you exported it. The latest list of linking sites is compared with the one before it to show **New sites**, **Lost sites** and the change per site, and a chart appears once you have two uploads. Import again every month or so. Search Console only exports your top links, so a site that drops out can be a lost link or just one that fell below the cut. The last 24 imports are kept, and a client role needs the **Run data syncs** permission to upload or delete one. The data is also at `GET /api/v1/projects/{id}/backlinks`.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.

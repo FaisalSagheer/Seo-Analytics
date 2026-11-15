@@ -49,6 +49,14 @@ export function GET(request: Request) {
           responses: ok("Referrals"),
         },
       },
+      "/projects/{projectId}/backlinks": {
+        get: {
+          summary: "Backlinks from the Search Console Links exports uploaded for the project, with new and lost linking sites",
+          operationId: "getBacklinks",
+          parameters: [projectId],
+          responses: ok("Backlinks"),
+        },
+      },
       "/projects/{projectId}/keywords": {
         get: { summary: "List tracked keywords", operationId: "listKeywords", parameters: [projectId], responses: ok("Keywords") },
         post: {

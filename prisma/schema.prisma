@@ -31,6 +31,7 @@ model User {
 
   projects            Project[]
   projectMemberships  ProjectMember[]
+  linkImports         LinkImport[]
   providerCredentials ProviderCredential[]
   apiKeys             ApiKey[]
 
@@ -160,6 +161,7 @@ model Project {
   members           ProjectMember[]
   referralDaily     ReferralDaily[]
   referralPages     ReferralPage[]
+  linkImports       LinkImport[]
 
   @@index([userId], map: "Project_userId_idx")
   @@map("project")
@@ -444,6 +446,45 @@ model ReferralPage {
 
   @@index([projectId], map: "ReferralPage_projectId_idx")
   @@map("referralpage")
+}
+
+/// One upload of Search Console's Links report. Google has no API for it, so someone exports it
+/// and uploads it here; keeping each upload is what shows new and lost linking sites over time.
+model LinkImport {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "LinkImport_projectId_fkey")
+  /// The day the report was exported, which the admin can set
+  asOf        DateTime        @db.Date
+  createdAt   DateTime        @default(now())
+  createdById String?
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull, map: "LinkImport_createdById_fkey")
+  rows        LinkImportRow[]
+
+  @@index([projectId, asOf], map: "LinkImport_projectId_asOf_idx")
+  @@map("linkimport")
+}
+
+enum LinkKind {
+  /// Top linking sites: links = linking pages, related = target pages
+  SITE
+  /// Top linked pages: links = incoming links, related = linking sites
+  PAGE
+  /// Top linking text: links = number of links
+  TEXT
+}
+
+model LinkImportRow {
+  id       String     @id @default(cuid())
+  importId String
+  import   LinkImport @relation(fields: [importId], references: [id], onDelete: Cascade, map: "LinkImportRow_importId_fkey")
+  kind     LinkKind
+  label    String     @db.VarChar(2048)
+  links    Int
+  related  Int?
+
+  @@index([importId, kind], map: "LinkImportRow_importId_kind_idx")
+  @@map("linkimportrow")
 }
 
 /// An invite link for someone new. Only a hash of the link is stored; it works once, until it expires.
