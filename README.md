@@ -52,6 +52,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"      # 
 
 ## Connecting data providers
 
+### Keys per project (for clients)
+
+Keys can also belong to a single project, for example a client's own. Open **Project settings → Provider keys** and add a Serper, DataForSEO or Bing key there. A project uses its own key first, then its owner's key from **Providers & API**, then the server-wide key from `.env`. Each project's badge shows which one is in effect. Anyone whose role can connect providers (admins always) can add, replace or remove them. Keys are encrypted with `APP_ENCRYPTION_KEY` and deleted with the project. Demo projects don't take keys.
+
 ### Serper (rank checks, free tier)
 
 [Serper.dev](https://serper.dev) gives 2,500 free queries and is the cheapest way to track rankings. In **Providers & API**, under **Serper**, paste your API key and pick a check depth. When Serper is connected, rank checks use it. Keyword ideas, domain overview and backlinks still need DataForSEO.

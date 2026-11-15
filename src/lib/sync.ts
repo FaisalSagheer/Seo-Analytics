@@ -160,7 +160,7 @@ export async function syncDomain(project: Project) {
     if (project.isDemo) {
       attempted++;
       fetched.push({ source: "BING", ...demoBingBacklinks(project.domain), domainRank: null });
-    } else if (await getBingApiKey(project.userId)) {
+    } else if (await getBingApiKey(project)) {
       attempted++;
       try {
         const bing = (await getBingForProject(project))!;
@@ -232,7 +232,7 @@ type BacklinkSourceResult = {
 
 /** The owner's Bing key (or the server's) plus the project's Bing site, auto-matched by domain if unset. */
 async function getBingForProject(project: Project) {
-  const apiKey = await getBingApiKey(project.userId);
+  const apiKey = await getBingApiKey(project);
   if (!apiKey) return null;
   let siteUrl = project.bingSiteUrl;
   if (!siteUrl) {

@@ -27,7 +27,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
 
   return (
     <>
-      <PageHeader title="Providers & API" description="Connect your own data accounts and manage API access." />
+      <PageHeader title="Providers & API" description="Connect your own data accounts and manage API access. A project can use its own keys instead, under Project settings." />
       <div className="flex max-w-3xl flex-col gap-6">
         {!canProviders && !canApiKeys && (
           <p className="text-muted-foreground text-sm">Your role doesn&apos;t include connecting providers or creating API keys.</p>

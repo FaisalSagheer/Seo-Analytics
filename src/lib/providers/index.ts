@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { decrypt, encrypt, sha256 } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { demoProvider } from "@/lib/demo/provider";
+import { findCredential } from "@/lib/providers/credentials";
 import { createDataForSeo } from "@/lib/providers/dataforseo";
 import { GOOGLE_DATA_SCOPES } from "@/lib/providers/google";
 import { DEFAULT_SERPER_DEPTH, createSerperRankChecker } from "@/lib/providers/serper";
@@ -16,19 +17,20 @@ export class ProviderNotConfiguredError extends Error {
   }
 }
 
+type ProjectRef = { id: string; isDemo: boolean; userId: string };
+
 /**
- * Demo projects always use generated data. Real projects use the owner's own
- * DataForSEO account, then the server-wide one from env, else they fail loudly.
+ * Demo projects always use generated data. Real projects use their own
+ * DataForSEO key, then the owner's account key, then the server-wide one from
+ * env, else they fail loudly.
  */
-export async function getSeoProvider(project: { isDemo: boolean; userId: string }): Promise<SeoProvider> {
+export async function getSeoProvider(project: ProjectRef): Promise<SeoProvider> {
   if (project.isDemo) return demoProvider;
-  const cred = await db.providerCredential.findUnique({
-    where: { userId_provider: { userId: project.userId, provider: "DATAFORSEO" } },
-  });
-  if (cred) return createDataForSeo(cred.login, decrypt(cred.secretEncrypted));
+  const cred = await findCredential(project, "DATAFORSEO");
+  if (cred) return createDataForSeo(cred.login, cred.secret);
   const e = env();
   if (e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD) return createDataForSeo(e.DATAFORSEO_LOGIN, e.DATAFORSEO_PASSWORD);
-  throw new ProviderNotConfiguredError("Connect a DataForSEO account in Settings → Providers to fetch live data.");
+  throw new ProviderNotConfiguredError("Add a DataForSEO key in Project settings (or connect one in Settings → Providers) to fetch live data.");
 }
 
 export type RankChecker = {
@@ -40,14 +42,12 @@ export type RankChecker = {
  * Rank checks prefer Serper (free tier, cheap per check) when connected, then
  * fall back to DataForSEO. Everything else still goes through getSeoProvider.
  */
-export async function getRankChecker(project: { isDemo: boolean; userId: string }): Promise<RankChecker> {
+export async function getRankChecker(project: ProjectRef): Promise<RankChecker> {
   if (project.isDemo) return { source: "DEMO", checkRank: demoProvider.checkRank };
-  const serper = await db.providerCredential.findUnique({
-    where: { userId_provider: { userId: project.userId, provider: "SERPER" } },
-  });
+  const serper = await findCredential(project, "SERPER");
   const e = env();
   if (serper) {
-    return { source: "SERPER", checkRank: createSerperRankChecker(decrypt(serper.secretEncrypted), serper.rankDepth ?? DEFAULT_SERPER_DEPTH) };
+    return { source: "SERPER", checkRank: createSerperRankChecker(serper.secret, serper.rankDepth ?? DEFAULT_SERPER_DEPTH) };
   }
   if (e.SERPER_API_KEY) {
     return { source: "SERPER", checkRank: createSerperRankChecker(e.SERPER_API_KEY, e.SERPER_RANK_DEPTH) };
@@ -57,24 +57,27 @@ export async function getRankChecker(project: { isDemo: boolean; userId: string 
     return { source: "DATAFORSEO", checkRank: provider.checkRank };
   } catch (err) {
     if (err instanceof ProviderNotConfiguredError) {
-      throw new ProviderNotConfiguredError("Pick a Search Console site in Project settings (free), or connect Serper or DataForSEO in Settings → Providers, to track rankings.");
+      throw new ProviderNotConfiguredError("Pick a Search Console site in Project settings (free), or add a Serper or DataForSEO key there, to track rankings.");
     }
     throw err;
   }
 }
 
-/** Whether the owner (or the server) has DataForSEO credentials, without decrypting them. */
-export async function hasDataForSeo(userId: string): Promise<boolean> {
+/** Whether the project (its own key, its owner, or the server) has DataForSEO credentials, without decrypting them. */
+export async function hasDataForSeo(project: { id: string; userId: string }): Promise<boolean> {
   const e = env();
   if (e.DATAFORSEO_LOGIN && e.DATAFORSEO_PASSWORD) return true;
-  const count = await db.providerCredential.count({ where: { userId, provider: "DATAFORSEO" } });
-  return count > 0;
+  const [own, owner] = await Promise.all([
+    db.projectCredential.count({ where: { projectId: project.id, provider: "DATAFORSEO" } }),
+    db.providerCredential.count({ where: { userId: project.userId, provider: "DATAFORSEO" } }),
+  ]);
+  return own + owner > 0;
 }
 
-/** The owner's Bing Webmaster Tools key, else the server-wide one, else null. */
-export async function getBingApiKey(userId: string): Promise<string | null> {
-  const cred = await db.providerCredential.findUnique({ where: { userId_provider: { userId, provider: "BING" } } });
-  if (cred) return decrypt(cred.secretEncrypted);
+/** The project's Bing Webmaster Tools key, else its owner's, else the server-wide one, else null. */
+export async function getBingApiKey(project: { id: string; userId: string }): Promise<string | null> {
+  const cred = await findCredential(project, "BING");
+  if (cred) return cred.secret;
   return env().BING_WEBMASTER_API_KEY || null;
 }
 

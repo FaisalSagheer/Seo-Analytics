@@ -131,8 +131,8 @@ export async function listBingProperties(projectId: string): Promise<ActionResul
   const blocked = await denied("projects.edit");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
-  const apiKey = await getBingApiKey(project.userId);
-  if (!apiKey) return fail("The project owner hasn't connected Bing Webmaster Tools in Settings → Providers.");
+  const apiKey = await getBingApiKey(project);
+  if (!apiKey) return fail("Bing Webmaster Tools isn't connected for this project. Add a key under Provider keys below, or in Settings → Providers.");
   try {
     return ok(await listBingSites(apiKey));
   } catch (err) {

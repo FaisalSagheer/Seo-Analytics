@@ -5,7 +5,9 @@ import { ProjectSettingsForm } from "@/components/projects/project-settings-form
 import { BacklinkSourcesForm } from "@/components/projects/backlink-sources-form";
 import { db } from "@/lib/db";
 import { getBingApiKey, getGoogleAccount, hasDataForSeo } from "@/lib/providers";
-import { requirePermission, requireProject } from "@/lib/session";
+import { getCredentialSummary } from "@/lib/providers/credentials";
+import { ProjectKeysCard } from "@/components/projects/project-keys-card";
+import { can, requirePermission, requireProject } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Project settings" };
 
@@ -14,15 +16,17 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
   await requirePermission("projects.edit");
   const { project } = await requireProject(projectId);
   // Syncs run on the owner's connected accounts, whoever is editing
-  const [google, bingKey, dataForSeo, keywords, rankChecks, backlinks, audits, gscDays] = await Promise.all([
+  const [google, bingKey, dataForSeo, keywords, rankChecks, backlinks, audits, gscDays, keySummary, canKeys] = await Promise.all([
     getGoogleAccount(project.userId),
-    getBingApiKey(project.userId),
-    hasDataForSeo(project.userId),
+    getBingApiKey(project),
+    hasDataForSeo(project),
     db.keyword.count({ where: { projectId } }),
     db.rankSnapshot.count({ where: { keyword: { projectId } } }),
     db.backlink.count({ where: { projectId } }),
     db.auditRun.count({ where: { projectId } }),
     db.searchConsoleDaily.count({ where: { projectId } }),
+    getCredentialSummary(project),
+    can("providers.manage"),
   ]);
 
   return (
@@ -51,6 +55,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
             bingSiteUrl: project.bingSiteUrl,
           }}
         />
+        {!project.isDemo && canKeys && <ProjectKeysCard projectId={project.id} summary={keySummary} />}
         {!project.isDemo && (
           <GooglePropertyForm
             connected={Boolean(google?.hasDataScopes)}
