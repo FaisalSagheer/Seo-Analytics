@@ -1,10 +1,10 @@
 import "server-only";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@/generated/prisma/client";
+import { resolveDatabaseUrl } from "@/lib/database-url";
 
 function createClient() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set. Copy .env.example to .env.");
+  const url = resolveDatabaseUrl();
   // The mariadb driver speaks MySQL; it expects the mariadb:// scheme.
   const adapter = new PrismaMariaDb(url.replace(/^mysql:\/\//, "mariadb://"));
   return new PrismaClient({ adapter });

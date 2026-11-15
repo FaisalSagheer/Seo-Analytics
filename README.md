@@ -31,7 +31,9 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `DATABASE_URL` | yes | `mysql://user:pass@host:3306/bisibility`. Create the database first. |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | yes | The database connection. Defaults: `localhost`, `3306`, `root`, no password, `bisibility`. Create the database first. |
+| `DATABASE_URL` | no | A single connection string, `mysql://user:pass@host:3306/bisibility`, instead of the five `DB_*` values. It wins if set. |
+| `SEED_ADMIN_EMAIL`, `SEED_PASSWORD` | no | Used by `npm run db:seed` to create the first admin account (password at least 8 characters). An existing account with that email is made Admin and keeps its password. Remove `SEED_PASSWORD` afterwards. |
 | `AUTH_URL` | yes | The public URL of the app. |
 | `AUTH_SECRET` | yes | 32+ random characters. |
 | `APP_ENCRYPTION_KEY` | yes | 64 hex characters. Encrypts the DataForSEO passwords users save. |

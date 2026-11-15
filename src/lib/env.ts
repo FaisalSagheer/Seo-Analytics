@@ -7,7 +7,13 @@ const bool = z
   .transform((v) => v === "true" || v === "1");
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  // Connection: DATABASE_URL, or DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME (see lib/database-url.ts)
+  DATABASE_URL: z.string().optional(),
+  DB_HOST: z.string().optional(),
+  DB_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  DB_USER: z.string().optional(),
+  DB_PASSWORD: z.string().optional(),
+  DB_NAME: z.string().optional(),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
   AUTH_URL: z.url().default("http://localhost:3000"),
   /// 64 hex chars (32 bytes) used to encrypt stored provider secrets
