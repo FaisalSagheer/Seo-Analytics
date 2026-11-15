@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sha256 } from "@/lib/crypto";
 import { getViewerRole, requireUser } from "@/lib/session";
+import { inviteEmail, mailConfigured, sendMail } from "@/lib/mail";
 import { inviteSchema, roleSchema, type InviteInput, type RoleInput } from "@/lib/validations";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
@@ -108,7 +109,9 @@ export async function setMemberActive(userId: string, active: boolean): Promise<
  * Creates a one-time sign-up link for a new person. The link is shown once; only
  * its hash is stored, so it can't be recovered later, only revoked or replaced.
  */
-export async function createInvite(input: InviteInput): Promise<ActionResult<{ link: string; expiresAt: string }>> {
+export type InviteResult = { link: string; expiresAt: string; emailed: boolean; emailError?: string; emailConfigured: boolean };
+
+export async function createInvite(input: InviteInput): Promise<ActionResult<InviteResult>> {
   const blocked = await adminOnly();
   if (blocked) return blocked;
   const parsed = inviteSchema.safeParse(input);
@@ -124,7 +127,18 @@ export async function createInvite(input: InviteInput): Promise<ActionResult<{ l
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
   const me = await requireUser();
   await db.invitation.create({ data: { email, roleId, tokenHash: sha256(token), invitedById: me.id, expiresAt } });
-  return ok({ link: `${env().APP_URL}/invite/${token}`, expiresAt: expiresAt.toISOString() });
+  const link = `${env().APP_URL}/invite/${token}`;
+  const result: InviteResult = { link, expiresAt: expiresAt.toISOString(), emailed: false, emailConfigured: mailConfigured() };
+  if (!result.emailConfigured) return ok(result);
+  // The invite exists even if the email fails, so the admin can copy the link instead
+  try {
+    const inviter = await db.user.findUnique({ where: { id: me.id }, select: { name: true } });
+    await sendMail({ to: email, ...inviteEmail({ to: email, link, roleName: role.name, inviterName: inviter?.name ?? "", expiresAt }) });
+    result.emailed = true;
+  } catch (err) {
+    result.emailError = err instanceof Error ? err.message : "The email couldn't be sent.";
+  }
+  return ok(result);
 }
 
 export async function revokeInvite(invitationId: string): Promise<ActionResult> {

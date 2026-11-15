@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createInvite, revokeInvite } from "@/lib/actions/team";
 import { formatRelative } from "@/lib/format";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -23,7 +24,7 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState(roles.find((r) => r.name === "Editor")?.id ?? roles[0]?.id ?? "");
-  const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [link, setLink] = useState<{ url: string; expiresAt: string; email: string; emailed: boolean; emailError?: string; emailConfigured: boolean } | null>(null);
   const items = roles.map((r) => ({ value: r.id, label: r.name }));
 
   function create(e: React.FormEvent) {
@@ -32,7 +33,7 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
       const res = await createInvite({ email, roleId });
       if (!res.ok) return void toast.error(res.error);
       // Shown once: only a hash is kept, so this is the only chance to copy it
-      setLink({ url: res.data.link, expiresAt: res.data.expiresAt });
+      setLink({ url: res.data.link, expiresAt: res.data.expiresAt, email, emailed: res.data.emailed, emailError: res.data.emailError, emailConfigured: res.data.emailConfigured });
       router.refresh();
     });
   }
@@ -59,8 +60,8 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
       <CardHeader>
         <CardTitle>Invitations</CardTitle>
         <CardDescription>
-          Invite someone new with a link. The link works once, for 7 days, and is shown only when you create it. Anyone who signs up with the
-          invited email gets the role you picked.
+          Invite someone new. They get a one-time link, valid for 7 days, by email when email is set up on this server, or from you. The link
+          works once, and only for the invited address. The role you pick is the one they start with.
         </CardDescription>
         <div className="pt-2">
           <Dialog open={open} onOpenChange={reset}>
@@ -72,11 +73,25 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
               {link ? (
                 <>
                   <DialogHeader>
-                    <DialogTitle>Send this link to {email}</DialogTitle>
+                    <DialogTitle>{link.emailed ? `Invitation sent to ${link.email}` : `Invitation for ${link.email}`}</DialogTitle>
                     <DialogDescription>
-                      It expires {formatRelative(new Date(link.expiresAt))}. Copy it now: you won&apos;t see it again.
+                      The link expires {formatRelative(new Date(link.expiresAt))}. Copy it now: you won&apos;t see it again.
                     </DialogDescription>
                   </DialogHeader>
+                  {link.emailed ? (
+                    <p className="text-muted-foreground text-sm">They&apos;ve been emailed the link. You can also copy it below.</p>
+                  ) : link.emailError ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>The email couldn&apos;t be sent</AlertTitle>
+                      <AlertDescription>
+                        Reason: {link.emailError}. Copy the link below and send it yourself.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      {link.emailConfigured ? "" : "Email isn't set up on this server. "}Copy the link below and send it yourself.
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <Input readOnly value={link.url} className="font-mono text-xs" aria-label="Invitation link" />
                     <Button

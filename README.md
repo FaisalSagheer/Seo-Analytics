@@ -39,6 +39,7 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 | `DEMO_MODE`, `DEMO_EMAIL`, `DEMO_PASSWORD` | no | Demo sign-in button and the seeded account. |
 | `ALLOW_SIGNUP` | no | `false` closes registration. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | no | Google sign-in, and connecting your own Google account for Search Console and GA4. Not needed if every project uses a service account. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | no | Email for invitation links, sent with nodemailer. Set `SMTP_HOST` and `SMTP_FROM` to turn it on. Without them, the admin copies the link and sends it. |
 | `CRON_SECRET` | no | Protects the scheduled sync endpoint. |
 
 Generate the secrets:
@@ -86,7 +87,7 @@ Each user has one role. A role decides what they can change (for example create 
 
 A client's API key follows the same rules: it lists only the projects they can see, and any other project returns 404.
 
-**Inviting people.** On **Team & roles**, click **Invite someone**, enter the email and pick the role. You get a one-time link, shown once and valid for 7 days. The person opens it, sets their name and password, and is signed in with that role. An invite works even when public sign-up is turned off (`ALLOW_SIGNUP="false"`), and the link only works for the invited email. Revoke a pending invitation from the same page.
+**Inviting people.** On **Team & roles**, click **Invite someone**, enter the email and pick the role. When email is set up (`SMTP_HOST` and `SMTP_FROM`), the invitation is emailed. Otherwise, or if sending fails, the one-time link is shown once for you to copy. Links are valid for 7 days. The person opens it, sets their name and password, and is signed in with that role. An invite works even when public sign-up is turned off (`ALLOW_SIGNUP="false"`), and the link only works for the invited email. Revoke a pending invitation from the same page.
 
 **Deactivating people.** On **Team & roles**, **Deactivate** blocks sign-in and API keys at once, including sessions that are already open, and keeps everything the person created. **Reactivate** restores access. You can't deactivate your own account.
 

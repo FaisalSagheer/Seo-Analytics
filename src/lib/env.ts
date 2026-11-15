@@ -26,6 +26,13 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  // Email (optional). Invites are emailed when SMTP_HOST and SMTP_FROM are set; otherwise the admin copies the link.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_SECURE: bool,
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
   ALLOW_SIGNUP: z
     .enum(["true", "false", "1", "0", ""])
     .optional()
