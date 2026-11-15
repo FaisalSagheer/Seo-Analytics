@@ -57,3 +57,47 @@ export const DEMO_KEYWORDS: { phrase: string; tags: string }[] = [
   { phrase: "seo audit tool", tags: "tools" },
   { phrase: "best rank tracker 2026", tags: "core,commercial" },
 ];
+
+const DEMO_REFERRERS = [
+  "news.ycombinator.com", "reddit.com", "medium.com", "dev.to", "producthunt.com", "github.com",
+  "indiehackers.com", "smashingmagazine.com", "searchengineland.com", "moz.com", "hubspot.com", "forbes.com",
+];
+const DEMO_REFERRER_PATHS = ["", "r/seo/comments/", "posts/", "blog/", "launch/", "articles/", "item?id=", "resources/", "news/", "guides/"];
+
+/**
+ * Demo referral traffic for one day. Most sites send visits all the time, two only began
+ * in the last couple of weeks and one stopped a month ago, so the "new" and "gone" views
+ * have something to show.
+ */
+export function demoReferrals(domain: string, date: Date) {
+  const day = Math.floor(date.getTime() / 86_400_000);
+  const today = Math.floor(Date.now() / 86_400_000);
+  const weekday = date.getUTCDay();
+  const weekly = weekday === 0 || weekday === 6 ? 0.6 : 1.1;
+  return DEMO_REFERRERS.flatMap((source, i) => {
+    const age = today - day; // days ago
+    if (i === 8 && age > 12) return [];
+    if (i === 9 && age > 6) return [];
+    if (i === 10 && age < 35) return [];
+    const r = rng(`ref:${domain}:${source}:${day}`);
+    if (i === 11 && !r.bool(0.35)) return [];
+    const sessions = Math.max(1, Math.round((70 / (i + 1.5)) * weekly * r.float(0.7, 1.3)));
+    return [{ source, sessions, users: Math.max(1, Math.round(sessions * r.float(0.75, 0.95))), conversions: r.bool(0.18) ? 1 : 0 }];
+  });
+}
+
+/** Demo referring pages for the last 28 days. */
+export function demoReferralPages(domain: string) {
+  return DEMO_REFERRERS.slice(0, 10).flatMap((source, i) =>
+    [0, 1, 2].slice(0, i < 4 ? 3 : 1).map((n) => {
+      const r = rng(`refp:${domain}:${source}:${n}`);
+      const sessions = Math.max(2, Math.round((900 / (i + 1)) / (n + 1) * r.float(0.8, 1.2)));
+      return {
+        referrer: `https://${source}/${DEMO_REFERRER_PATHS[(i + n) % DEMO_REFERRER_PATHS.length]}${hashString(`${source}${n}`).toString(36)}`,
+        source,
+        sessions,
+        users: Math.max(1, Math.round(sessions * 0.85)),
+      };
+    }),
+  );
+}

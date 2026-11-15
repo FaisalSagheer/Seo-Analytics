@@ -41,6 +41,14 @@ export function GET(request: Request) {
           responses: ok("Rankings"),
         },
       },
+      "/projects/{projectId}/referrals": {
+        get: {
+          summary: "Sites and pages that sent visitors (GA4 referral channel), with new and gone-quiet sites",
+          operationId: "getReferrals",
+          parameters: [projectId, days(28)],
+          responses: ok("Referrals"),
+        },
+      },
       "/projects/{projectId}/keywords": {
         get: { summary: "List tracked keywords", operationId: "listKeywords", parameters: [projectId], responses: ok("Keywords") },
         post: {

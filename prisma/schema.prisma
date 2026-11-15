@@ -158,6 +158,8 @@ model Project {
   auditRuns         AuditRun[]
   credentials       ProjectCredential[]
   members           ProjectMember[]
+  referralDaily     ReferralDaily[]
+  referralPages     ReferralPage[]
 
   @@index([userId], map: "Project_userId_idx")
   @@map("project")
@@ -254,7 +256,7 @@ model AnalyticsDaily {
   @@map("analyticsdaily")
 }
 
-// ---- Domain overview & backlinks ----
+// ---- Referral links (from GA4) ----
 
 /// Organic fields are null when only a backlink source (Bing) was available;
 /// backlink fields are null when no backlink source was available.
@@ -409,6 +411,39 @@ enum Provider {
   BING
   /// A Google service account key (Search Console + GA4), stored per project
   GOOGLE
+}
+
+/// GA4 sessions that arrived from other websites, per day and referring site. The closest free
+/// thing to backlink tracking: it only sees links that sent at least one visit.
+model ReferralDaily {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "ReferralDaily_projectId_fkey")
+  date        DateTime @db.Date
+  /// The referring site, e.g. "news.ycombinator.com"
+  source      String   @db.VarChar(191)
+  sessions    Int
+  users       Int
+  conversions Int
+
+  @@unique([projectId, date, source], map: "ReferralDaily_projectId_date_source_key")
+  @@map("referraldaily")
+}
+
+/// The individual pages that sent those visits over the last 28 days. Replaced on every sync.
+model ReferralPage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "ReferralPage_projectId_fkey")
+  /// Full referring URL
+  referrer  String   @db.VarChar(2048)
+  source    String   @db.VarChar(191)
+  sessions  Int
+  users     Int
+  syncedAt  DateTime @default(now())
+
+  @@index([projectId], map: "ReferralPage_projectId_idx")
+  @@map("referralpage")
 }
 
 /// An invite link for someone new. Only a hash of the link is stored; it works once, until it expires.

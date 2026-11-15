@@ -4,6 +4,7 @@ An open source, self-hosted SEO dashboard that needs no paid SEO API. Track your
 
 - **Rank tracking:** daily average position per keyword from Search Console, with sparklines, filters, a per-keyword history chart and a change log. A new keyword gets up to 90 days of history straight away
 - **Search performance:** Search Console clicks, impressions, CTR and queries plus GA4 organic sessions on one timeline with your tracked ranks. Striking-distance queries are flagged and can be tracked in one click
+- **Referrals:** the sites and pages that sent visitors, read from GA4, with how each changed against the previous period, which sites are new and which have gone quiet. It is a partial view of your backlinks: only links that sent at least one visit appear
 - **Site audit:** crawls up to 50 pages of a project's site and reports missing or badly sized titles and descriptions, H1 problems, broken links, noindex pages, duplicates, thin content, slow pages, robots.txt and sitemap issues, with a 0 to 100 health score
 - **Per-client Google access:** a client can hand over a Google service account key for their project, so they never have to sign in
 - **Demo mode:** six months of generated sample data, plus a one-click "Explore the demo" sign-in
@@ -93,6 +94,12 @@ A client's API key follows the same rules: it lists only the projects they can s
 
 To give a client their own login: create a role with **See every project** turned off, invite them with the client role, then tick their projects under each project's **Who can see this project**.
 
+### Referrals: backlink tracking without a paid API
+
+There is no free way to see every backlink: that takes a crawler of the whole web. What GA4 does know is every visit that arrived from another website, so **Referrals** shows the links that work. For each site it shows sessions, users and conversions, the change against the previous period of the same length, the date it first sent a visit, and a **New** badge for sites that started in the selected range. **Gone quiet** lists sites that sent visits in the previous period and none now. **Referring pages** lists the exact pages from the last 28 days, so you can open one and check the link.
+
+It needs the project's GA4 property (see above) and fills in on **Sync Google** or the daily sync, which keeps 6 months of history. The comparison is available for 7 days, 28 days and 3 months. A link nobody clicks never appears, and a drop can mean the link was removed or just stopped getting clicks. The page list is best-effort: if GA4 refuses that one request, the sites list is still updated and the sync reports a warning.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.
@@ -139,6 +146,7 @@ curl -H "Authorization: Bearer bsk_..." http://localhost:3000/api/v1/projects
 | GET | `/api/v1/projects` | Your projects |
 | GET | `/api/v1/projects/{id}/report?days=28` | Totals, daily GSC + GA4 + ranking series, top movers |
 | GET | `/api/v1/projects/{id}/rankings?days=90&keyword=&tag=` | Ranking history per keyword |
+| GET | `/api/v1/projects/{id}/referrals?days=28` | Sites and pages that sent visitors, with new and gone-quiet sites |
 | GET | `/api/v1/projects/{id}/keywords` | Tracked keywords |
 | POST | `/api/v1/projects/{id}/keywords` | Track keywords: `{ "keywords": [...], "tags": [...] }` |
 | GET | `/api/v1/openapi.json` | OpenAPI 3.1 spec (no auth needed) |

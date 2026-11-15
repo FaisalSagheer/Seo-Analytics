@@ -2,9 +2,10 @@ import "server-only";
 import { db } from "@/lib/db";
 import { daysAgo, toDateKey, utcDay } from "@/lib/dates";
 import { ProviderNotConfiguredError, getGoogleAccessToken } from "@/lib/providers";
-import { ga4Daily, gscDaily, gscKeywordHistory, gscQueries } from "@/lib/providers/google";
+import { ga4Daily, ga4ReferralDaily, ga4ReferralPages, gscDaily, gscKeywordHistory, gscQueries } from "@/lib/providers/google";
 import { gscCountry } from "@/lib/markets";
-import { demoTraffic } from "@/lib/demo/series";
+import { demoReferralPages, demoReferrals, demoTraffic } from "@/lib/demo/series";
+import { REFERRAL_WINDOW_DAYS } from "@/lib/referrals";
 import { dayIndex, demoPosition } from "@/lib/demo/rankings";
 import type { Project } from "@/generated/prisma/client";
 
@@ -115,7 +116,45 @@ async function syncDemoGoogle(project: Project) {
       ];
     }),
   );
+  // Referral rows for the same days, replaced so a refresh never doubles them
+  await db.$transaction([
+    db.referralDaily.deleteMany({ where: { projectId: project.id, date: { gte: days[days.length - 1] } } }),
+    db.referralDaily.createMany({ data: days.flatMap((date) => demoReferrals(project.domain, date).map((r) => ({ projectId: project.id, date, ...r }))) }),
+    db.referralPage.deleteMany({ where: { projectId: project.id } }),
+    db.referralPage.createMany({ data: demoReferralPages(project.domain).map((r) => ({ projectId: project.id, ...r })) }),
+  ]);
   return { gscDays: days.length, gaDays: days.length };
+}
+
+
+/**
+ * Pulls the sites and pages that sent visits. The daily history is the part that matters; the page
+ * list is best-effort, so a problem with it is reported as a warning and doesn't undo the rest.
+ */
+async function syncReferrals(project: Project, token: string) {
+  const propertyId = project.ga4PropertyId!;
+  const end = toDateKey(utcDay());
+  const from = daysAgo(REFERRAL_WINDOW_DAYS);
+  const daily = await ga4ReferralDaily(token, propertyId, toDateKey(from), end);
+  // The window is replaced as a whole: days Google no longer reports must not linger
+  await db.$transaction([
+    db.referralDaily.deleteMany({ where: { projectId: project.id, date: { gte: from } } }),
+    db.referralDaily.createMany({
+      data: daily.map((d) => ({ projectId: project.id, date: new Date(`${d.date}T00:00:00Z`), source: d.source, sessions: d.sessions, users: d.users, conversions: d.conversions })),
+    }),
+  ]);
+  const result = { sites: new Set(daily.map((d) => d.source)).size, pages: 0, warning: undefined as string | undefined };
+  try {
+    const pages = await ga4ReferralPages(token, propertyId, toDateKey(daysAgo(28)), end);
+    await db.$transaction([
+      db.referralPage.deleteMany({ where: { projectId: project.id } }),
+      db.referralPage.createMany({ data: pages.map((p) => ({ projectId: project.id, ...p })) }),
+    ]);
+    result.pages = pages.length;
+  } catch (err) {
+    result.warning = `Referring pages couldn't be loaded (${err instanceof Error ? err.message : String(err)}). The list of sites is up to date.`;
+  }
+  return result;
 }
 
 export async function syncGoogle(project: Project) {
@@ -129,6 +168,8 @@ export async function syncGoogle(project: Project) {
   const start = toDateKey(daysAgo(90));
   let gscDays = 0;
   let gaDays = 0;
+  let referral = { sites: 0, pages: 0 };
+  const warnings: string[] = [];
 
   if (project.gscSiteUrl) {
     const [daily, queries] = await Promise.all([
@@ -165,8 +206,15 @@ export async function syncGoogle(project: Project) {
       }),
     );
     gaDays = daily.length;
+    try {
+      const ref = await syncReferrals(project, token);
+      referral = { sites: ref.sites, pages: ref.pages };
+      if (ref.warning) warnings.push(ref.warning);
+    } catch (err) {
+      warnings.push(`Referral links couldn't be loaded: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
-  return { gscDays, gaDays };
+  return { gscDays, gaDays, referral, warnings };
 }
 
 /** Runs each part independently so one failing provider doesn't block the rest. */

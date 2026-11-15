@@ -179,3 +179,68 @@ export async function ga4Daily(token: string, propertyId: string, startDate: str
     };
   });
 }
+
+// ---- GA4 referrals: the closest free thing to backlink tracking ----
+
+export type Ga4ReferralDay = { date: string; source: string; sessions: number; users: number; conversions: number };
+export type Ga4ReferralPage = { referrer: string; source: string; sessions: number; users: number };
+
+const REFERRAL_ONLY = {
+  filter: { fieldName: "sessionDefaultChannelGroup", stringFilter: { matchType: "EXACT", value: "Referral" } },
+};
+const NOT_A_SITE = new Set(["(not set)", "(direct)", "(none)", ""]);
+
+type RunReport = { rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[] };
+const reportUrl = (propertyId: string) => `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+
+/** Sessions from other websites, per day and site. Only links that sent at least one visit appear. */
+export async function ga4ReferralDaily(token: string, propertyId: string, startDate: string, endDate: string): Promise<Ga4ReferralDay[]> {
+  const r = await call<RunReport>(token, reportUrl(propertyId), {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "date" }, { name: "sessionSource" }],
+    metrics: [{ name: "sessions" }, { name: "totalUsers" }, { name: "keyEvents" }],
+    dimensionFilter: REFERRAL_ONLY,
+    limit: 100_000,
+  });
+  // GA4 can list "Example.com" and "example.com" separately; once lowercased they are one site, so merge
+  // them (a day + site pair must be unique when stored)
+  const merged = new Map<string, Ga4ReferralDay>();
+  for (const row of r.rows ?? []) {
+    const source = row.dimensionValues[1].value.trim().toLowerCase().slice(0, 191);
+    if (NOT_A_SITE.has(source)) continue;
+    const d = row.dimensionValues[0].value; // YYYYMMDD
+    const date = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    const key = `${date}|${source}`;
+    const entry = merged.get(key) ?? { date, source, sessions: 0, users: 0, conversions: 0 };
+    entry.sessions += Number(row.metricValues[0].value);
+    entry.users += Number(row.metricValues[1].value);
+    entry.conversions += Math.round(Number(row.metricValues[2].value));
+    merged.set(key, entry);
+  }
+  return [...merged.values()];
+}
+
+/** The individual pages that sent visits, busiest first. */
+export async function ga4ReferralPages(token: string, propertyId: string, startDate: string, endDate: string): Promise<Ga4ReferralPage[]> {
+  const r = await call<RunReport>(token, reportUrl(propertyId), {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "pageReferrer" }],
+    metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+    dimensionFilter: REFERRAL_ONLY,
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+    limit: 1000,
+  });
+  const out: Ga4ReferralPage[] = [];
+  for (const row of r.rows ?? []) {
+    const referrer = row.dimensionValues[0].value.trim();
+    let host: string;
+    try {
+      host = new URL(referrer).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      continue; // "(not set)" and other values that aren't a URL
+    }
+    if (!host) continue;
+    out.push({ referrer: referrer.slice(0, 2048), source: host.slice(0, 191), sessions: Number(row.metricValues[0].value), users: Number(row.metricValues[1].value) });
+  }
+  return out;
+}

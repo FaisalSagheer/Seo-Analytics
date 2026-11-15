@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { demoPosition, demoVolume } from "@/lib/demo/rankings";
-import { DEMO_KEYWORDS, DEMO_QUERIES, demoTraffic } from "@/lib/demo/series";
+import { DEMO_KEYWORDS, DEMO_QUERIES, demoReferralPages, demoReferrals, demoTraffic } from "@/lib/demo/series";
 import { rng } from "@/lib/demo/random";
 
 export const DEMO_DOMAIN = "demo.bisibility.dev";
@@ -44,6 +44,11 @@ export async function seedDemoProject(db: PrismaClient, userId: string) {
   await db.analyticsDaily.createMany({
     data: days.map((date) => ({ projectId: project.id, date, ...demoTraffic(DEMO_DOMAIN, date).ga4 })),
   });
+
+  await db.referralDaily.createMany({
+    data: days.flatMap((date) => demoReferrals(DEMO_DOMAIN, date).map((r) => ({ projectId: project.id, date, ...r }))),
+  });
+  await db.referralPage.createMany({ data: demoReferralPages(DEMO_DOMAIN).map((r) => ({ projectId: project.id, ...r })) });
 
   await db.searchConsoleQuery.createMany({
     data: DEMO_QUERIES.map((query, i) => {
