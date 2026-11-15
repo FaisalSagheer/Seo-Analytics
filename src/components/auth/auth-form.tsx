@@ -45,6 +45,8 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
         return;
       }
       toast.success(isSignUp ? "Account created. Welcome!" : "Signed in.");
+      // Next keeps this form mounted behind the app, so clear it or the next visitor finds the last person's credentials in it
+      setForm({ name: "", email: "", password: "" });
       router.push("/projects");
       router.refresh();
     });
