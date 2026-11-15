@@ -77,6 +77,17 @@ GA4 is filtered to `sessionDefaultChannelGroup = Organic Search`, and conversion
 
 Search Console reports the **average position** your pages were shown at for a query, not a one-off live search result. A keyword gets a position on days it had at least one impression; days with none have no position. Search Console data runs about two days behind, and the project's device and country are applied as filters.
 
+## Team, roles and client access
+
+Each user has one role. A role decides what they can change (for example create projects, edit settings or manage API keys), and whether they **see every project**:
+
+- **See every project** is on by default, so the Admin, Editor and Viewer roles, and any role you create, see all projects.
+- **Turn it off** for a client role. That role sees only the projects it's been added to. Open a project's **Project settings → Who can see this project** and tick the people who should see it. The team's own admins always see everything.
+
+A client's API key follows the same rules: it lists only the projects they can see, and any other project returns 404.
+
+To give a client their own login: create a role with **See every project** turned off. The client signs up themselves (admins can't create accounts for others yet), then an admin sets their role on **Team & roles** and ticks their projects under each project's **Who can see this project**.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.
@@ -127,7 +138,7 @@ curl -H "Authorization: Bearer bsk_..." http://localhost:3000/api/v1/projects
 | POST | `/api/v1/projects/{id}/keywords` | Track keywords: `{ "keywords": [...], "tags": [...] }` |
 | GET | `/api/v1/openapi.json` | OpenAPI 3.1 spec (no auth needed) |
 
-Keys are stored only as SHA-256 hashes, can be revoked, and only reach projects owned by the key's user.
+Keys are stored only as SHA-256 hashes, can be revoked, and reach only the projects their user can see.
 
 ## How the numbers are calculated
 
@@ -138,7 +149,7 @@ Keys are stored only as SHA-256 hashes, can be revoked, and only reach projects 
 ## Project layout
 
 ```
-prisma/schema.prisma        data model (auth tables + SEO data)
+prisma/schema.prisma        data model (auth tables, project members, SEO data)
 prisma/seed.ts              demo account + project, first admin
 src/lib/providers/          Google (Search Console, GA4), service account and OAuth access
 src/lib/audit/              site audit crawler and checks

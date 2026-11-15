@@ -1,6 +1,6 @@
 /**
- * What a role can be granted. Viewing projects needs no permission: every
- * signed-in user sees every project, and a role only decides what they change.
+ * What a role can be granted. Viewing needs no permission: a role decides what a
+ * user can change, and whether they see every project or only the ones they're added to.
  *
  * Managing team members and roles isn't listed: it belongs to the built-in
  * Admin role alone. A custom role holding it could edit itself into anything.
@@ -25,4 +25,11 @@ export function sanitizePermissions(value: unknown): Permission[] {
   return PERMISSION_KEYS.filter((key) => value.includes(key));
 }
 
-export type ViewerRole = { id: string | null; name: string; isAdmin: boolean; permissions: Permission[] };
+export type ViewerRole = {
+  id: string | null;
+  name: string;
+  isAdmin: boolean;
+  /** True: sees every project. False: only the projects the user is a member of. */
+  seeAllProjects: boolean;
+  permissions: Permission[];
+};

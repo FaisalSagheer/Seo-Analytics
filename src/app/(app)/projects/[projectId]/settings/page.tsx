@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { GooglePropertyForm } from "@/components/projects/google-property-form";
+import { ProjectAccessCard, type AccessRow } from "@/components/projects/project-access-card";
 import { ProjectGoogleCard } from "@/components/projects/project-google-card";
 import { ProjectSettingsForm } from "@/components/projects/project-settings-form";
 import { db } from "@/lib/db";
 import { getGoogleSource } from "@/lib/providers";
-import { can, requirePermission, requireProject } from "@/lib/session";
+import { can, getViewerRole, requirePermission, requireProject } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Project settings" };
 
@@ -13,6 +14,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
   const { projectId } = await params;
   await requirePermission("projects.edit");
   const { project } = await requireProject(projectId);
+  const viewer = await getViewerRole();
   const [google, keywords, rankChecks, audits, gscDays, canGoogle] = await Promise.all([
     getGoogleSource(project),
     db.keyword.count({ where: { projectId } }),
@@ -21,6 +23,28 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
     db.searchConsoleDaily.count({ where: { projectId } }),
     can("providers.manage"),
   ]);
+
+  let access: AccessRow[] | null = null;
+  if (viewer.isAdmin && !project.isDemo) {
+    const [users, roles, members] = await Promise.all([
+      db.user.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, roleId: true, role: { select: { name: true, seeAllProjects: true, isSystem: true } } } }),
+      db.role.findFirst({ where: { isDefault: true }, select: { name: true, seeAllProjects: true, isSystem: true } }),
+      db.projectMember.findMany({ where: { projectId }, select: { userId: true } }),
+    ]);
+    const memberIds = new Set(members.map((m) => m.userId));
+    access = users.map((u) => {
+      // A user with no role row gets the default role, so judge them by that
+      const role = u.role ?? roles;
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        roleName: role?.name ?? "No role",
+        seesAll: Boolean(role?.isSystem || role?.seeAllProjects),
+        hasAccess: memberIds.has(u.id),
+      };
+    });
+  }
 
   return (
     <>
@@ -37,6 +61,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
             device: project.device,
           }}
         />
+        {access && <ProjectAccessCard projectId={project.id} rows={access} />}
         {!project.isDemo && canGoogle && <ProjectGoogleCard projectId={project.id} source={google.source} email={google.email} />}
         {!project.isDemo && (
           <GooglePropertyForm

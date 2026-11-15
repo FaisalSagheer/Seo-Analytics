@@ -4,17 +4,11 @@ import { dateKeys, daysAgo, toDateKey, utcDay } from "@/lib/dates";
 import { averagePosition, visibilityScore } from "@/lib/visibility";
 import type { OverviewPoint, ProjectReport, RankingRow } from "@/lib/types";
 
-/** Projects are shared by the whole team; roles decide who can change them. */
+/** Use listProjectsFor / canViewProject for anything a user can reach; this is the raw row. */
 export function getProject(projectId: string) {
   return db.project.findUnique({ where: { id: projectId } });
 }
 
-export function listProjects() {
-  return db.project.findMany({
-    orderBy: { createdAt: "asc" },
-    include: { _count: { select: { keywords: true } } },
-  });
-}
 
 export async function getRankingRows(projectId: string, days: number): Promise<RankingRow[]> {
   const from = daysAgo(days - 1);

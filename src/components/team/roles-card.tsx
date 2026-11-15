@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -32,6 +32,7 @@ export type RoleView = {
   permissions: Permission[];
   isSystem: boolean;
   isDefault: boolean;
+  seeAllProjects: boolean;
   memberCount: number;
 };
 
@@ -55,7 +56,7 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
         <div className="flex flex-col gap-1.5">
           <CardTitle>Roles</CardTitle>
           <CardDescription>
-            Everyone can view every project. A role decides what they can change. New sign-ups get the default role.
+            A role decides what people can change, and whether they see every project or only the ones they&apos;re added to. New sign-ups get the default role.
           </CardDescription>
         </div>
         <RoleDialog title="New role" submitLabel="Create role" onSubmit={(input) => createRole(input)}>
@@ -78,6 +79,7 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
                   </Badge>
                 )}
                 {role.isDefault && <Badge variant="outline">Default</Badge>}
+                {!role.seeAllProjects && <Badge variant="outline">Own projects only</Badge>}
                 <span className="text-muted-foreground text-xs">
                   {role.memberCount} member{role.memberCount === 1 ? "" : "s"}
                 </span>
@@ -99,7 +101,7 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
                 <RoleDialog
                   title={`Edit ${role.name}`}
                   submitLabel="Save role"
-                  initial={{ name: role.name, description: role.description, permissions: role.permissions }}
+                  initial={{ name: role.name, description: role.description, permissions: role.permissions, seeAllProjects: role.seeAllProjects }}
                   onSubmit={(input) => updateRole(role.id, input)}
                 >
                   <Button size="icon-sm" variant="ghost" aria-label={`Edit ${role.name}`}>
@@ -133,7 +135,8 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
   );
 }
 
-const EMPTY: RoleInput = { name: "", description: "", permissions: [] };
+// A new role sees every project unless turned off, which matches roles created before this setting existed
+const EMPTY: RoleInput = { name: "", description: "", permissions: [], seeAllProjects: true };
 
 function RoleDialog({
   title,
@@ -179,7 +182,7 @@ function RoleDialog({
         <form onSubmit={submit} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>Viewing projects needs no permission. Tick what this role can change.</DialogDescription>
+            <DialogDescription>Tick what this role can change, and whether it sees every project.</DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field>
@@ -195,6 +198,21 @@ function RoleDialog({
                 maxLength={255}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
+            </Field>
+            <Field orientation="horizontal">
+              <Checkbox
+                id="role-see-all"
+                checked={draft.seeAllProjects}
+                onCheckedChange={(c) => setDraft({ ...draft, seeAllProjects: c === true })}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor="role-see-all" className="font-normal">
+                  See every project
+                </FieldLabel>
+                <FieldDescription>
+                  Off for client roles: members see only the projects they&apos;ve been added to, on each project&apos;s settings page.
+                </FieldDescription>
+              </FieldContent>
             </Field>
             <FieldSet>
               <FieldLegend variant="label">Permissions</FieldLegend>

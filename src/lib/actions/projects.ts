@@ -24,7 +24,10 @@ export async function createProject(input: ProjectInput): Promise<ActionResult<{
   const user = await requireUser();
   const parsed = projectSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
-  const project = await db.project.create({ data: { ...parsed.data, userId: user.id } });
+  // The creator is a member, so a role that doesn't see every project can still open what it made
+  const project = await db.project.create({
+    data: { ...parsed.data, userId: user.id, members: { create: { userId: user.id } } },
+  });
   revalidatePath("/projects");
   return ok({ id: project.id });
 }

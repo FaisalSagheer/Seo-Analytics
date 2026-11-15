@@ -9,15 +9,16 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { formatRelative } from "@/lib/format";
 import { locationLabel } from "@/lib/markets";
-import { listProjects } from "@/lib/queries";
-import { can, requireUser } from "@/lib/session";
+import { listProjectsFor } from "@/lib/roles";
+import { can, getViewerRole, requireUser } from "@/lib/session";
 import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Projects" };
 
 export default async function ProjectsPage({ searchParams }: PageProps<"/projects">) {
-  await requireUser();
-  const [projects, sp, canCreate] = await Promise.all([listProjects(), searchParams, can("projects.create")]);
+  const viewer = await requireUser();
+  const role = await getViewerRole();
+  const [projects, sp, canCreate] = await Promise.all([listProjectsFor(role, viewer.id), searchParams, can("projects.create")]);
   const openNew = sp.new === "1" && canCreate;
   const demoEnabled = canCreate && env().DEMO_MODE;
 

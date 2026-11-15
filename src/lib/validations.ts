@@ -66,6 +66,8 @@ export const roleSchema = z.object({
   name: z.string().trim().min(1, "Name the role").max(40),
   description: z.string().trim().max(255).default(""),
   permissions: z.array(z.enum(PERMISSION_KEYS as [Permission, ...Permission[]])).default([]),
+  /** Off for client roles: members then see only the projects they've been added to */
+  seeAllProjects: z.boolean().default(true),
 });
 export type RoleInput = z.input<typeof roleSchema>;
 

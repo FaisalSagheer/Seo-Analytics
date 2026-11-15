@@ -27,6 +27,7 @@ model User {
   role          Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   projects            Project[]
+  projectMemberships  ProjectMember[]
   providerCredentials ProviderCredential[]
   apiKeys             ApiKey[]
 
@@ -46,6 +47,8 @@ model Role {
   permissions Json
   /// The built-in Admin role: holds every permission, can't be edited or deleted
   isSystem    Boolean  @default(false)
+  /// Sees every project. Off for client roles: they see only the projects they're a member of
+  seeAllProjects Boolean @default(true)
   /// Given to new sign-ups and to users whose role is deleted. Exactly one.
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -53,6 +56,19 @@ model Role {
   users       User[]
 
   @@map("role")
+}
+
+/// Who can see a project. Admins and roles with "See every project" don't need a row.
+model ProjectMember {
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "ProjectMember_projectId_fkey")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "ProjectMember_userId_fkey")
+  createdAt DateTime @default(now())
+
+  @@id([projectId, userId])
+  @@index([userId], map: "ProjectMember_userId_idx")
+  @@map("projectmember")
 }
 
 model Session {
@@ -137,6 +153,7 @@ model Project {
   backlinkSnapshots BacklinkSnapshot[]
   auditRuns         AuditRun[]
   credentials       ProjectCredential[]
+  members           ProjectMember[]
 
   @@index([userId], map: "Project_userId_idx")
   @@map("project")

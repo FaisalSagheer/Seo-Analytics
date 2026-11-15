@@ -14,7 +14,7 @@ function day(offset: number) {
 /** Creates a fully populated demo project (rankings, Search Console, GA4) for a user. */
 export async function seedDemoProject(db: PrismaClient, userId: string) {
   const project = await db.project.create({
-    data: { userId, name: "Demo project", domain: DEMO_DOMAIN, isDemo: true, lastSyncedAt: new Date() },
+    data: { userId, name: "Demo project", domain: DEMO_DOMAIN, isDemo: true, lastSyncedAt: new Date(), members: { create: { userId } } },
   });
 
   await db.keyword.createMany({

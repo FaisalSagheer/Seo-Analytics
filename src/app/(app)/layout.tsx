@@ -3,7 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listProjects } from "@/lib/queries";
+import { listProjectsFor } from "@/lib/roles";
 import { getViewerRole, requireUser } from "@/lib/session";
 import { PermissionsProvider } from "@/components/permissions-provider";
 
@@ -16,7 +16,8 @@ import { PermissionsProvider } from "@/components/permissions-provider";
  */
 async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [projects, role] = await Promise.all([listProjects(), getViewerRole()]);
+  const role = await getViewerRole();
+  const projects = await listProjectsFor(role, user.id);
   return (
     <PermissionsProvider role={role}>
     <SidebarProvider>

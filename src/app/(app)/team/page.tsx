@@ -42,6 +42,7 @@ export default async function TeamPage() {
             permissions: sanitizePermissions(r.permissions),
             isSystem: r.isSystem,
             isDefault: r.isDefault,
+            seeAllProjects: r.isSystem || r.seeAllProjects,
             memberCount: r._count.users + (r.isDefault ? unassigned : 0),
           }))}
         />

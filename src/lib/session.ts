@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getProject } from "@/lib/queries";
-import { resolveRole } from "@/lib/roles";
+import { canViewProject, resolveRole } from "@/lib/roles";
 import type { Permission } from "@/lib/permissions";
 import { fail } from "@/lib/actions/result";
 
@@ -54,10 +54,14 @@ export async function requireAdmin() {
   return requireUser();
 }
 
-/** Projects are shared across the team; 404s only when it doesn't exist. */
+/**
+ * Gate for a project's pages and actions. 404s both when it doesn't exist and when
+ * the viewer isn't allowed to see it, so other projects' existence isn't revealed.
+ */
 export async function requireProject(projectId: string) {
   const user = await requireUser();
   const project = await getProject(projectId);
   if (!project) notFound();
+  if (!(await canViewProject(await getViewerRole(), user.id, project.id))) notFound();
   return { user, project };
 }

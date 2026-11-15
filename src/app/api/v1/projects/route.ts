@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { withApiAuth } from "@/lib/api";
-import { listProjects } from "@/lib/queries";
+import { listProjectsFor } from "@/lib/roles";
 
-export const GET = withApiAuth(async () => {
-  const projects = await listProjects();
+export const GET = withApiAuth(async ({ userId, role }) => {
+  const projects = await listProjectsFor(role, userId);
   return NextResponse.json({
     data: projects.map((p) => ({
       id: p.id,

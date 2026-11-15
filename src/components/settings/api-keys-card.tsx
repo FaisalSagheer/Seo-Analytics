@@ -49,7 +49,7 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
         <CardTitle>API keys</CardTitle>
         <CardDescription>
           For scripts, dashboards and agents. Send as <code className="font-mono">Authorization: Bearer &lt;key&gt;</code>. Keys act as you:
-          they read every team project, add keywords if your role allows it, and stop working if your role loses API access.
+          they read the projects their user can see, add keywords if your role allows it, and stop working if your role loses API access.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

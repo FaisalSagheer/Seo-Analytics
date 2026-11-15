@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sha256 } from "@/lib/crypto";
 import { getProject } from "@/lib/queries";
-import { resolveRole } from "@/lib/roles";
+import { canViewProject, resolveRole } from "@/lib/roles";
 import type { Permission } from "@/lib/permissions";
 
 export function apiError(status: number, message: string) {
@@ -30,7 +30,13 @@ export async function authenticate(request: Request) {
  * checks the key owner's role for writes.
  */
 export function withApiAuth<P extends Record<string, string>>(
-  handler: (ctx: { request: Request; userId: string; params: P; project: Awaited<ReturnType<typeof getProject>> }) => Promise<Response>,
+  handler: (ctx: {
+    request: Request;
+    userId: string;
+    role: Awaited<ReturnType<typeof resolveRole>>;
+    params: P;
+    project: Awaited<ReturnType<typeof getProject>>;
+  }) => Promise<Response>,
   options: { permission?: Permission } = {},
 ) {
   return async (request: Request, context: { params: Promise<P> }) => {
@@ -42,9 +48,12 @@ export function withApiAuth<P extends Record<string, string>>(
     // Static routes (e.g. /projects) get no params object at all
     const params = ((await context?.params) ?? {}) as P;
     const project = params.projectId ? await getProject(params.projectId) : null;
-    if (params.projectId && !project) return apiError(404, "Project not found");
+    // Same 404 for missing and not-yet-visible, so a key can't probe other projects
+    if (params.projectId && (!project || !(await canViewProject(auth.role, auth.userId, project.id)))) {
+      return apiError(404, "Project not found");
+    }
     try {
-      return await handler({ request, userId: auth.userId, params, project });
+      return await handler({ request, userId: auth.userId, role: auth.role, params, project });
     } catch (err) {
       console.error("[api]", err);
       return apiError(500, "Internal error");
