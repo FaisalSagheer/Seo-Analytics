@@ -12,10 +12,9 @@ import { hashPassword } from "../src/lib/password";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { seedDemoProject } from "../src/lib/demo/seed-project";
-import { resolveDatabaseUrl } from "../src/lib/database-url";
+import { resolveDatabaseConfig } from "../src/lib/database-url";
 
-const url = resolveDatabaseUrl();
-const db = new PrismaClient({ adapter: new PrismaMariaDb(url.replace(/^mysql:\/\//, "mariadb://")) });
+const db = new PrismaClient({ adapter: new PrismaMariaDb(resolveDatabaseConfig()) });
 
 const email = process.env.DEMO_EMAIL ?? "demo@bisibility.local";
 const password = process.env.DEMO_PASSWORD ?? "demo-password-123";

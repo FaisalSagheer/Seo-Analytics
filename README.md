@@ -34,6 +34,7 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | yes | The database connection. Defaults: `localhost`, `3306`, `root`, no password, `bisibility`. Create the database first. |
 | `DATABASE_URL` | no | A single connection string, `mysql://user:pass@host:3306/bisibility`, instead of the five `DB_*` values. It wins if set. |
 | `SEED_ADMIN_EMAIL`, `SEED_PASSWORD` | no | Used by `npm run db:seed` to create the first admin account (password at least 8 characters). An existing account with that email is made Admin and keeps its password. Remove `SEED_PASSWORD` afterwards. |
+| `DB_SSL`, `DB_SSL_CA`, `DB_CONNECTION_LIMIT` | no | For hosted databases that require TLS. `DB_SSL=true` verifies the server certificate; add `DB_SSL_CA` (PEM text) only when it is not a public CA. `prisma migrate` reads the same settings and trusts public CAs; for a private CA also set `SSL_CERT_FILE` to the CA file for that command. `DB_CONNECTION_LIMIT` caps open connections (default 10). |
 | `APP_URL` | yes | The public URL of the app, e.g. `https://seo.example.com`. Used for Google sign-in callbacks, API examples and `npm run sync`. `AUTH_URL` still works as the old name. |
 | `AUTH_SECRET` | yes | 32+ random characters. |
 | `APP_ENCRYPTION_KEY` | yes | 64 hex characters. Encrypts the Google keys and tokens the app stores. |
