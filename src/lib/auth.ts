@@ -11,6 +11,7 @@ import { env } from "@/lib/env";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { GOOGLE_DATA_SCOPES } from "@/lib/providers/google";
 import { assignInitialRole } from "@/lib/roles";
+import { signupOpen } from "@/lib/signup";
 
 const e = env();
 
@@ -91,9 +92,12 @@ async function linkGoogle(account: Account, profile: Profile | undefined): Promi
     if (!email || profile?.email_verified !== true) return "/sign-in?error=google-email";
     const byEmail = await db.user.findUnique({ where: { email } });
     if (byEmail) {
+      // Passwords are set at sign-up without proving the address, so merging into an unverified
+      // account would let whoever registered it first keep a way in after the real owner arrives
+      if (!byEmail.emailVerified) return "/sign-in?error=google-email-unverified";
       userId = byEmail.id;
     } else {
-      if (!e.ALLOW_SIGNUP) return "/sign-in?error=signup-disabled";
+      if (!(await signupOpen())) return "/sign-in?error=signup-disabled";
       userId = randomUUID();
       await db.user.create({
         data: {

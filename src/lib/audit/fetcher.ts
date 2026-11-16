@@ -25,6 +25,26 @@ export type FetchedPage = {
   ms: number;
 };
 
+/** The eight 16-bit groups of an IPv6 address, or null when it can't be read. */
+function ipv6Groups(address: string): number[] | null {
+  let text = address.split("%")[0];
+  const dotted = text.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted) {
+    const [a, b, c, d] = dotted[2].split(".").map(Number);
+    text = `${dotted[1]}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const halves = text.split("::");
+  if (halves.length > 2) return null;
+  const parse = (s: string) => (s === "" ? [] : s.split(":"));
+  const left = parse(halves[0]);
+  const right = halves.length === 2 ? parse(halves[1]) : [];
+  const fill = 8 - left.length - right.length;
+  if (halves.length === 1 ? left.length !== 8 : fill < 1) return null;
+  const all = [...left, ...Array(halves.length === 2 ? fill : 0).fill("0"), ...right];
+  const nums = all.map((g) => (/^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN));
+  return nums.length === 8 && nums.every((n) => !Number.isNaN(n)) ? nums : null;
+}
+
 /** True for loopback, private, link-local, CGNAT, multicast and other non-public addresses. */
 export function isPrivateAddress(address: string): boolean {
   if (net.isIPv4(address)) {
@@ -41,8 +61,15 @@ export function isPrivateAddress(address: string): boolean {
   }
   if (net.isIPv6(address)) {
     const lower = address.toLowerCase();
-    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isPrivateAddress(mapped[1]);
+    const groups = ipv6Groups(lower);
+    if (!groups) return true;
+    const v4 = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+    const head5 = groups.slice(0, 5).every((g) => g === 0);
+    // ::ffff:a.b.c.d (any spelling: URL parsing turns the dotted form into hex) and the deprecated ::a.b.c.d
+    if (head5 && (groups[5] === 0xffff || (groups[5] === 0 && (groups[6] !== 0 || groups[7] > 1)))) return isPrivateAddress(v4(groups[6], groups[7]));
+    // NAT64 64:ff9b::/96 and 6to4 2002::/16 carry an IPv4 address too
+    if (groups[0] === 0x64 && groups[1] === 0xff9b && groups.slice(2, 6).every((g) => g === 0)) return isPrivateAddress(v4(groups[6], groups[7]));
+    if (groups[0] === 0x2002) return isPrivateAddress(v4(groups[1], groups[2]));
     return lower === "::" || lower === "::1" || lower.startsWith("fc") || lower.startsWith("fd") || /^fe[89ab]/.test(lower) || lower.startsWith("ff");
   }
   return true;

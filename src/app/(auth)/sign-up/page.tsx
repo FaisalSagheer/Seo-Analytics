@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { env, googleConfigured } from "@/lib/env";
+import { signupOpen } from "@/lib/signup";
 
 export const metadata: Metadata = { title: "Create account" };
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = { title: "Create account" };
 async function SignUpForm() {
   await connection();
   const e = env();
-  if (!e.ALLOW_SIGNUP) notFound();
+  if (!(await signupOpen())) notFound();
   return <AuthForm mode="sign-up" googleEnabled={googleConfigured()} demoEnabled={e.DEMO_MODE} signupAllowed />;
 }
 

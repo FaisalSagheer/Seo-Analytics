@@ -38,7 +38,7 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 | `AUTH_SECRET` | yes | 32+ random characters. |
 | `APP_ENCRYPTION_KEY` | yes | 64 hex characters. Encrypts the Google keys and tokens the app stores. |
 | `DEMO_MODE`, `DEMO_EMAIL`, `DEMO_PASSWORD` | no | Demo sign-in button and the seeded account. |
-| `ALLOW_SIGNUP` | no | `false` closes registration. |
+| `ALLOW_SIGNUP` | no | Off unless set to `true`. Whoever registers gets the default role (Editor, which sees every project), so leave it off and use invitations. A server with no admin yet still accepts one sign-up, which becomes the Admin. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | no | Google sign-in, and connecting your own Google account for Search Console and GA4. Not needed if every project uses a service account. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | no | Email for invitation links, sent with nodemailer. Set `SMTP_HOST` and `SMTP_FROM` to turn it on. Without them, the admin copies the link and sends it. |
 | `CRON_SECRET` | no | Protects the scheduled sync endpoint. |
@@ -83,6 +83,7 @@ Search Console reports the **average position** your pages were shown at for a q
 
 Each user has one role. A role decides what they can change (for example create projects, edit settings or manage API keys), and whether they **see every project**:
 
+- The **Demo** role belongs to the public demo account (`DEMO_MODE`): it sees only its own sample project.
 - **See every project** is on by default, so the Admin, Editor and Viewer roles, and any role you create, see all projects.
 - **Turn it off** for a client role. That role sees only the projects it's been added to. Open a project's **Project settings → Who can see this project** and tick the people who should see it. The team's own admins always see everything.
 

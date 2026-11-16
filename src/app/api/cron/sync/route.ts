@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -13,7 +14,9 @@ export const maxDuration = 800;
 export async function POST(request: Request) {
   const secret = env().CRON_SECRET;
   if (!secret) return apiError(503, "CRON_SECRET is not set on the server.");
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) return apiError(401, "Invalid cron secret");
+  const given = Buffer.from(request.headers.get("authorization") ?? "");
+  const wanted = Buffer.from(`Bearer ${secret}`);
+  if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) return apiError(401, "Invalid cron secret");
 
   const projects = await db.project.findMany();
   const results = [];

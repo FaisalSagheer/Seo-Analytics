@@ -38,6 +38,8 @@ async function seedDemo() {
       email,
       name: "Demo User",
       emailVerified: true,
+      // Not the default role: the demo sign-in is public, so it must not see real projects
+      roleId: "role_demo",
       accounts: {
         create: { id: randomUUID(), accountId: userId, providerId: "credential", password: await hashPassword(password) },
       },

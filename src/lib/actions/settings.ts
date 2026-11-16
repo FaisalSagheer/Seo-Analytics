@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { generateApiKey } from "@/lib/crypto";
 import { denied, requireProject, requireUser } from "@/lib/session";
 import { getGoogleAccessToken } from "@/lib/providers";
+import { propertyChoiceDenied } from "@/lib/google-access";
 import { listGa4Properties, listGscSites } from "@/lib/providers/google";
 import { apiKeySchema, type ApiKeyInput } from "@/lib/validations";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
@@ -16,6 +17,8 @@ export async function listGoogleProperties(projectId: string): Promise<
   const blocked = await denied("projects.edit");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
+  const notYours = await propertyChoiceDenied(project);
+  if (notYours) return notYours;
   try {
     const token = await getGoogleAccessToken(project);
     const [sites, properties] = await Promise.all([

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { signIn } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { signupOpen } from "@/lib/signup";
 import { MIN_PASSWORD_LENGTH, hashPassword } from "@/lib/password";
 import { assignInitialRole } from "@/lib/roles";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
@@ -18,7 +19,7 @@ const registerSchema = z.object({
 
 /** Creates an email + password account. The client signs in afterwards. */
 export async function registerUser(input: { name: string; email: string; password: string }): Promise<ActionResult> {
-  if (!env().ALLOW_SIGNUP) return fail("Sign-ups are disabled on this server.");
+  if (!(await signupOpen())) return fail("Sign-ups are disabled on this server.");
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { name, email, password } = parsed.data;

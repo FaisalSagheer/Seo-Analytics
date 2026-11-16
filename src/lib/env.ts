@@ -33,10 +33,8 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
-  ALLOW_SIGNUP: z
-    .enum(["true", "false", "1", "0", ""])
-    .optional()
-    .transform((v) => v === undefined || v === "" || v === "true" || v === "1"),
+  // Closed unless explicitly turned on: a new account gets the default role (Editor, by default)
+  ALLOW_SIGNUP: bool,
 });
 
 export type Env = z.infer<typeof envSchema> & { APP_URL: string };

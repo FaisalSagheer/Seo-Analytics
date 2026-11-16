@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { denied, requireProject, requireUser } from "@/lib/session";
+import { propertyChoiceDenied } from "@/lib/google-access";
 import { seedDemoProject } from "@/lib/demo/seed-project";
 import { env } from "@/lib/env";
 import { syncProject, type SyncPart, type SyncResult } from "@/lib/sync";
@@ -48,7 +49,9 @@ export async function updateProjectGoogle(input: ProjectGoogleInput): Promise<Ac
   if (blocked) return blocked;
   const parsed = projectGoogleSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
-  await requireProject(parsed.data.projectId);
+  const { project } = await requireProject(parsed.data.projectId);
+  const notYours = await propertyChoiceDenied(project);
+  if (notYours) return notYours;
   const { projectId, ...data } = parsed.data;
   await db.project.update({ where: { id: projectId }, data });
   revalidatePath(`/projects/${projectId}`, "layout");
