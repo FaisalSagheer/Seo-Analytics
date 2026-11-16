@@ -52,7 +52,9 @@ export function env(): Env {
     throw new Error(`Invalid environment configuration:\n${issues}\nSee .env.example.`);
   }
   // APP_URL wins, then the legacy AUTH_URL, then local development
-  cached = { ...parsed.data, APP_URL: parsed.data.APP_URL ?? parsed.data.AUTH_URL ?? "http://localhost:3000" };
+  // Trailing slashes are dropped: links are built as `${APP_URL}/path`
+  const appUrl = (parsed.data.APP_URL ?? parsed.data.AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  cached = { ...parsed.data, APP_URL: appUrl };
   return cached;
 }
 
