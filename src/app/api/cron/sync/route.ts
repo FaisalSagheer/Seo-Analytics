@@ -5,7 +5,8 @@ import { env } from "@/lib/env";
 import { apiError } from "@/lib/api";
 import { syncProject } from "@/lib/sync";
 
-export const maxDuration = 800;
+// 300 s is the most a Vercel Hobby function may run; a longer value fails the deployment
+export const maxDuration = 300;
 
 /**
  * Daily sync for every project. Call it from cron / Task Scheduler / `npm run sync`
