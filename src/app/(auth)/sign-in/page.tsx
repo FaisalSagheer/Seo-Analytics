@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { env, googleConfigured } from "@/lib/env";
-import { signupOpen } from "@/lib/signup";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -31,7 +30,7 @@ async function SignInForm({ searchParams }: { searchParams: Promise<Record<strin
   const error = typeof code === "string" ? (ERRORS[code] ?? "Could not sign in. Try again.") : undefined;
   const notice = typeof sp.notice === "string" ? NOTICES[sp.notice] : undefined;
   return (
-    <AuthForm mode="sign-in" googleEnabled={googleConfigured()} demoEnabled={e.DEMO_MODE} signupAllowed={await signupOpen()} error={error} warning={error ? undefined : notice} />
+    <AuthForm mode="sign-in" googleEnabled={googleConfigured()} demoEnabled={e.DEMO_MODE} signupAllowed={false /* link to /sign-up hidden on purpose; the page itself still follows ALLOW_SIGNUP */} error={error} warning={error ? undefined : notice} />
   );
 }
 
