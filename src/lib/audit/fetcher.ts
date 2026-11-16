@@ -6,7 +6,7 @@ import net from "node:net";
 import zlib from "node:zlib";
 import type { Readable } from "node:stream";
 
-const UA = "BisibilityAuditBot/1.0 (+site audit; respects robots.txt)";
+const UA = "SeoEngineAuditBot/1.0 (+site audit; respects robots.txt)";
 const MAX_BYTES = 2_000_000;
 const MAX_REDIRECTS = 5;
 

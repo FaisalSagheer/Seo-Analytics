@@ -16,10 +16,12 @@ import { resolveDatabaseConfig } from "../src/lib/database-url";
 
 const db = new PrismaClient({ adapter: new PrismaMariaDb(resolveDatabaseConfig()) });
 
-const email = process.env.DEMO_EMAIL ?? "demo@bisibility.local";
+const email = process.env.DEMO_EMAIL ?? "demo@seoengine.local";
 const password = process.env.DEMO_PASSWORD ?? "demo-password-123";
 
 async function seedDemo() {
+  // The demo account used to be demo@bisibility.local; drop it so its public password doesn't outlive the rename
+  await db.user.deleteMany({ where: { email: "demo@bisibility.local" } });
   const existing = await db.user.findUnique({ where: { email } });
   // Deleting the user cascades to its sessions and the projects it owns
   if (existing) await db.user.delete({ where: { id: existing.id } });

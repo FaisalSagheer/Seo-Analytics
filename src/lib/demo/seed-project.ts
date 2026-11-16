@@ -3,7 +3,7 @@ import { demoPosition, demoVolume } from "@/lib/demo/rankings";
 import { DEMO_KEYWORDS, DEMO_QUERIES, demoLinkImports, demoReferralPages, demoReferrals, demoTraffic } from "@/lib/demo/series";
 import { rng } from "@/lib/demo/random";
 
-export const DEMO_DOMAIN = "demo.bisibility.dev";
+export const DEMO_DOMAIN = "demo.seoengine.example";
 const HISTORY_DAYS = 180;
 
 function day(offset: number) {

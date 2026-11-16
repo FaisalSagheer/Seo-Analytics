@@ -14,7 +14,7 @@ export function resolveDatabaseUrl(source: Source = process.env): string {
   const port = source.DB_PORT?.trim() || "3306";
   const user = source.DB_USER?.trim() || "root";
   const password = source.DB_PASSWORD ?? "";
-  const name = source.DB_NAME?.trim() || "bisibility";
+  const name = source.DB_NAME?.trim() || "seoengine";
 
   if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
     throw new Error(`DB_PORT must be a number between 1 and 65535, got "${port}".`);

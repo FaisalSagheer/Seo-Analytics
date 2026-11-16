@@ -107,7 +107,7 @@ const DEMO_LINK_SITES = [
   "producthunt.com", "indiehackers.com", "news.ycombinator.com", "github.com", "wikipedia.org", "quora.com", "linkedin.com",
   "smashingmagazine.com", "css-tricks.com", "sitepoint.com", "digitalocean.com", "freecodecamp.org",
 ];
-const DEMO_LINK_TEXT = ["bisibility", "demo site", "seo tool", "click here", "this guide", "read more", "https://demo.bisibility.dev", "keyword tracking", "free seo dashboard"];
+const DEMO_LINK_TEXT = ["Seo Engine", "demo site", "seo tool", "click here", "this guide", "read more", "https://demo.seoengine.example", "keyword tracking", "free seo dashboard"];
 const DEMO_LINK_PATHS = ["", "pricing", "blog/seo-basics", "blog/keyword-research", "features", "docs", "blog/site-audit", "about"];
 
 /**

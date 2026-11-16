@@ -21,7 +21,7 @@ const envSchema = z.object({
   /// 64 hex chars (32 bytes) used to encrypt stored provider secrets
   APP_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, "APP_ENCRYPTION_KEY must be 64 hex characters"),
   DEMO_MODE: bool,
-  DEMO_EMAIL: z.email().default("demo@bisibility.local"),
+  DEMO_EMAIL: z.email().default("demo@seoengine.local"),
   DEMO_PASSWORD: z.string().min(8).default("demo-password-123"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
