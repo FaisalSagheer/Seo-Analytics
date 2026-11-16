@@ -16,7 +16,6 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       </Suspense>
       <AppLogo className="text-lg" />
       <div className="w-full max-w-sm">{children}</div>
-      <p className="text-muted-foreground text-center text-xs">Open source SEO dashboard · self-hosted</p>
     </main>
   );
 }
