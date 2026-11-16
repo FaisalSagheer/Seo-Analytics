@@ -35,6 +35,9 @@ const envSchema = z.object({
   SMTP_FROM: z.string().optional(),
   // Closed unless explicitly turned on: a new account gets the default role (Editor, by default)
   ALLOW_SIGNUP: bool,
+  // How many reverse proxies sit in front of the app and append to X-Forwarded-For. Rate limits count
+  // the address the last trusted proxy saw; 0 ignores the header (everyone shares one bucket).
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
 });
 
 export type Env = z.infer<typeof envSchema> & { APP_URL: string };

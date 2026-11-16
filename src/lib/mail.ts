@@ -54,3 +54,25 @@ export function inviteEmail(input: { to: string; link: string; roleName: string;
     <p style="color:#666;font-size:13px">If you weren't expecting this, you can ignore this email.</p>`;
   return { subject: `You're invited to Seo Engine`, text, html };
 }
+
+/** The password reset email. Same rule: the link is the only secret and is never logged. */
+export function resetEmail(input: { link: string; expiresAt: Date; byAdmin?: string }) {
+  const when = input.expiresAt.toUTCString();
+  const why = input.byAdmin ? `${input.byAdmin} sent you a link to choose a new password for Seo Engine.` : "Someone asked to reset the password for this Seo Engine account.";
+  const text = [
+    why,
+    "",
+    "Choose a new password with this link:",
+    input.link,
+    "",
+    `The link works once and expires ${when}. Using it signs you out everywhere else.`,
+    "",
+    "If you didn't ask for this, ignore this email: your password stays as it is.",
+  ].join("\n");
+  const html = `
+    <p>${escapeHtml(why)}</p>
+    <p><a href="${escapeHtml(input.link)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#188182;color:#fff;text-decoration:none">Choose a new password</a></p>
+    <p style="color:#666;font-size:13px">The link works once and expires ${escapeHtml(when)}. Using it signs you out everywhere else.</p>
+    <p style="color:#666;font-size:13px">If you didn't ask for this, ignore this email: your password stays as it is.</p>`;
+  return { subject: "Reset your Seo Engine password", text, html };
+}

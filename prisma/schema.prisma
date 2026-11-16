@@ -28,6 +28,9 @@ model User {
   /// Deactivated users can't sign in or use an existing session or API key. Their data is kept.
   isActive        Boolean      @default(true)
   invitationsSent Invitation[] @relation("InvitedBy")
+  /// Sessions issued before this moment are refused (set when the password is reset)
+  sessionsValidFrom DateTime?
+  passwordResets    PasswordReset[]
 
   projects            Project[]
   projectMemberships  ProjectMember[]
@@ -502,6 +505,30 @@ model Invitation {
 
   @@index([email], map: "Invitation_email_idx")
   @@map("invitation")
+}
+
+/// A one-time link that lets someone choose a new password. Only the token's hash is stored.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "PasswordReset_userId_fkey")
+  tokenHash String    @unique(map: "PasswordReset_tokenHash_key") @db.VarChar(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId], map: "PasswordReset_userId_idx")
+  @@map("passwordreset")
+}
+
+/// Fixed-window counters behind the sign-in, sign-up, invite and password reset limits. The key is hashed.
+model RateLimit {
+  key     String   @id @db.VarChar(191)
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt], map: "RateLimit_resetAt_idx")
+  @@map("ratelimit")
 }
 
 /// A provider key that belongs to one project (typically the client's own). Used before the

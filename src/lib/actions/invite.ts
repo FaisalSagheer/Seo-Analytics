@@ -1,7 +1,9 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { LIMITS, clientIp, rateHit, waitMessage } from "@/lib/rate-limit";
 import { sha256 } from "@/lib/crypto";
 import { hashPassword } from "@/lib/password";
 import { acceptInviteSchema, type AcceptInviteInput } from "@/lib/validations";
@@ -12,6 +14,8 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<ActionResu
   const parsed = acceptInviteSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
   const { token, name, password } = parsed.data;
+  const hit = await rateHit("invite", clientIp(await headers()), LIMITS.invite.max, LIMITS.invite.window);
+  if (!hit.ok) return fail(waitMessage(hit.retryAfter));
 
   const invite = await db.invitation.findUnique({ where: { tokenHash: sha256(token) } });
   if (!invite || invite.acceptedAt || invite.expiresAt < new Date()) {

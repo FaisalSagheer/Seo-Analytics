@@ -6,7 +6,9 @@ import { z } from "zod";
 import { signIn } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { headers } from "next/headers";
 import { signupOpen } from "@/lib/signup";
+import { LIMITS, clientIp, rateHit, waitMessage } from "@/lib/rate-limit";
 import { MIN_PASSWORD_LENGTH, hashPassword } from "@/lib/password";
 import { assignInitialRole } from "@/lib/roles";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
@@ -22,6 +24,8 @@ export async function registerUser(input: { name: string; email: string; passwor
   if (!(await signupOpen())) return fail("Sign-ups are disabled on this server.");
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
+  const hit = await rateHit("signup", clientIp(await headers()), LIMITS.signup.max, LIMITS.signup.window);
+  if (!hit.ok) return fail(waitMessage(hit.retryAfter));
   const { name, email, password } = parsed.data;
   if (await db.user.findUnique({ where: { email } })) return fail("An account with this email already exists.");
   const id = randomUUID();

@@ -42,7 +42,8 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
       const res = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
       if (!res || res.error) {
         // NextAuth reports the specific reason in `code`; `error` is only the generic type
-        if (res?.code === "account_disabled") toast.error("This account has been deactivated. Ask an admin to reactivate it.");
+        if (res?.code === "rate_limited") toast.error("Too many failed attempts. Wait a few minutes, or reset your password.");
+        else if (res?.code === "account_disabled") toast.error("This account has been deactivated. Ask an admin to reactivate it.");
         else toast.error(res?.error === "CredentialsSignin" || !res?.error ? "Wrong email or password." : "Could not sign in. Try again.");
         return;
       }
@@ -141,6 +142,11 @@ export function AuthForm({ mode, googleEnabled, demoEnabled, signupAllowed, erro
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
             </Field>
+            {!isSignUp && (
+              <Link href="/forgot-password" className="text-muted-foreground -mt-2 self-end text-sm underline underline-offset-4">
+                Forgot password?
+              </Link>
+            )}
             <Button type="submit" disabled={pending}>
               {pending && <Spinner data-icon="inline-start" />}
               {isSignUp ? "Create account" : "Sign in"}

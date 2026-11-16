@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sha256 } from "@/lib/crypto";
 import { getViewerRole, requireUser } from "@/lib/session";
-import { inviteEmail, mailConfigured, sendMail } from "@/lib/mail";
+import { inviteEmail, mailConfigured, resetEmail, sendMail } from "@/lib/mail";
+import { issueResetLink } from "@/lib/password-reset";
 import { inviteSchema, roleSchema, type InviteInput, type RoleInput } from "@/lib/validations";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
@@ -146,4 +147,25 @@ export async function revokeInvite(invitationId: string): Promise<ActionResult> 
   if (blocked) return blocked;
   await db.invitation.deleteMany({ where: { id: invitationId, acceptedAt: null } });
   return done();
+}
+
+/** For someone who can't get the email: the admin makes a one-time reset link and passes it on. */
+export async function createPasswordResetLink(userId: string): Promise<ActionResult<InviteResult>> {
+  const blocked = await adminOnly();
+  if (blocked) return blocked;
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, isActive: true } });
+  if (!user) return fail("That user no longer exists.");
+  if (!user.isActive) return fail("Reactivate this account first.");
+  const me = await requireUser();
+  const { link, expiresAt } = await issueResetLink(user.id);
+  const result: InviteResult = { link, expiresAt: expiresAt.toISOString(), emailed: false, emailConfigured: mailConfigured() };
+  if (!result.emailConfigured) return ok(result);
+  try {
+    const inviter = await db.user.findUnique({ where: { id: me.id }, select: { name: true } });
+    await sendMail({ to: user.email, ...resetEmail({ link, expiresAt, byAdmin: inviter?.name ?? "A team admin" }) });
+    result.emailed = true;
+  } catch (err) {
+    result.emailError = err instanceof Error ? err.message : "The email couldn't be sent.";
+  }
+  return ok(result);
 }

@@ -1,14 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CopyIcon, KeyRoundIcon } from "lucide-react";
 import { toast } from "sonner";
-import { assignRole, setMemberActive } from "@/lib/actions/team";
+import { assignRole, createPasswordResetLink, setMemberActive, type InviteResult } from "@/lib/actions/team";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRelative } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -18,6 +22,15 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const items = roles.map((r) => ({ value: r.id, label: r.name }));
+  const [resetLink, setResetLink] = useState<{ member: MemberView; result: InviteResult } | null>(null);
+
+  function makeResetLink(member: MemberView) {
+    startTransition(async () => {
+      const res = await createPasswordResetLink(member.id);
+      if (!res.ok) return void toast.error(res.error);
+      setResetLink({ member, result: res.data });
+    });
+  }
 
   function setActive(member: MemberView, active: boolean) {
     startTransition(async () => {
@@ -86,6 +99,12 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
                 </TableCell>
                 <TableCell className="text-right">
                   {!m.isActive && <Badge variant="outline" className="mr-2">Deactivated</Badge>}
+                  {!m.isYou && m.isActive && (
+                    <Button size="sm" variant="ghost" disabled={pending} aria-label={`Reset password for ${m.name}`} onClick={() => makeResetLink(m)}>
+                      <KeyRoundIcon data-icon="inline-start" />
+                      Reset password
+                    </Button>
+                  )}
                   {m.isYou ? null : m.isActive ? (
                     <ConfirmDelete
                       triggerRender={<Button size="sm" variant="ghost" disabled={pending} />}
@@ -113,6 +132,45 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
           </TableBody>
         </Table>
       </CardContent>
+      <Dialog open={resetLink !== null} onOpenChange={(o) => !o && setResetLink(null)}>
+        <DialogContent>
+          {resetLink && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Password reset link for {resetLink.member.name}</DialogTitle>
+                <DialogDescription>It works once and expires in an hour. Using it signs them out everywhere else. It is shown only now.</DialogDescription>
+              </DialogHeader>
+              {resetLink.result.emailed ? (
+                <p className="text-muted-foreground text-sm">They&apos;ve been emailed the link. You can also copy it below.</p>
+              ) : resetLink.result.emailError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>The email couldn&apos;t be sent</AlertTitle>
+                  <AlertDescription>Reason: {resetLink.result.emailError}. Copy the link below and send it yourself.</AlertDescription>
+                </Alert>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  {resetLink.result.emailConfigured ? "" : "Email isn't set up on this server. "}Copy the link below and send it yourself.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Input readOnly value={resetLink.result.link} className="font-mono text-xs" aria-label="Password reset link" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Copy link"
+                  onClick={() => navigator.clipboard.writeText(resetLink.result.link).then(() => toast.success("Link copied"))}
+                >
+                  <CopyIcon />
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setResetLink(null)}>Done</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

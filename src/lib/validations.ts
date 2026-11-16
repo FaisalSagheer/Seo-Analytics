@@ -70,6 +70,15 @@ export const acceptInviteSchema = z.object({
 });
 export type AcceptInviteInput = z.input<typeof acceptInviteSchema>;
 
+export const resetRequestSchema = z.object({ email: z.email("Enter a valid email").trim().toLowerCase().max(191) });
+export type ResetRequestInput = z.input<typeof resetRequestSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;
+
 export const apiKeySchema = z.object({
   name: z.string().trim().min(1, "Name the key").max(60),
 });

@@ -12,6 +12,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { GOOGLE_DATA_SCOPES } from "@/lib/providers/google";
 import { assignInitialRole } from "@/lib/roles";
 import { signupOpen } from "@/lib/signup";
+import { LIMITS, clientIp, rateClear, rateExceeded, rateHit } from "@/lib/rate-limit";
 
 const e = env();
 
@@ -26,6 +27,11 @@ const hasDataScopes = (scope: string | null | undefined) => {
 /** Thrown only after the right password, so a deactivated account can't be told apart from a wrong one by probing. */
 class AccountDisabledError extends CredentialsSignin {
   code = "account_disabled";
+}
+
+/** Too many failed sign-ins for this account or address; thrown before any password is checked. */
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
 }
 
 const providers: Provider[] = [];
@@ -47,18 +53,31 @@ providers.push(
     credentials: { email: { label: "Email", type: "email" }, password: { label: "Password", type: "password" } },
     // Return null, never throw, on a failed check: Auth.js reports anything
     // thrown here as a server configuration error instead of a bad sign-in.
-    async authorize(credentials) {
+    async authorize(credentials, request) {
       const email = typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : "";
       const password = typeof credentials?.password === "string" ? credentials.password : "";
       if (!email || !password) return null;
+      const ip = clientIp(request.headers);
+      // Checked before the (slow) password hash so a flood of guesses is cheap to refuse
+      if ((await rateExceeded("login-email", email, LIMITS.loginEmail.max)) || (await rateExceeded("login-ip", ip, LIMITS.loginIp.max))) {
+        throw new RateLimitedError();
+      }
+      const fail = async () => {
+        await Promise.all([
+          rateHit("login-email", email, LIMITS.loginEmail.max, LIMITS.loginEmail.window),
+          rateHit("login-ip", ip, LIMITS.loginIp.max, LIMITS.loginIp.window),
+        ]);
+        return null;
+      };
       const user = await db.user.findUnique({
         where: { email },
         include: { accounts: { where: { providerId: "credential" } } },
       });
       const account = user?.accounts[0];
-      if (!user || !account?.password) return null;
+      if (!user || !account?.password) return fail();
       const { ok, needsRehash } = await verifyPassword(account.password, password);
-      if (!ok) return null;
+      if (!ok) return fail();
+      await rateClear("login-email", email);
       if (!user.isActive) throw new AccountDisabledError();
       if (needsRehash) {
         await db.account.update({ where: { id: account.id }, data: { password: await hashPassword(password) } });
@@ -159,6 +178,7 @@ const config: NextAuthConfig = {
     },
     session({ session, token }) {
       if (typeof token.userId === "string") session.user.id = token.userId;
+      session.issuedAt = token.iat;
       return session;
     },
   },

@@ -42,6 +42,7 @@ Open http://localhost:3000 and click **Explore the demo**, or create an account.
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | no | Google sign-in, and connecting your own Google account for Search Console and GA4. Not needed if every project uses a service account. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | no | Email for invitation links, sent with nodemailer. Set `SMTP_HOST` and `SMTP_FROM` to turn it on. Without them, the admin copies the link and sends it. |
 | `CRON_SECRET` | no | Protects the scheduled sync endpoint. |
+| `TRUSTED_PROXY_HOPS` | no | How many reverse proxies sit in front of the app (default `1`). Rate limits use the visitor address from `X-Forwarded-For`, counted from the right. Use `0` if the app is exposed directly, so the header is ignored. |
 
 Generate the secrets:
 
@@ -88,6 +89,10 @@ Each user has one role. A role decides what they can change (for example create 
 - **Turn it off** for a client role. That role sees only the projects it's been added to. Open a project's **Project settings → Who can see this project** and tick the people who should see it. The team's own admins always see everything.
 
 A client's API key follows the same rules: it lists only the projects they can see, and any other project returns 404.
+
+**Forgotten passwords.** The sign-in page has **Forgot password?**. Enter the email and, when email is set up (`SMTP_HOST` and `SMTP_FROM`), a one-time link valid for an hour is sent. The page answers the same way whether or not the address has an account. The link sets a new password, marks the address as verified and signs the account out everywhere else. Without email, or when someone can't receive it, an admin clicks **Reset password** next to the member on **Team & roles** and passes on the link shown there. Deactivated accounts get nothing.
+
+**Rate limits.** Failed sign-ins are limited to 8 per account and 60 per address in 15 minutes (a successful sign-in clears the account's count). Sign-ups and invitation attempts are limited to 10 and 20 per address an hour, password reset requests to 3 per address and 10 per visitor an hour, and requests with a wrong API key to 100 per 15 minutes. Counters are kept in the database, so they hold across restarts and several instances, and they store only hashes, never email addresses. Set `TRUSTED_PROXY_HOPS` to match your proxy setup or every visitor may share one limit.
 
 **Inviting people.** On **Team & roles**, click **Invite someone**, enter the email and pick the role. When email is set up (`SMTP_HOST` and `SMTP_FROM`), the invitation is emailed. Otherwise, or if sending fails, the one-time link is shown once for you to copy. Links are valid for 7 days. The person opens it, sets their name and password, and is signed in with that role. An invite works even when public sign-up is turned off (`ALLOW_SIGNUP="false"`), and the link only works for the invited email. Revoke a pending invitation from the same page.
 
