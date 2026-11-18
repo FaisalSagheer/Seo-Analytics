@@ -135,7 +135,6 @@ model Project {
   name                String
   domain              String
   locationCode        Int       @default(2840)
-  languageCode        String    @default("en")
   device              Device    @default(DESKTOP)
   /// Search Console property, e.g. "sc-domain:example.com" or "https://example.com/"
   gscSiteUrl          String?

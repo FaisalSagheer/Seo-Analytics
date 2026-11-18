@@ -21,20 +21,6 @@ export const LOCATIONS = [
   { code: 2392, gl: "jp", label: "Japan" },
 ] as const;
 
-export const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "de", label: "German" },
-  { code: "fr", label: "French" },
-  { code: "es", label: "Spanish" },
-  { code: "it", label: "Italian" },
-  { code: "nl", label: "Dutch" },
-  { code: "pt", label: "Portuguese" },
-  { code: "ar", label: "Arabic" },
-  { code: "ur", label: "Urdu" },
-  { code: "hi", label: "Hindi" },
-  { code: "ja", label: "Japanese" },
-] as const;
-
 export function locationLabel(code: number) {
   return LOCATIONS.find((l) => l.code === code)?.label ?? `Location ${code}`;
 }

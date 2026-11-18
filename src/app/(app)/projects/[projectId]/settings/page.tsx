@@ -57,7 +57,6 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
             name: project.name,
             domain: project.domain,
             locationCode: project.locationCode,
-            languageCode: project.languageCode,
             device: project.device,
           }}
         />

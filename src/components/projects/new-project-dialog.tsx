@@ -23,7 +23,7 @@ export function NewProjectDialog({ defaultOpen = false }: { defaultOpen?: boolea
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
   const [pending, startTransition] = useTransition();
-  const [draft, setDraft] = useState<ProjectInput>({ name: "", domain: "", locationCode: 2840, languageCode: "en", device: "DESKTOP" });
+  const [draft, setDraft] = useState<ProjectInput>({ name: "", domain: "", locationCode: 2840, device: "DESKTOP" });
 
   function submit(e: React.FormEvent) {
     e.preventDefault();

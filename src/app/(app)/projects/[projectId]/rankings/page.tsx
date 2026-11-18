@@ -30,7 +30,7 @@ export default async function RankingsPage({ params, searchParams }: PageProps<"
     <>
       <PageHeader
         title="Rankings"
-        description={`Google ${project.device.toLowerCase()} · ${locationLabel(project.locationCode)} · ${project.languageCode}`}
+        description={`Google ${project.device.toLowerCase()} · ${locationLabel(project.locationCode)}`}
         actions={
           <>
             <RangePicker value={days} />

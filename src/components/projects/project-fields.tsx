@@ -3,11 +3,10 @@
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LANGUAGES, LOCATIONS } from "@/lib/markets";
+import { LOCATIONS } from "@/lib/markets";
 import type { ProjectInput } from "@/lib/validations";
 
 const locationItems = LOCATIONS.map((l) => ({ value: String(l.code), label: l.label }));
-const languageItems = LANGUAGES.map((l) => ({ value: l.code, label: l.label }));
 const deviceItems = [
   { value: "DESKTOP", label: "Desktop" },
   { value: "MOBILE", label: "Mobile" },
@@ -32,7 +31,7 @@ export function ProjectFields({ draft, onChange }: { draft: ProjectInput; onChan
         />
         <FieldDescription>Subdomains count as matches, so example.com also tracks blog.example.com.</FieldDescription>
       </Field>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel>Location</FieldLabel>
           <Select
@@ -46,27 +45,6 @@ export function ProjectFields({ draft, onChange }: { draft: ProjectInput; onChan
             <SelectContent>
               <SelectGroup>
                 {locationItems.map((i) => (
-                  <SelectItem key={i.value} value={i.value}>
-                    {i.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel>Language</FieldLabel>
-          <Select
-            items={languageItems}
-            value={draft.languageCode ?? "en"}
-            onValueChange={(v) => v && onChange({ ...draft, languageCode: v })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {languageItems.map((i) => (
                   <SelectItem key={i.value} value={i.value}>
                     {i.label}
                   </SelectItem>

@@ -11,7 +11,6 @@ const domain = z
 
 export const marketSchema = z.object({
   locationCode: z.coerce.number().int().positive().default(2840),
-  languageCode: z.string().trim().min(2).max(8).default("en"),
 });
 
 export const projectSchema = z.object({

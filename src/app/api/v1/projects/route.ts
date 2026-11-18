@@ -10,7 +10,6 @@ export const GET = withApiAuth(async ({ userId, role }) => {
       name: p.name,
       domain: p.domain,
       locationCode: p.locationCode,
-      languageCode: p.languageCode,
       device: p.device.toLowerCase(),
       isDemo: p.isDemo,
       keywordCount: p._count.keywords,
