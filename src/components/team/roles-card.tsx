@@ -23,6 +23,7 @@ import {
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { PagedList } from "@/components/performance/table-pager";
 
 export type RoleView = {
   id: string;
@@ -63,8 +64,8 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
           </Button>
         </RoleDialog>
       </CardHeader>
-      <CardContent className="flex flex-col divide-y">
-        {roles.map((role) => (
+      <CardContent>
+        <PagedList as="div" className="flex flex-col divide-y" items={roles.map((role) => (
           <div key={role.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -126,7 +127,7 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
               </div>
             )}
           </div>
-        ))}
+        ))} />
       </CardContent>
     </Card>
   );

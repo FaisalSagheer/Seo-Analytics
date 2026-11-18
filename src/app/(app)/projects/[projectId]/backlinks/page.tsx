@@ -10,7 +10,8 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { PagedList, PagedTable } from "@/components/performance/table-pager";
 import { getBacklinkReport } from "@/lib/backlinks";
 import { formatDate, formatNumber } from "@/lib/format";
 import { requireProject } from "@/lib/session";
@@ -85,17 +86,14 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
                 <CardDescription>Most links first. Search Console lists only your top linking sites, not every one.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
+                <PagedTable header={<>
                     <TableRow>
                       <TableHead>Site</TableHead>
                       <TableHead className="text-right">Linking pages</TableHead>
                       <TableHead className="text-right">Your pages linked</TableHead>
                       <TableHead className="text-right">Change</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.sites.slice(0, 200).map((s) => (
+                  </>} rows={report.sites.slice(0, 200).map((s) => (
                       <TableRow key={s.site}>
                         <TableCell className="max-w-80">
                           <span className="flex items-center gap-2">
@@ -112,9 +110,7 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
                           <Delta value={s.change} />
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    ))} />
               </CardContent>
             </Card>
           )}
@@ -126,14 +122,12 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
                 <CardDescription>In the {formatDate(report.previousAsOf!, "long")} import and missing from the latest. The link may be gone, or have dropped out of Google&apos;s top list.</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="divide-y">
-                  {report.lost.slice(0, 50).map((l) => (
+                <PagedList className="divide-y" items={report.lost.slice(0, 50).map((l) => (
                     <li key={l.site} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                       <span className="truncate">{l.site}</span>
                       <span className="text-muted-foreground text-sm tabular-nums">{formatNumber(l.linkingPages)} linking pages before</span>
                     </li>
-                  ))}
-                </ul>
+                  ))} />
               </CardContent>
             </Card>
           )}
@@ -145,16 +139,13 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
                 <CardDescription>Your pages with the most incoming links{report.pagesAsOf ? `, as of ${formatDate(report.pagesAsOf, "long")}` : ""}.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
+                <PagedTable header={<>
                     <TableRow>
                       <TableHead>Page</TableHead>
                       <TableHead className="text-right">Incoming links</TableHead>
                       <TableHead className="text-right">Linking sites</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.pages.map((p) => {
+                  </>} rows={report.pages.map((p) => {
                       const href = safeHref(p.url);
                       return (
                         <TableRow key={p.url}>
@@ -172,9 +163,7 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
                           <TableCell className="text-right tabular-nums">{p.linkingSites != null ? formatNumber(p.linkingSites) : "—"}</TableCell>
                         </TableRow>
                       );
-                    })}
-                  </TableBody>
-                </Table>
+                    })} />
               </CardContent>
             </Card>
           )}
@@ -186,22 +175,17 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
                 <CardDescription>The anchor text other sites use{report.textsAsOf ? `, as of ${formatDate(report.textsAsOf, "long")}` : ""}.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
+                <PagedTable header={<>
                     <TableRow>
                       <TableHead>Text</TableHead>
                       <TableHead className="text-right">Links</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.texts.map((t) => (
+                  </>} rows={report.texts.map((t) => (
                       <TableRow key={t.text}>
                         <TableCell className="max-w-xl truncate">{t.text}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(t.links)}</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    ))} />
               </CardContent>
             </Card>
           )}

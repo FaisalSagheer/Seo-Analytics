@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useCan } from "@/components/permissions-provider";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TablePager, usePaged } from "@/components/performance/table-pager";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Bucket = "all" | "top3" | "top10" | "11-20" | "21-50" | "51-100" | "unranked";
@@ -118,7 +119,8 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
       });
   }, [rows, query, tag, bucket, movement, sort]);
 
-  const allSelected = visible.length > 0 && visible.every((r) => selected.has(r.keywordId));
+  const { page, setPage, shown } = usePaged(visible);
+  const allSelected = shown.length > 0 && shown.every((r) => selected.has(r.keywordId));
 
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "change" || key === "searchVolume" ? -1 : 1 }));
@@ -145,11 +147,23 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
           <InputGroupAddon>
             <SearchIcon />
           </InputGroupAddon>
-          <InputGroupInput placeholder="Filter keywords" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <InputGroupInput placeholder="Filter keywords" value={query} onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }} />
         </InputGroup>
-        <FilterSelect items={tagItems} value={tag} onChange={setTag} label="Tag" />
-        <FilterSelect items={BUCKETS} value={bucket} onChange={(v) => setBucket(v as Bucket)} label="Position" />
-        <FilterSelect items={MOVEMENTS} value={movement} onChange={(v) => setMovement(v as Movement)} label="Movement" />
+        <FilterSelect items={tagItems} value={tag} onChange={(v) => {
+            setTag(v);
+            setPage(0);
+          }} label="Tag" />
+        <FilterSelect items={BUCKETS} value={bucket} onChange={(v) => {
+            setBucket(v as Bucket);
+            setPage(0);
+          }} label="Position" />
+        <FilterSelect items={MOVEMENTS} value={movement} onChange={(v) => {
+            setMovement(v as Movement);
+            setPage(0);
+          }} label="Movement" />
         <span className="text-muted-foreground ml-auto text-sm">
           {visible.length} of {rows.length}
         </span>
@@ -182,7 +196,7 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
                   <Checkbox
                     aria-label="Select all"
                     checked={allSelected}
-                    onCheckedChange={(c) => setSelected(c ? new Set(visible.map((r) => r.keywordId)) : new Set())}
+                    onCheckedChange={(c) => setSelected(c ? new Set(shown.map((r) => r.keywordId)) : new Set())}
                   />
                 </TableHead>
               )}
@@ -196,14 +210,14 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.length === 0 ? (
+            {shown.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={canEdit ? 8 : 7} className="text-muted-foreground h-24 text-center">
                   {rows.length === 0 ? "No keywords tracked yet. Add some to start the history." : "No keywords match these filters."}
                 </TableCell>
               </TableRow>
             ) : (
-              visible.map((r) => (
+              shown.map((r) => (
                 <TableRow key={r.keywordId} data-state={selected.has(r.keywordId) ? "selected" : undefined}>
                   {canEdit && (
                     <TableCell>
@@ -267,6 +281,7 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
           </TableBody>
         </Table>
       </div>
+      <TablePager page={page} total={visible.length} onPage={setPage} />
     </div>
   );
 }

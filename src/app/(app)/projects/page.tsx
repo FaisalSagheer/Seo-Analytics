@@ -12,6 +12,7 @@ import { locationLabel } from "@/lib/markets";
 import { listProjectsFor } from "@/lib/roles";
 import { can, getViewerRole, requireUser } from "@/lib/session";
 import { env } from "@/lib/env";
+import { PagedList } from "@/components/performance/table-pager";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -59,8 +60,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
           )}
         </Empty>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => (
+        <PagedList as="div" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" items={projects.map((p) => (
             <Link key={p.id} href={`/projects/${p.id}`} className="group rounded-xl focus-visible:outline-2">
               <Card className="group-hover:ring-primary/40 h-full transition-shadow">
                 <CardHeader>
@@ -78,8 +78,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/project
                 </CardFooter>
               </Card>
             </Link>
-          ))}
-        </div>
+          ))} />
       )}
     </>
   );

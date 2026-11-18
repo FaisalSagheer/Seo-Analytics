@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { PagedTable } from "@/components/performance/table-pager";
 
 export type ApiKeyView = { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null };
 
@@ -83,8 +84,7 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
           </Alert>
         )}
 
-        <Table>
-          <TableHeader>
+        <PagedTable header={<>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Key</TableHead>
@@ -92,16 +92,7 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
               <TableHead>Last used</TableHead>
               <TableHead />
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {keys.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground h-16 text-center">
-                  No keys yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              keys.map((k) => (
+          </>} empty={{ columns: 5, text: "No keys yet." }} rows={keys.map((k) => (
                 <TableRow key={k.id} className={k.revokedAt ? "opacity-50" : undefined}>
                   <TableCell className="font-medium">{k.name}</TableCell>
                   <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
@@ -128,10 +119,7 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
                     )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ))} />
       </CardContent>
     </Card>
   );

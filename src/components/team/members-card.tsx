@@ -14,7 +14,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { PagedTable } from "@/components/performance/table-pager";
 
 export type MemberView = { id: string; name: string; email: string; roleId: string; roleName: string; createdAt: string; isYou: boolean; isActive: boolean };
 
@@ -60,8 +61,7 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
+        <PagedTable header={<>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
@@ -69,9 +69,7 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
               <TableHead className="w-44">Role</TableHead>
               <TableHead className="w-40 text-right">Access</TableHead>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {members.map((m) => (
+          </>} rows={members.map((m) => (
               <TableRow key={m.id}>
                 <TableCell className="font-medium">
                   <span className={m.isActive ? undefined : "text-muted-foreground"}>{m.name}</span>
@@ -126,9 +124,7 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
                   )}
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            ))} />
       </CardContent>
       <Dialog open={resetLink !== null} onOpenChange={(o) => !o && setResetLink(null)}>
         <DialogContent>

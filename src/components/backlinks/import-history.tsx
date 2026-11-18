@@ -7,7 +7,8 @@ import { deleteLinkImport } from "@/lib/actions/links";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { PagedTable } from "@/components/performance/table-pager";
 import { formatDate, formatNumber } from "@/lib/format";
 
 type Row = { id: string; asOf: string; counts: Record<"SITE" | "PAGE" | "TEXT", number> };
@@ -17,8 +18,7 @@ export function LinkImportHistory({ projectId, imports }: { projectId: string; i
   const [pending, startTransition] = useTransition();
 
   return (
-    <Table>
-      <TableHeader>
+    <PagedTable header={<>
         <TableRow>
           <TableHead>Exported</TableHead>
           <TableHead className="text-right">Linking sites</TableHead>
@@ -26,9 +26,7 @@ export function LinkImportHistory({ projectId, imports }: { projectId: string; i
           <TableHead className="text-right">Link texts</TableHead>
           {allowed && <TableHead className="w-12" />}
         </TableRow>
-      </TableHeader>
-      <TableBody>
-        {imports.map((i) => (
+      </>} rows={imports.map((i) => (
           <TableRow key={i.id}>
             <TableCell>{formatDate(i.asOf, "long")}</TableCell>
             <TableCell className="text-right tabular-nums">{i.counts.SITE ? formatNumber(i.counts.SITE) : "—"}</TableCell>
@@ -58,8 +56,6 @@ export function LinkImportHistory({ projectId, imports }: { projectId: string; i
               </TableCell>
             )}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        ))} />
   );
 }

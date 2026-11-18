@@ -14,6 +14,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { PagedList } from "@/components/performance/table-pager";
 
 export type InviteView = { id: string; email: string; roleName: string; expiresAt: string };
 
@@ -150,8 +151,7 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
         {invitations.length === 0 ? (
           <p className="text-muted-foreground text-sm">No pending invitations.</p>
         ) : (
-          <ul className="divide-y">
-            {invitations.map((i) => (
+          <PagedList className="divide-y" items={invitations.map((i) => (
               <li key={i.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{i.email}</span>
@@ -173,8 +173,7 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
                   Revoke
                 </ConfirmDelete>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
       </CardContent>
     </Card>

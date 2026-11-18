@@ -6,6 +6,7 @@ import { setProjectAccess } from "@/lib/actions/members";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PagedList } from "@/components/performance/table-pager";
 
 export type AccessRow = {
   id: string;
@@ -38,8 +39,8 @@ export function ProjectAccessCard({ projectId, rows }: { projectId: string; rows
           this project. Admins can change this; other people see the change on their next page load.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col divide-y">
-        {rows.map((r) => (
+      <CardContent>
+        <PagedList as="div" className="flex flex-col divide-y" items={rows.map((r) => (
           <label key={r.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
             <Checkbox
               aria-label={`${r.name} can see this project`}
@@ -54,7 +55,7 @@ export function ProjectAccessCard({ projectId, rows }: { projectId: string; rows
             <Badge variant="outline">{r.roleName}</Badge>
             {r.seesAll && <span className="text-muted-foreground hidden text-xs sm:inline">Sees all projects</span>}
           </label>
-        ))}
+        ))} />
       </CardContent>
     </Card>
   );

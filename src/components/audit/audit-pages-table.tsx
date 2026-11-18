@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
+import { TablePager, usePaged } from "@/components/performance/table-pager";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,6 +40,7 @@ export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; orig
       .map((p) => ({ ...p, issues: [...p.issues].sort((a, b) => ORDER[severityOf(a)] - ORDER[severityOf(b)]) }))
       .sort((a, b) => b.issues.filter((c) => severityOf(c) === "error").length - a.issues.filter((c) => severityOf(c) === "error").length || b.issues.length - a.issues.length);
   }, [pages, filter, query]);
+  const { page, setPage, shown } = usePaged(rows);
 
   return (
     <div className="flex flex-col gap-3">
@@ -49,14 +51,20 @@ export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; orig
               key={f.value}
               type="button"
               aria-pressed={filter === f.value}
-              onClick={() => setFilter(f.value)}
+              onClick={() => {
+                setFilter(f.value);
+                setPage(0);
+              }}
               className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm"
             >
               {f.label}
             </button>
           ))}
         </div>
-        <Input className="ml-auto h-8 w-full sm:w-64" placeholder="Search URL or title" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <Input className="ml-auto h-8 w-full sm:w-64" placeholder="Search URL or title" value={query} onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }} />
       </div>
       <Table>
         <TableHeader>
@@ -69,14 +77,14 @@ export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; orig
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.length === 0 ? (
+          {shown.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="text-muted-foreground h-24 text-center">
                 {pages.length === 0 ? "No pages were crawled." : "No pages match."}
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((p) => (
+            shown.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="max-w-80">
                   <a href={p.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
@@ -106,6 +114,7 @@ export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; orig
           )}
         </TableBody>
       </Table>
+      <TablePager page={page} total={rows.length} onPage={setPage} />
     </div>
   );
 }

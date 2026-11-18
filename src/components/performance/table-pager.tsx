@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 
 export const PAGE_SIZE = 10; // see rule.md
 
@@ -27,6 +29,48 @@ export function TablePager({ page, total, onPage }: { page: number; total: numbe
           <ChevronRightIcon />
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Rows for the current page of a client-side list. The page is clamped when the list shrinks. */
+export function usePaged<T>(items: T[]) {
+  const [requested, setPage] = useState(0);
+  const page = Math.min(requested, Math.max(0, Math.ceil(items.length / PAGE_SIZE) - 1));
+  return { page, setPage, shown: items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) };
+}
+
+/** A table whose rows (already rendered, each with a key) are paged. Works from server components. */
+export function PagedTable({ header, rows, empty }: { header: ReactNode; rows: ReactNode[]; empty?: { columns: number; text: string } }) {
+  const { page, setPage, shown } = usePaged(rows);
+  return (
+    <div className="flex flex-col gap-4">
+      <Table>
+        <TableHeader>{header}</TableHeader>
+        <TableBody>
+          {rows.length === 0 && empty ? (
+            <TableRow>
+              <TableCell colSpan={empty.columns} className="text-muted-foreground h-20 text-center">
+                {empty.text}
+              </TableCell>
+            </TableRow>
+          ) : (
+            shown
+          )}
+        </TableBody>
+      </Table>
+      <TablePager page={page} total={rows.length} onPage={setPage} />
+    </div>
+  );
+}
+
+/** A list (a `<ul>` of `<li key>`, or a `<div>` of keyed items) whose items are paged. Works from server components. */
+export function PagedList({ items, className, as: Tag = "ul" }: { items: ReactNode[]; className?: string; as?: "ul" | "div" }) {
+  const { page, setPage, shown } = usePaged(items);
+  return (
+    <div className="flex flex-col gap-4">
+      <Tag className={className}>{shown}</Tag>
+      <TablePager page={page} total={items.length} onPage={setPage} />
     </div>
   );
 }

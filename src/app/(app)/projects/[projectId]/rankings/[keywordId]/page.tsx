@@ -8,7 +8,8 @@ import { RangePicker } from "@/components/dashboard/range-picker";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { PagedTable } from "@/components/performance/table-pager";
 import { db } from "@/lib/db";
 import { dateKeys, daysAgo, parseRange, toDateKey, utcDay } from "@/lib/dates";
 import { formatDate, formatNumber, formatPercent, formatPosition } from "@/lib/format";
@@ -86,17 +87,14 @@ export default async function KeywordPage({ params, searchParams }: PageProps<"/
           <CardDescription>Days where the position or ranking URL changed.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
+          <PagedTable header={<>
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Position</TableHead>
                 <TableHead>Change</TableHead>
                 <TableHead>URL</TableHead>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {log.map((s) => {
+            </>} rows={log.map((s) => {
                 const idx = keyword.snapshots.indexOf(s);
                 const prev = idx > 0 ? keyword.snapshots[idx - 1].position : null;
                 return (
@@ -107,9 +105,7 @@ export default async function KeywordPage({ params, searchParams }: PageProps<"/
                     <TableCell className="text-muted-foreground max-w-80 truncate text-xs">{s.url ?? "—"}</TableCell>
                   </TableRow>
                 );
-              })}
-            </TableBody>
-          </Table>
+              })} />
         </CardContent>
       </Card>
     </>

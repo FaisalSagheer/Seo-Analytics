@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { PagedList, PagedTable } from "@/components/performance/table-pager";
 import { parseRange } from "@/lib/dates";
 import { formatDate, formatNumber } from "@/lib/format";
 import { getReferralReport } from "@/lib/referrals";
@@ -107,8 +108,7 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
               <CardDescription>Busiest first. New marks a site whose first visit falls inside the selected range.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
+              <PagedTable header={<>
                   <TableRow>
                     <TableHead>Site</TableHead>
                     <TableHead className="text-right">Sessions</TableHead>
@@ -117,16 +117,7 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
                     <TableHead className="text-right">Change</TableHead>
                     <TableHead>First seen</TableHead>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.sites.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-muted-foreground h-20 text-center">
-                        No site sent a visit in this range.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    report.sites.slice(0, 100).map((s) => (
+                </>} empty={{ columns: 6, text: "No site sent a visit in this range." }} rows={report.sites.slice(0, 100).map((s) => (
                       <TableRow key={s.source}>
                         <TableCell className="max-w-72">
                           <span className="flex items-center gap-2">
@@ -145,10 +136,7 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
                         </TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(s.firstSeen, "long")}</TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ))} />
             </CardContent>
           </Card>
 
@@ -159,16 +147,14 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
                 <CardDescription>These sites sent visits in the previous {days} days and none in this range. The link may have been removed, or just stopped getting clicks.</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="divide-y">
-                  {report.gone.slice(0, 20).map((g) => (
+                <PagedList className="divide-y" items={report.gone.slice(0, 20).map((g) => (
                     <li key={g.source} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                       <a href={`https://${g.source}`} target="_blank" rel="noreferrer noopener" className="truncate hover:underline">
                         {g.source}
                       </a>
                       <span className="text-muted-foreground text-sm tabular-nums">{formatNumber(g.previous)} sessions before</span>
                     </li>
-                  ))}
-                </ul>
+                  ))} />
               </CardContent>
             </Card>
           )}
@@ -179,23 +165,13 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
               <CardDescription>The exact pages those visits came from. A page you can open and check for the link.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
+              <PagedTable header={<>
                   <TableRow>
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Sessions</TableHead>
                     <TableHead className="text-right">Users</TableHead>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.pages.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-muted-foreground h-20 text-center">
-                        No referring pages yet. Run Sync Google.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    report.pages.map((p) => {
+                </>} empty={{ columns: 3, text: "No referring pages yet. Run Sync Google." }} rows={report.pages.map((p) => {
                       const href = safeHref(p.referrer);
                       return (
                         <TableRow key={p.referrer}>
@@ -213,10 +189,7 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
                           <TableCell className="text-right tabular-nums">{formatNumber(p.users)}</TableCell>
                         </TableRow>
                       );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                    })} />
             </CardContent>
           </Card>
         </>

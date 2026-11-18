@@ -11,6 +11,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { db } from "@/lib/db";
 import { ISSUES, isIssueCode, severityOf, type IssueCode, type Severity } from "@/lib/audit/issues";
 import { requireProject } from "@/lib/session";
+import { PagedList } from "@/components/performance/table-pager";
 
 export const metadata: Metadata = { title: "Site audit" };
 // Crawls run inside the server action invoked from this page; allow it time on hosts that cap functions
@@ -121,8 +122,7 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
           {summary.length === 0 ? (
             <p className="text-muted-foreground text-sm">No page issues found.</p>
           ) : (
-            <ul className="divide-y">
-              {summary.map(([code, n]) => (
+            <PagedList className="divide-y" items={summary.map(([code, n]) => (
                 <li key={code} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
                   <Badge variant={BADGE[severityOf(code)]} className="mt-0.5 capitalize">
                     {severityOf(code)}
@@ -135,8 +135,7 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
                     {n} page{n === 1 ? "" : "s"}
                   </span>
                 </li>
-              ))}
-            </ul>
+              ))} />
           )}
         </CardContent>
       </Card>
