@@ -3,7 +3,7 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const PAGE_SIZE = 12;
+export const PAGE_SIZE = 10; // see rule.md
 
 /** Previous/next controls for a table showing PAGE_SIZE rows at a time. Renders nothing when everything fits on one page. */
 export function TablePager({ page, total, onPage }: { page: number; total: number; onPage: (page: number) => void }) {
