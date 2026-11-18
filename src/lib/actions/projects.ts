@@ -6,6 +6,7 @@ import { denied, requireProject, requireUser } from "@/lib/session";
 import { propertyChoiceDenied } from "@/lib/google-access";
 import { seedDemoProject } from "@/lib/demo/seed-project";
 import { env } from "@/lib/env";
+import { LOCATIONS, locationLabel } from "@/lib/markets";
 import { syncProject, type SyncPart, type SyncResult } from "@/lib/sync";
 import {
   addKeywordsSchema,
@@ -118,4 +119,34 @@ export async function runSync(projectId: string, parts?: SyncPart[]): Promise<Ac
   } catch (err) {
     return fail(err);
   }
+}
+
+/**
+ * Changes the project's target country (the same setting as Project settings → Location).
+ * Rankings are measured per country, so the project's Search Console rank history is
+ * rebuilt for the new country instead of mixing two countries in one line.
+ */
+export async function setProjectCountry(
+  projectId: string,
+  locationCode: number,
+): Promise<ActionResult<{ country: string; synced: boolean; warning?: string }>> {
+  const blocked = await denied("projects.edit");
+  if (blocked) return blocked;
+  const { project } = await requireProject(projectId);
+  if (!LOCATIONS.some((l) => l.code === locationCode)) return fail("Pick a country from the list.");
+  const country = locationLabel(locationCode);
+  if (project.locationCode === locationCode) return ok({ country, synced: false });
+
+  const updated = await db.project.update({ where: { id: project.id }, data: { locationCode } });
+  let synced = false;
+  let warning: string | undefined;
+  // Demo rankings are generated, and without a Search Console site there is nothing to re-measure yet
+  if (!project.isDemo && project.gscSiteUrl) {
+    await db.rankSnapshot.deleteMany({ where: { source: "GOOGLE", keyword: { projectId: project.id } } });
+    const result = await syncProject(updated, ["rankings"]);
+    synced = Boolean(result.rankings?.ok);
+    warning = result.rankings?.ok ? result.rankings.warning : `Rankings couldn't be updated yet: ${result.rankings?.message ?? "unknown error"}`;
+  }
+  revalidatePath(`/projects/${project.id}`, "layout");
+  return ok({ country, synced, warning });
 }

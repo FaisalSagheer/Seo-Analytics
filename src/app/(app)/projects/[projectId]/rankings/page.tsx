@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DemoAlert } from "@/components/dashboard/demo-alert";
+import { ProjectCountrySelect } from "@/components/projects/project-country-select";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -31,6 +32,7 @@ export default async function RankingsPage({ params, searchParams }: PageProps<"
         title="Rankings"
         actions={
           <>
+            <ProjectCountrySelect projectId={project.id} locationCode={project.locationCode} />
             <RangePicker value={days} />
             <SyncButton projectId={project.id} parts={["rankings"]} label="Check now" />
             <AddKeywordsDialog projectId={project.id} />

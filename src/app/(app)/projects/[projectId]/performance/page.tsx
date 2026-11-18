@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PlugIcon } from "lucide-react";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { DemoAlert } from "@/components/dashboard/demo-alert";
+import { ProjectCountrySelect } from "@/components/projects/project-country-select";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
@@ -139,6 +140,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         actions={
           <>
             <span className="text-muted-foreground hidden text-sm sm:inline">Last update: {formatRelative(lastUpdate)}</span>
+            <ProjectCountrySelect projectId={project.id} locationCode={project.locationCode} />
             <RangePicker
               value={days}
               advanced

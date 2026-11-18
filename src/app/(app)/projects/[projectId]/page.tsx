@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { MoversCard } from "@/components/dashboard/movers-card";
+import { ProjectCountrySelect } from "@/components/projects/project-country-select";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -30,6 +31,7 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
         title={project.name}
         actions={
           <>
+            <ProjectCountrySelect projectId={project.id} locationCode={project.locationCode} />
             <RangePicker value={days} />
             <SyncButton projectId={project.id} />
           </>
