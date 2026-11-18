@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sha256 } from "@/lib/crypto";
@@ -128,6 +128,8 @@ export async function createInvite(input: InviteInput): Promise<ActionResult<Inv
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
   const me = await requireUser();
   await db.invitation.create({ data: { email, roleId, tokenHash: sha256(token), invitedById: me.id, expiresAt } });
+  // Re-renders the Team page in this response, so the pending list shows the new invitation without a client refresh
+  refresh();
   const link = `${env().APP_URL}/invite/${token}`;
   const result: InviteResult = { link, expiresAt: expiresAt.toISOString(), emailed: false, emailConfigured: mailConfigured() };
   if (!result.emailConfigured) return ok(result);

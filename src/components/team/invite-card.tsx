@@ -34,7 +34,6 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
       if (!res.ok) return void toast.error(res.error);
       // Shown once: only a hash is kept, so this is the only chance to copy it
       setLink({ url: res.data.link, expiresAt: res.data.expiresAt, email, emailed: res.data.emailed, emailError: res.data.emailError, emailConfigured: res.data.emailConfigured });
-      router.refresh();
     });
   }
 
