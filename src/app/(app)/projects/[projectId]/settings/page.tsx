@@ -61,13 +61,13 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
           }}
         />
         {access && <ProjectAccessCard projectId={project.id} rows={access} />}
-        {!project.isDemo && canGoogle && <ProjectGoogleCard projectId={project.id} source={google.source} email={google.email} />}
         {!project.isDemo && (
           <GooglePropertyForm
             connected={google.source !== "none"}
             initial={{ projectId: project.id, gscSiteUrl: project.gscSiteUrl, ga4PropertyId: project.ga4PropertyId }}
           />
         )}
+        {!project.isDemo && canGoogle && <ProjectGoogleCard projectId={project.id} source={google.source} email={google.email} />}
       </div>
     </>
   );
