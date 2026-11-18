@@ -8,16 +8,46 @@ import { RangePicker } from "@/components/dashboard/range-picker";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { QueriesTable, type QueryRow } from "@/components/performance/queries-table";
+import { SearchReport, type SearchReportData } from "@/components/performance/search-report";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
-import { daysAgo, parseRange } from "@/lib/dates";
+import { daysAgo, parseRange, toDateKey } from "@/lib/dates";
 import { formatNumber, formatPercent, formatPosition } from "@/lib/format";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
+import { gscBreakdown, type GscBreakdownRow } from "@/lib/providers/google";
+import { getGoogleAccessToken } from "@/lib/providers";
 import { requireProject } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Performance" };
+
+const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/_/g, " ");
+const toRows = (rows: GscBreakdownRow[], name: (key: string) => string = (k) => k) =>
+  rows.map((r) => ({ label: name(r.key), clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position }));
+
+/** The Pages, Countries, Devices and Search appearance reports, read from Search Console for the chosen range. */
+async function loadSearchReport(project: { id: string; userId: string; gscSiteUrl: string | null }, days: number) {
+  if (!project.gscSiteUrl) return { data: null, note: "Choose a Search Console site in project settings." };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const start = toDateKey(daysAgo(days));
+    const end = toDateKey(daysAgo(0));
+    const site = project.gscSiteUrl;
+    const [pages, countries, devices, appearance] = await Promise.all(
+      (["page", "country", "device", "searchAppearance"] as const).map((d) => gscBreakdown(token, site, d, start, end)),
+    );
+    const data: SearchReportData = {
+      pages: toRows(pages),
+      countries: toRows(countries, (k) => k.toUpperCase()),
+      devices: toRows(devices, label),
+      appearance: toRows(appearance, label),
+    };
+    return { data, note: undefined };
+  } catch (err) {
+    return { data: null, note: `Couldn't load Search Console: ${err instanceof Error ? err.message : "unknown error"}` };
+  }
+}
 
 export default async function PerformancePage({ params, searchParams }: PageProps<"/projects/[projectId]/performance">) {
   const { projectId } = await params;
@@ -38,6 +68,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
       _avg: { engagementRate: true },
     }),
   ]);
+  const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, days);
   const series = report!.series.map((p) => ({ ...p, ctr: p.clicks != null && p.impressions ? p.clicks / p.impressions : null }));
   const totals = report!.totals;
 
@@ -136,13 +167,22 @@ export default async function PerformancePage({ params, searchParams }: PageProp
 
       <Card>
         <CardHeader>
-          <CardTitle>Queries, last 28 days</CardTitle>
+          <CardTitle>Search results</CardTitle>
           <CardDescription>
-            What people searched to find you, with your tracked rank beside it. Striking-distance queries sit at positions 4–20 with real demand.
+            The same reports as Search Console. Queries are the last 28 days, with your tracked rank beside each; the other tabs follow the range above.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <QueriesTable projectId={project.id} rows={rows} />
+          <SearchReport
+            data={searchReport.data}
+            note={searchReport.note}
+            queries={
+              <div className="flex flex-col gap-3">
+                <p className="text-muted-foreground text-sm">Striking-distance queries sit at positions 4–20 with real demand.</p>
+                <QueriesTable projectId={project.id} rows={rows} />
+              </div>
+            }
+          />
         </CardContent>
       </Card>
     </>

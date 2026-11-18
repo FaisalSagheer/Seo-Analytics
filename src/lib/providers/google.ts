@@ -88,6 +88,28 @@ export async function gscQueries(token: string, siteUrl: string, startDate: stri
   }));
 }
 
+export type GscBreakdownDimension = "page" | "country" | "device" | "searchAppearance";
+export type GscBreakdownRow = { key: string; clicks: number; impressions: number; ctr: number; position: number };
+
+/** One Search Console report tab (Pages, Countries, Devices, Search appearance), most clicks first. */
+export async function gscBreakdown(
+  token: string,
+  siteUrl: string,
+  dimension: GscBreakdownDimension,
+  startDate: string,
+  endDate: string,
+  rowLimit = 250,
+): Promise<GscBreakdownRow[]> {
+  const r = await call<{ rows?: GscRow[] }>(token, gscUrl(siteUrl), {
+    startDate,
+    endDate,
+    dimensions: [dimension],
+    type: "web",
+    rowLimit,
+  });
+  return (r.rows ?? []).map((row) => ({ key: row.keys[0], clicks: row.clicks, impressions: row.impressions, ctr: row.ctr, position: row.position }));
+}
+
 export type GscKeywordFilters = { device?: "DESKTOP" | "MOBILE"; country?: string };
 export type GscKeywordHistory = {
   /** Average position per day (impression-weighted across pages), YYYY-MM-DD */
