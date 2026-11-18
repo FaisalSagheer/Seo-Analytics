@@ -10,6 +10,7 @@ import { resolveCompare, resolveRange, spanDays } from "@/lib/date-range";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { QueriesTable, type QueryRow } from "@/components/performance/queries-table";
+import { Ga4Report, type Ga4ReportData } from "@/components/performance/ga4-report";
 import { SearchReport, type SearchReportData } from "@/components/performance/search-report";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { daysAgo, toDateKey } from "@/lib/dates";
 import { formatNumber, formatPercent, formatPosition, formatRelative } from "@/lib/format";
 import { MAX_HOURLY_DAYS, loadLiveReport } from "@/lib/search-console-live";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
-import { gscBreakdown, type GscBreakdownRow } from "@/lib/providers/google";
+import { ga4Breakdown, gscBreakdown, type Ga4BreakdownRow, type GscBreakdownRow } from "@/lib/providers/google";
 import { getGoogleAccessToken } from "@/lib/providers";
 import { requireProject } from "@/lib/session";
 
@@ -65,6 +66,35 @@ async function loadSearchReport(project: { id: string; userId: string; gscSiteUr
   }
 }
 
+const toGa4Rows = (rows: Ga4BreakdownRow[], name: (key: string) => string = (k) => k) =>
+  rows.map((r) => ({ label: name(r.key), sessions: r.sessions, users: r.users, engagementRate: r.engagementRate, conversions: r.conversions }));
+
+/** The Google Analytics reports (all channels, then organic landing pages, countries and devices) for the chosen range. */
+async function loadGa4Report(project: { id: string; userId: string; ga4PropertyId: string | null }, range: { start: Date; end: Date }) {
+  if (!project.ga4PropertyId) return { data: null, note: "Choose a GA4 property in project settings." };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const start = toDateKey(range.start);
+    const end = toDateKey(range.end);
+    const id = project.ga4PropertyId;
+    const [channels, pages, countries, devices] = await Promise.all([
+      ga4Breakdown(token, id, "sessionDefaultChannelGroup", start, end, false),
+      ga4Breakdown(token, id, "landingPagePlusQueryString", start, end),
+      ga4Breakdown(token, id, "country", start, end),
+      ga4Breakdown(token, id, "deviceCategory", start, end),
+    ]);
+    const data: Ga4ReportData = {
+      channels: toGa4Rows(channels),
+      pages: toGa4Rows(pages),
+      countries: toGa4Rows(countries),
+      devices: toGa4Rows(devices, label),
+    };
+    return { data, note: undefined };
+  } catch (err) {
+    return { data: null, note: `Couldn't load Google Analytics: ${err instanceof Error ? err.message : "unknown error"}` };
+  }
+}
+
 export default async function PerformancePage({ params, searchParams }: PageProps<"/projects/[projectId]/performance">) {
   const { projectId } = await params;
   const { project } = await requireProject(projectId);
@@ -97,6 +127,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   ]);
   const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, range);
   const liveDay = new Map((live?.daily ?? []).map((d) => [d.date, d]));
+  const ga4Report = project.isDemo ? { data: null, note: "Demo projects have no live Google Analytics data." } : await loadGa4Report(project, range);
   const series = report!.series.map((p) => {
     const d = liveDay.get(p.date);
     const clicks = d ? d.clicks : p.clicks;
@@ -305,6 +336,18 @@ export default async function PerformancePage({ params, searchParams }: PageProp
               </div>
             }
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Google Analytics</CardTitle>
+          <CardDescription>
+            Reports from GA4 for the range above. Channels covers all traffic; landing pages, countries and devices are organic search only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Ga4Report data={ga4Report.data} note={ga4Report.note} />
         </CardContent>
       </Card>
     </>

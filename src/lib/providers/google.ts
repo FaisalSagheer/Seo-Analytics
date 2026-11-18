@@ -219,6 +219,42 @@ export async function ga4Daily(token: string, propertyId: string, startDate: str
   });
 }
 
+export type Ga4Dimension = "sessionDefaultChannelGroup" | "landingPagePlusQueryString" | "country" | "deviceCategory";
+export type Ga4BreakdownRow = { key: string; sessions: number; users: number; engagementRate: number; conversions: number };
+
+/** One Google Analytics report: sessions, users, engagement and key events per value of a dimension, busiest first. */
+export async function ga4Breakdown(
+  token: string,
+  propertyId: string,
+  dimension: Ga4Dimension,
+  startDate: string,
+  endDate: string,
+  organicOnly = true,
+  limit = 250,
+): Promise<Ga4BreakdownRow[]> {
+  const r = await call<{ rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[] }>(
+    token,
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: dimension }],
+      metrics: [{ name: "sessions" }, { name: "totalUsers" }, { name: "engagementRate" }, { name: "keyEvents" }],
+      ...(organicOnly
+        ? { dimensionFilter: { filter: { fieldName: "sessionDefaultChannelGroup", stringFilter: { matchType: "EXACT", value: "Organic Search" } } } }
+        : {}),
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit,
+    },
+  );
+  return (r.rows ?? []).map((row) => ({
+    key: row.dimensionValues[0].value,
+    sessions: Number(row.metricValues[0].value),
+    users: Number(row.metricValues[1].value),
+    engagementRate: Number(row.metricValues[2].value),
+    conversions: Math.round(Number(row.metricValues[3].value)),
+  }));
+}
+
 // ---- GA4 referrals: the closest free thing to backlink tracking ----
 
 export type Ga4ReferralDay = { date: string; source: string; sessions: number; users: number; conversions: number };
