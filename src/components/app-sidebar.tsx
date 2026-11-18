@@ -53,10 +53,10 @@ const PROJECT_NAV = [
   { segment: "", label: "Overview", icon: LayoutDashboardIcon },
   { segment: "performance", label: "Performance", icon: ChartLineIcon },
   { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
-  { segment: "analytics", label: "Analytics", icon: ChartColumnIcon },
   { segment: "referrals", label: "Referrals", icon: Link2Icon },
   { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
   { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
+  { segment: "reports", label: "Reports", icon: ChartColumnIcon },
   { segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" },
 ] as const satisfies readonly { segment: string; label: string; icon: unknown; permission?: Permission }[];
 

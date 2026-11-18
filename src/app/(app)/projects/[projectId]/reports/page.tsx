@@ -18,7 +18,7 @@ import { hourRow, loadAnalyticsReport } from "@/lib/analytics-live";
 import { MAX_HOURLY_DAYS } from "@/lib/search-console-live";
 import { requireProject } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Analytics" };
+export const metadata: Metadata = { title: "Reports" };
 
 /** Totals across the channel rows: users aren't additive across channels, so they're left out. */
 function totalsOf(rows: { sessions: number; engagementRate: number; conversions: number }[]) {
@@ -27,7 +27,7 @@ function totalsOf(rows: { sessions: number; engagementRate: number; conversions:
   return { sessions, engagementRate: sessions ? engaged / sessions : 0, conversions: rows.reduce((s, r) => s + r.conversions, 0) };
 }
 
-export default async function AnalyticsPage({ params, searchParams }: PageProps<"/projects/[projectId]/analytics">) {
+export default async function ReportsPage({ params, searchParams }: PageProps<"/projects/[projectId]/reports">) {
   const { projectId } = await params;
   const { project } = await requireProject(projectId);
   const sp = await searchParams;
@@ -57,7 +57,7 @@ export default async function AnalyticsPage({ params, searchParams }: PageProps<
   return (
     <>
       <PageHeader
-        title="Analytics"
+        title="Reports"
         description="Google Analytics reports for this project's GA4 property."
         actions={
           <>
