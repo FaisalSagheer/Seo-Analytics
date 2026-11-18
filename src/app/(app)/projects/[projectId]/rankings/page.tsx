@@ -8,7 +8,6 @@ import { AddKeywordsDialog } from "@/components/rankings/add-keywords-dialog";
 import { RankingsTable } from "@/components/rankings/rankings-table";
 import { parseRange } from "@/lib/dates";
 import { formatNumber, formatPosition } from "@/lib/format";
-import { locationLabel } from "@/lib/markets";
 import { getRankingRows } from "@/lib/queries";
 import { requireProject } from "@/lib/session";
 import { averagePosition } from "@/lib/visibility";
@@ -30,7 +29,6 @@ export default async function RankingsPage({ params, searchParams }: PageProps<"
     <>
       <PageHeader
         title="Rankings"
-        description={`Google ${project.device.toLowerCase()} · ${locationLabel(project.locationCode)}`}
         actions={
           <>
             <RangePicker value={days} />

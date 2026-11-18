@@ -51,7 +51,7 @@ export default async function KeywordPage({ params, searchParams }: PageProps<"/
           Rankings
         </Link>
       </div>
-      <PageHeader title={keyword.phrase} description={keyword.tags ? `Tags: ${keyword.tags}` : project.domain} actions={<RangePicker value={days} />} />
+      <PageHeader title={keyword.phrase} actions={<RangePicker value={days} />} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="Current" value={formatPosition(last)} delta={rankChange(first, last)} hint={`vs ${days} days ago`} />

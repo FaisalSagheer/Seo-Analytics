@@ -8,7 +8,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseRange } from "@/lib/dates";
-import { formatNumber, formatPercent, formatPosition, formatRelative } from "@/lib/format";
+import { formatNumber, formatPercent, formatPosition } from "@/lib/format";
 import { getProjectReport } from "@/lib/queries";
 import { requireProject } from "@/lib/session";
 
@@ -28,7 +28,6 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
     <>
       <PageHeader
         title={project.name}
-        description={`${project.domain} · synced ${formatRelative(project.lastSyncedAt)}`}
         actions={
           <>
             <RangePicker value={days} />
