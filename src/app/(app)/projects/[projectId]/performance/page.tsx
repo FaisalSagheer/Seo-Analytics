@@ -17,7 +17,7 @@ import { formatNumber, formatPercent, formatPosition } from "@/lib/format";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
 import { requireProject } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Search performance" };
+export const metadata: Metadata = { title: "Performance" };
 
 export default async function PerformancePage({ params, searchParams }: PageProps<"/projects/[projectId]/performance">) {
   const { projectId } = await params;
@@ -61,7 +61,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   return (
     <>
       <PageHeader
-        title="Search performance"
+        title="Performance"
         description="Search Console, GA4 and tracked rankings on one timeline."
         actions={
           <>

@@ -51,7 +51,7 @@ type ProjectLink = { id: string; name: string; domain: string; isDemo: boolean }
 const PROJECT_NAV = [
   { segment: "", label: "Overview", icon: LayoutDashboardIcon },
   { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
-  { segment: "performance", label: "Search performance", icon: ChartLineIcon },
+  { segment: "performance", label: "Performance", icon: ChartLineIcon },
   { segment: "referrals", label: "Referrals", icon: Link2Icon },
   { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
   { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
