@@ -34,7 +34,6 @@ export default async function BacklinksPage({ params }: PageProps<"/projects/[pr
     <>
       <PageHeader
         title="Backlinks"
-        description={`Sites that link to ${project.domain}, from Search Console's Links report. Google offers no API for it, so you upload the export.`}
       />
       {project.isDemo && <DemoAlert />}
       <LinkImportCard projectId={project.id} domain={project.domain} today={today} />

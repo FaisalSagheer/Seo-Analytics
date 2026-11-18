@@ -40,7 +40,6 @@ export default async function ReferralsPage({ params, searchParams }: PageProps<
     <>
       <PageHeader
         title="Referrals"
-        description={`Sites that sent visitors to ${project.domain}, read from GA4. A link only shows up once someone has clicked it.`}
         actions={
           <>
             <RangePicker value={days} />

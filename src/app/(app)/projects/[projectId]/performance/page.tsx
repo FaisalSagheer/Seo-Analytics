@@ -136,7 +136,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
     <>
       <PageHeader
         title="Performance"
-        description="Search Console, GA4 and tracked rankings on one timeline."
         actions={
           <>
             <span className="text-muted-foreground hidden text-sm sm:inline">Last update: {formatRelative(lastUpdate)}</span>

@@ -30,7 +30,7 @@ export default async function TeamPage() {
 
   return (
     <>
-      <PageHeader title="Team & roles" description="Who's on the team, what each role can change, and who can sign in." />
+      <PageHeader title="Team & roles" />
       <div className="flex max-w-4xl flex-col gap-6">
         <InviteCard
           roles={roles.map((r) => ({ id: r.id, name: r.name }))}

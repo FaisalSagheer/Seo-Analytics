@@ -58,7 +58,6 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
     <>
       <PageHeader
         title="Reports"
-        description="Google Analytics reports for this project's GA4 property."
         actions={
           <>
             {lastHour && <span className="text-muted-foreground hidden text-sm sm:inline">Last hour with data: {formatRelative(lastHour)}</span>}

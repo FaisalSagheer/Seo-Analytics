@@ -32,7 +32,6 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
   const header = (
     <PageHeader
       title="Site audit"
-      description={`Crawls up to 50 pages of ${project.domain} and checks titles, meta tags, headings, links, speed and indexability.`}
       actions={<AuditButton projectId={project.id} label={run ? "Re-run audit" : "Run audit"} />}
     />
   );
