@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { addKeywords, runSync } from "@/lib/actions/projects";
@@ -24,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function AddKeywordsDialog({ projectId }: { projectId: string }) {
   const allowed = useCan("keywords.manage");
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<AddKeywordsInput>({ projectId, phrases: "", tags: "" });
@@ -37,11 +35,9 @@ export function AddKeywordsDialog({ projectId }: { projectId: string }) {
       toast.success(`${res.data.added} keyword${res.data.added === 1 ? "" : "s"} added. Checking positions…`);
       setOpen(false);
       setDraft({ projectId, phrases: "", tags: "" });
-      router.refresh();
       // First check right away so the table isn't empty until the next cron
       const sync = await runSync(projectId, ["rankings"]);
       if (sync.ok && sync.data.rankings && !sync.data.rankings.ok) toast.error(sync.data.rankings.message);
-      router.refresh();
     });
   }
 

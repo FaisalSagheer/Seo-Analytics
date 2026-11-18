@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { deleteLinkImport } from "@/lib/actions/links";
@@ -14,7 +13,6 @@ import { formatDate, formatNumber } from "@/lib/format";
 type Row = { id: string; asOf: string; counts: Record<"SITE" | "PAGE" | "TEXT", number> };
 
 export function LinkImportHistory({ projectId, imports }: { projectId: string; imports: Row[] }) {
-  const router = useRouter();
   const allowed = useCan("data.sync");
   const [pending, startTransition] = useTransition();
 
@@ -52,7 +50,6 @@ export function LinkImportHistory({ projectId, imports }: { projectId: string; i
                       const res = await deleteLinkImport(projectId, i.id);
                       if (!res.ok) return void toast.error(res.error);
                       toast.success("Import deleted");
-                      router.refresh();
                     })
                   }
                 >

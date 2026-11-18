@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { CopyIcon, MailPlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createInvite, revokeInvite } from "@/lib/actions/team";
@@ -19,7 +18,6 @@ import { Spinner } from "@/components/ui/spinner";
 export type InviteView = { id: string; email: string; roleName: string; expiresAt: string };
 
 export function InviteCard({ roles, invitations }: { roles: { id: string; name: string }[]; invitations: InviteView[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -42,7 +40,6 @@ export function InviteCard({ roles, invitations }: { roles: { id: string; name: 
       const res = await revokeInvite(id);
       if (!res.ok) return void toast.error(res.error);
       toast.success("Invitation revoked");
-      router.refresh();
     });
   }
 

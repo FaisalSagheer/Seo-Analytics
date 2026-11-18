@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { CopyIcon, KeyRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createApiKey, revokeApiKey } from "@/lib/actions/settings";
@@ -18,7 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export type ApiKeyView = { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null };
 
 export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: string }) {
-  const router = useRouter();
   const [draft, setDraft] = useState<ApiKeyInput>({ name: "" });
   const [created, setCreated] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -30,7 +28,6 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
       if (!res.ok) return void toast.error(res.error);
       setCreated(res.data.key);
       setDraft({ name: "" });
-      router.refresh();
     });
   }
 
@@ -39,7 +36,6 @@ export function ApiKeysCard({ keys, baseUrl }: { keys: ApiKeyView[]; baseUrl: st
       const res = await revokeApiKey(id);
       if (!res.ok) return void toast.error(res.error);
       toast.success("Key revoked");
-      router.refresh();
     });
   }
 

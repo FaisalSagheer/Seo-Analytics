@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { ExternalLinkIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { importLinks } from "@/lib/actions/links";
@@ -13,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
 export function LinkImportCard({ projectId, domain, today }: { projectId: string; domain: string; today: string }) {
-  const router = useRouter();
   const allowed = useCan("data.sync");
   const form = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -44,7 +42,6 @@ export function LinkImportCard({ projectId, domain, today }: { projectId: string
               res.data.skipped.forEach((s) => toast.warning(`${s.fileName}: ${s.reason}`));
               form.current?.reset();
               setNames([]);
-              router.refresh();
             })
           }
         >

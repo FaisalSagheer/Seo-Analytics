@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { createRole, deleteRole, setDefaultRole, updateRole } from "@/lib/actions/team";
@@ -37,7 +36,6 @@ export type RoleView = {
 };
 
 export function RolesCard({ roles }: { roles: RoleView[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const fallback = roles.find((r) => r.isDefault);
 
@@ -46,7 +44,6 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
       const res = await action();
       if (!res.ok) return void toast.error(res.error);
       toast.success(success);
-      router.refresh();
     });
   }
 
@@ -151,7 +148,6 @@ function RoleDialog({
   onSubmit: (input: RoleInput) => Promise<{ ok: boolean; error?: string }>;
   children: React.ReactElement;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<RoleInput>(initial);
   const [pending, startTransition] = useTransition();
@@ -164,7 +160,6 @@ function RoleDialog({
       if (!res.ok) return void toast.error(res.error);
       toast.success("Role saved");
       setOpen(false);
-      router.refresh();
     });
   }
 

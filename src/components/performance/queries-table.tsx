@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 import { addKeywords } from "@/lib/actions/projects";
@@ -30,7 +29,6 @@ function isStriking(r: QueryRow) {
 }
 
 export function QueriesTable({ projectId, rows }: { projectId: string; rows: QueryRow[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<View>("all");
   const [q, setQ] = useState("");
@@ -57,7 +55,6 @@ export function QueriesTable({ projectId, rows }: { projectId: string; rows: Que
       const res = await addKeywords({ projectId, phrases: query, tags: "from-gsc" });
       if (!res.ok) return void toast.error(res.error);
       toast.success(`Tracking “${query}”`);
-      router.refresh();
     });
   }
 

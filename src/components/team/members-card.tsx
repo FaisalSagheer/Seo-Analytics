@@ -37,7 +37,6 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
       const res = await setMemberActive(member.id, active);
       if (!res.ok) return void toast.error(res.error);
       toast.success(active ? `${member.name} can sign in again` : `${member.name} is deactivated`);
-      router.refresh();
     });
   }
 
@@ -48,7 +47,6 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
       toast.success("Role updated");
       // Leaving Admin yourself loses access to this page
       if (member.isYou) router.push("/projects");
-      else router.refresh();
     });
   }
 

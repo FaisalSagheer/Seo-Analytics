@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { CopyIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { removeProjectGoogle, saveProjectGoogle } from "@/lib/actions/project-google";
@@ -28,7 +27,6 @@ const SOURCE_LABEL: Record<GoogleAccessSource, string> = {
  * the project uses its owner's Google connection from Settings.
  */
 export function ProjectGoogleCard({ projectId, source, email }: { projectId: string; source: GoogleAccessSource; email: string | null }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [keyJson, setKeyJson] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,7 +51,6 @@ export function ProjectGoogleCard({ projectId, source, email }: { projectId: str
       } else {
         toast.success(`Service account verified · sees ${sites} Search Console site${sites === 1 ? "" : "s"} and ${properties} GA4 propert${properties === 1 ? "y" : "ies"}`);
       }
-      router.refresh();
     });
   }
 
@@ -62,7 +59,6 @@ export function ProjectGoogleCard({ projectId, source, email }: { projectId: str
       const res = await removeProjectGoogle(projectId);
       if (!res.ok) return void toast.error(res.error);
       toast.success("Service account removed from this project");
-      router.refresh();
     });
   }
 

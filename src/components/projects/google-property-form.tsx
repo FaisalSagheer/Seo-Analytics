@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { listGoogleProperties } from "@/lib/actions/settings";
 import { updateProjectGoogle } from "@/lib/actions/projects";
@@ -23,7 +22,6 @@ export function GooglePropertyForm({
   connected: boolean;
   initial: ProjectGoogleInput;
 }) {
-  const router = useRouter();
   const [draft, setDraft] = useState<ProjectGoogleInput>(initial);
   const [options, setOptions] = useState<Options | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +47,6 @@ export function GooglePropertyForm({
       const res = await updateProjectGoogle(draft);
       if (!res.ok) return void toast.error(res.error);
       toast.success("Google properties saved. Sync to pull data.");
-      router.refresh();
     });
   }
 

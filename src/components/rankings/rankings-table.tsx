@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowDownUpIcon, ExternalLinkIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { deleteKeywords } from "@/lib/actions/projects";
@@ -90,7 +89,6 @@ function sortValue(r: RankingRow, key: SortKey): number | string {
 }
 
 export function RankingsTable({ projectId, rows }: { projectId: string; rows: RankingRow[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string>("all");
@@ -135,7 +133,6 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
       if (!res.ok) return void toast.error(res.error);
       toast.success(`Removed ${res.data.deleted} keyword${res.data.deleted === 1 ? "" : "s"}`);
       setSelected(new Set());
-      router.refresh();
     });
   }
 

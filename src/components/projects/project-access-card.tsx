@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { setProjectAccess } from "@/lib/actions/members";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,6 @@ export type AccessRow = {
 
 /** Who can see this project. Team members whose role sees every project always can. */
 export function ProjectAccessCard({ projectId, rows }: { projectId: string; rows: AccessRow[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function set(userId: string, allowed: boolean) {
@@ -28,7 +26,6 @@ export function ProjectAccessCard({ projectId, rows }: { projectId: string; rows
       const res = await setProjectAccess({ projectId, userId, allowed });
       if (!res.ok) return void toast.error(res.error);
       toast.success(allowed ? "Access added" : "Access removed");
-      router.refresh();
     });
   }
 

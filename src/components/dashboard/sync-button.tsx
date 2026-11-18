@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { runSync } from "@/lib/actions/projects";
@@ -13,7 +12,6 @@ import { useCan } from "@/components/permissions-provider";
 const PART_LABELS: Record<SyncPart, string> = { rankings: "Rankings", google: "Search Console & GA4" };
 
 export function SyncButton({ projectId, parts, label = "Refresh data" }: { projectId: string; parts?: SyncPart[]; label?: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const allowed = useCan("data.sync");
   if (!allowed) return null;
@@ -36,7 +34,6 @@ export function SyncButton({ projectId, parts, label = "Refresh data" }: { proje
           if (failed.length === 0 && warned.length === 0) toast.success("Data refreshed");
           warned.forEach(([part, v]) => toast.warning(`${PART_LABELS[part]}: ${v.warning}`));
           failed.forEach(([part, v]) => toast.error(`${PART_LABELS[part]}: ${v.message}`));
-          router.refresh();
         })
       }
     >

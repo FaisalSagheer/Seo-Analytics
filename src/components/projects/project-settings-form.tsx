@@ -25,7 +25,6 @@ export function ProjectSettingsForm({ projectId, initial, counts }: { projectId:
       const res = await updateProject(projectId, draft);
       if (!res.ok) return void toast.error(res.error);
       toast.success("Project saved");
-      router.refresh();
     });
   }
 
@@ -35,7 +34,6 @@ export function ProjectSettingsForm({ projectId, initial, counts }: { projectId:
       if (!res.ok) return void toast.error(res.error);
       toast.success(`Deleted ${initial.name}`);
       router.push("/projects");
-      router.refresh();
     });
   }
 
