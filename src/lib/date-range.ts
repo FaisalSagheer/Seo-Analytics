@@ -57,10 +57,16 @@ export function resolveRange(sp: Params, fallbackDays = 90) {
   return { start: daysAgo(days - 1), end: daysAgo(0), days, custom: false };
 }
 
-export function resolveCompare(sp: Params, days: number): CompareSpec {
+/** Whether the comparison reaches back no further than Search Console and GA4 keep data. */
+export function compareAvailable(kind: CompareKind, win: Window): boolean {
+  if (kind === "week" && spanDays(win) !== 1) return false;
+  const w = compareWindow({ kind }, win);
+  return kind === "none" || kind === "custom" || (w != null && w.start >= earliestDate());
+}
+
+export function resolveCompare(sp: Params, win: Window): CompareSpec {
   const kind = first(sp.compare);
-  if (kind === "previous" || kind === "year") return { kind };
-  if (kind === "week" && days === 1) return { kind };
+  if ((kind === "previous" || kind === "year" || kind === "week") && compareAvailable(kind, win)) return { kind };
   if (kind === "custom") {
     const custom = validWindow(first(sp.cfrom), first(sp.cto));
     if (custom) return { kind, custom };

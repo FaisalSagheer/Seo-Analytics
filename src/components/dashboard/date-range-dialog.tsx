@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PRESET_LABEL, type CompareKind } from "@/lib/date-range";
+import { PRESET_LABEL, addDays, compareAvailable, type CompareKind } from "@/lib/date-range";
 
 export type DateRangeState = {
   /** Preset length in days (ignored while `from`/`to` are set) */
@@ -35,10 +35,10 @@ function dateError(from: string, to: string, min: string, max: string): string |
   return null;
 }
 
-function Radio({ name, checked, onChange, children }: { name: string; checked: boolean; onChange: () => void; children: React.ReactNode }) {
+function Radio({ name, checked, onChange, disabled = false, children }: { name: string; checked: boolean; onChange: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 py-2 text-sm">
-      <input type="radio" name={name} checked={checked} onChange={onChange} className="accent-primary size-4" />
+    <label className={`flex items-center gap-3 py-2 text-sm ${disabled ? "text-muted-foreground cursor-not-allowed" : "cursor-pointer"}`}>
+      <input type="radio" name={name} checked={checked} disabled={disabled} onChange={onChange} className="accent-primary size-4" />
       {children}
     </label>
   );
@@ -76,6 +76,11 @@ export function DateRangeDialog({ days, from, to, compare, presets, allowCustom,
 
   const rangeError = mode === "custom" ? dateError(start, end, minDate, maxDate) : null;
   const compareError = cmp === "custom" ? dateError(cStart, cEnd, minDate, maxDate) : null;
+  // The draft range, to tell which comparisons would reach back beyond the data Google keeps
+  const draftEnd = new Date(`${mode === "custom" && end ? end : maxDate}T00:00:00Z`);
+  const draftStart = mode === "custom" && start ? new Date(`${start}T00:00:00Z`) : addDays(draftEnd, -(preset - 1));
+  const draft = { start: draftStart, end: draftEnd };
+  const can = (kind: CompareKind) => compareAvailable(kind, draft);
   const canApply = !rangeError && !compareError;
 
   const label = isCustom ? `${from} – ${to}` : (PRESET_LABEL[days] ?? `Last ${days} days`);
@@ -139,7 +144,12 @@ export function DateRangeDialog({ days, from, to, compare, presets, allowCustom,
             </TabsList>
             <TabsContent value="filter" className="pt-2">
               {presets.map((p) => (
-                <Radio key={p} name="range" checked={mode === "preset" && preset === p} onChange={() => (setMode("preset"), setPreset(p))}>
+                <Radio key={p} name="range" checked={mode === "preset" && preset === p} onChange={() => {
+                    setMode("preset");
+                    setPreset(p);
+                    // A comparison the new range can't have falls back to none
+                    if (cmp !== "none" && cmp !== "custom" && !compareAvailable(cmp, { start: addDays(new Date(`${maxDate}T00:00:00Z`), -(p - 1)), end: new Date(`${maxDate}T00:00:00Z`) })) setCmp("none");
+                  }}>
                   {PRESET_LABEL[p]}
                 </Radio>
               ))}
@@ -157,7 +167,7 @@ export function DateRangeDialog({ days, from, to, compare, presets, allowCustom,
                 <Radio name="compare" checked={cmp === "none"} onChange={() => setCmp("none")}>
                   No comparison
                 </Radio>
-                <Radio name="compare" checked={cmp === "previous"} onChange={() => setCmp("previous")}>
+                <Radio name="compare" checked={cmp === "previous"} disabled={!can("previous")} onChange={() => setCmp("previous")}>
                   Compare {base} to previous period
                 </Radio>
                 {mode === "preset" && preset === 1 && (
@@ -165,12 +175,13 @@ export function DateRangeDialog({ days, from, to, compare, presets, allowCustom,
                     Compare last 24 hours week over week
                   </Radio>
                 )}
-                <Radio name="compare" checked={cmp === "year"} onChange={() => setCmp("year")}>
+                <Radio name="compare" checked={cmp === "year"} disabled={!can("year")} onChange={() => setCmp("year")}>
                   Compare {base} year over year
                 </Radio>
                 <Radio name="compare" checked={cmp === "custom"} onChange={() => setCmp("custom")}>
                   Custom
                 </Radio>
+                {(!can("previous") || !can("year")) && <p className="text-muted-foreground pl-7 text-xs">Greyed-out comparisons would reach back past the 16 months Google keeps.</p>}
                 {cmp === "custom" && <DateFields from={cStart} to={cEnd} onFrom={setCStart} onTo={setCEnd} min={minDate} max={maxDate} error={compareError} />}
               </TabsContent>
             )}

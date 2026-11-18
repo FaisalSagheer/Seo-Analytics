@@ -111,7 +111,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const sp = await searchParams;
   const range = resolveRange(sp, 90);
   const { days } = range;
-  const compareSpec = resolveCompare(sp, days);
+  const compareSpec = resolveCompare(sp, range);
   // Hourly needs Search Console's short-lived hourly data, so only the 24 hour and 7 day presets offer it
   const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
   const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
