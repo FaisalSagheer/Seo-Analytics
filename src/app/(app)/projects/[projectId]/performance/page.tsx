@@ -6,7 +6,7 @@ import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
-import { resolveCompare, resolveRange, spanDays } from "@/lib/date-range";
+import { compareWindow, resolveCompare, resolveRange, spanDays, type Window } from "@/lib/date-range";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { QueriesTable, type QueryRow } from "@/components/performance/queries-table";
@@ -66,28 +66,38 @@ async function loadSearchReport(project: { id: string; userId: string; gscSiteUr
   }
 }
 
-const toGa4Rows = (rows: Ga4BreakdownRow[], name: (key: string) => string = (k) => k) =>
-  rows.map((r) => ({ label: name(r.key), sessions: r.sessions, users: r.users, engagementRate: r.engagementRate, conversions: r.conversions }));
+const ZERO = { sessions: 0, users: 0, engagementRate: 0, conversions: 0 };
+const toGa4Rows = (rows: Ga4BreakdownRow[], name: (key: string) => string = (k) => k, before?: Ga4BreakdownRow[]) => {
+  const prev = before ? new Map(before.map((r) => [r.key, r])) : null;
+  return rows.map((r) => ({
+    label: name(r.key),
+    sessions: r.sessions,
+    users: r.users,
+    engagementRate: r.engagementRate,
+    conversions: r.conversions,
+    ...(prev ? { previous: prev.get(r.key) ?? ZERO } : {}),
+  }));
+};
 
-/** The Google Analytics reports (all channels, then organic landing pages, countries and devices) for the chosen range. */
-async function loadGa4Report(project: { id: string; userId: string; ga4PropertyId: string | null }, range: { start: Date; end: Date }) {
+/** The Google Analytics reports (all channels, then organic landing pages, countries and devices) for the chosen range, and the comparison range when asked. */
+async function loadGa4Report(project: { id: string; userId: string; ga4PropertyId: string | null }, range: Window, cmp: Window | null) {
   if (!project.ga4PropertyId) return { data: null, note: "Choose a GA4 property in project settings." };
   try {
     const token = await getGoogleAccessToken(project);
-    const start = toDateKey(range.start);
-    const end = toDateKey(range.end);
     const id = project.ga4PropertyId;
-    const [channels, pages, countries, devices] = await Promise.all([
-      ga4Breakdown(token, id, "sessionDefaultChannelGroup", start, end, false),
-      ga4Breakdown(token, id, "landingPagePlusQueryString", start, end),
-      ga4Breakdown(token, id, "country", start, end),
-      ga4Breakdown(token, id, "deviceCategory", start, end),
-    ]);
+    const run = (w: Window) =>
+      Promise.all([
+        ga4Breakdown(token, id, "sessionDefaultChannelGroup", toDateKey(w.start), toDateKey(w.end), false),
+        ga4Breakdown(token, id, "landingPagePlusQueryString", toDateKey(w.start), toDateKey(w.end)),
+        ga4Breakdown(token, id, "country", toDateKey(w.start), toDateKey(w.end)),
+        ga4Breakdown(token, id, "deviceCategory", toDateKey(w.start), toDateKey(w.end)),
+      ]);
+    const [[channels, pages, countries, devices], before] = await Promise.all([run(range), cmp ? run(cmp) : Promise.resolve(null)]);
     const data: Ga4ReportData = {
-      channels: toGa4Rows(channels),
-      pages: toGa4Rows(pages),
-      countries: toGa4Rows(countries),
-      devices: toGa4Rows(devices, label),
+      channels: toGa4Rows(channels, undefined, before?.[0]),
+      pages: toGa4Rows(pages, undefined, before?.[1]),
+      countries: toGa4Rows(countries, undefined, before?.[2]),
+      devices: toGa4Rows(devices, label, before?.[3]),
     };
     return { data, note: undefined };
   } catch (err) {
@@ -127,7 +137,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   ]);
   const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, range);
   const liveDay = new Map((live?.daily ?? []).map((d) => [d.date, d]));
-  const ga4Report = project.isDemo ? { data: null, note: "Demo projects have no live Google Analytics data." } : await loadGa4Report(project, range);
+  const ga4Report = project.isDemo ? { data: null, note: "Demo projects have no live Google Analytics data." } : await loadGa4Report(project, range, compareWindow(compareSpec, range));
   const series = report!.series.map((p) => {
     const d = liveDay.get(p.date);
     const clicks = d ? d.clicks : p.clicks;
@@ -343,7 +353,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         <CardHeader>
           <CardTitle>Google Analytics</CardTitle>
           <CardDescription>
-            Reports from GA4 for the range above. Channels covers all traffic; landing pages, countries and devices are organic search only.
+            Reports from GA4 for the range above, with the change from the comparison period when one is chosen. Channels covers all traffic; landing pages, countries and devices are organic search only.
           </CardDescription>
         </CardHeader>
         <CardContent>

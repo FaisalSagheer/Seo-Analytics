@@ -6,9 +6,12 @@ import { TablePager, usePaged } from "@/components/performance/table-pager";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Delta } from "@/components/dashboard/delta";
 import { formatNumber, formatPercent } from "@/lib/format";
 
-export type Ga4Row = { label: string; sessions: number; users: number; engagementRate: number; conversions: number };
+type Ga4Values = { sessions: number; users: number; engagementRate: number; conversions: number };
+/** `previous` is set only when comparing: the same row in the comparison period (zeros when it had no traffic then) */
+export type Ga4Row = Ga4Values & { label: string; previous?: Ga4Values };
 export type Ga4ReportData = { channels: Ga4Row[]; pages: Ga4Row[]; countries: Ga4Row[]; devices: Ga4Row[] };
 
 function Ga4Table({ heading, rows, filterable = false, empty }: { heading: string; rows: Ga4Row[]; filterable?: boolean; empty: string }) {
@@ -18,6 +21,14 @@ function Ga4Table({ heading, rows, filterable = false, empty }: { heading: strin
     return needle ? rows.filter((r) => r.label.toLowerCase().includes(needle)) : rows;
   }, [rows, q]);
   const { page, setPage, shown } = usePaged(visible);
+  const pct = (cur: number, before: number) => (before ? ((cur - before) / before) * 100 : null);
+  /** The value with its change from the comparison period beneath it */
+  const cell = (value: string, delta: number | null | undefined, suffix = "%", digits = 0) => (
+    <div className="flex flex-col items-end">
+      <span>{value}</span>
+      {delta !== undefined && <Delta value={delta} suffix={suffix} digits={digits} className="text-xs" />}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -60,10 +71,12 @@ function Ga4Table({ heading, rows, filterable = false, empty }: { heading: strin
                   <TableCell className="max-w-96 truncate" title={r.label}>
                     {r.label}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatNumber(r.sessions)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatNumber(r.users)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatPercent(r.engagementRate)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatNumber(r.conversions)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{cell(formatNumber(r.sessions), r.previous && pct(r.sessions, r.previous.sessions))}</TableCell>
+                  <TableCell className="text-right tabular-nums">{cell(formatNumber(r.users), r.previous && pct(r.users, r.previous.users))}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {cell(formatPercent(r.engagementRate), r.previous && (r.engagementRate - r.previous.engagementRate) * 100, " pp", 1)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{cell(formatNumber(r.conversions), r.previous && pct(r.conversions, r.previous.conversions))}</TableCell>
                 </TableRow>
               ))
             )}
