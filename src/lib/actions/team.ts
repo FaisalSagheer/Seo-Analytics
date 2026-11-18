@@ -1,6 +1,6 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { refresh, revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -8,7 +8,8 @@ import { sha256 } from "@/lib/crypto";
 import { getViewerRole, requireUser } from "@/lib/session";
 import { inviteEmail, mailConfigured, resetEmail, sendMail } from "@/lib/mail";
 import { issueResetLink } from "@/lib/password-reset";
-import { inviteSchema, roleSchema, type InviteInput, type RoleInput } from "@/lib/validations";
+import { addUserSchema, inviteSchema, roleSchema, type AddUserInput, type InviteInput, type RoleInput } from "@/lib/validations";
+import { hashPassword } from "@/lib/password";
 import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
 /** Team and role changes are the Admin role's alone. */
@@ -170,4 +171,45 @@ export async function createPasswordResetLink(userId: string): Promise<ActionRes
     result.emailError = err instanceof Error ? err.message : "The email couldn't be sent.";
   }
   return ok(result);
+}
+
+/**
+ * Creates an account straight away with a password the admin sets, for when an invitation
+ * link isn't practical. The person can choose their own password later with a reset link.
+ */
+export async function addUser(input: AddUserInput): Promise<ActionResult<{ email: string; projects: number }>> {
+  const blocked = await adminOnly();
+  if (blocked) return blocked;
+  const parsed = addUserSchema.safeParse(input);
+  if (!parsed.success) return zodError(parsed.error);
+  const { name, email, password, roleId } = parsed.data;
+  if (await db.user.findUnique({ where: { email } })) return fail("That email already has an account. Change their role below instead.");
+  const role = await db.role.findUnique({ where: { id: roleId } });
+  if (!role) return fail("That role no longer exists.");
+  // Roles that see every project don't need memberships; demo projects aren't assignable
+  const projectIds = role.isSystem || role.seeAllProjects ? [] : [...new Set(parsed.data.projectIds)];
+  const projects = projectIds.length
+    ? await db.project.findMany({ where: { id: { in: projectIds }, isDemo: false }, select: { id: true } })
+    : [];
+
+  const userId = randomUUID();
+  const hash = await hashPassword(password);
+  await db.$transaction([
+    db.user.create({
+      data: {
+        id: userId,
+        name,
+        email,
+        // An admin entered the address, so a later Google sign-in with it may link to this account
+        emailVerified: true,
+        roleId: role.id,
+        accounts: { create: { id: randomUUID(), accountId: userId, providerId: "credential", password: hash } },
+        projectMemberships: { create: projects.map((p) => ({ projectId: p.id })) },
+      },
+    }),
+    // A pending invitation for the same address is now pointless
+    db.invitation.deleteMany({ where: { email, acceptedAt: null } }),
+  ]);
+  revalidatePath("/", "layout");
+  return ok({ email, projects: projects.length });
 }

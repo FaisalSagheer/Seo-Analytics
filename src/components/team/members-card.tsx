@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRelative } from "@/lib/format";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,7 +19,7 @@ import { PagedTable } from "@/components/performance/table-pager";
 
 export type MemberView = { id: string; name: string; email: string; roleId: string; roleName: string; createdAt: string; isYou: boolean; isActive: boolean };
 
-export function MembersCard({ members, roles }: { members: MemberView[]; roles: { id: string; name: string }[] }) {
+export function MembersCard({ members, roles, action }: { members: MemberView[]; roles: { id: string; name: string }[]; action?: React.ReactNode }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const items = roles.map((r) => ({ value: r.id, label: r.name }));
@@ -59,6 +59,7 @@ export function MembersCard({ members, roles }: { members: MemberView[]; roles: 
           Everyone who has an account. A role change applies on their next page load. Deactivating blocks sign-in and API keys at once, and keeps
           everything they created.
         </CardDescription>
+        {action && <CardAction>{action}</CardAction>}
       </CardHeader>
       <CardContent>
         <PagedTable header={<>

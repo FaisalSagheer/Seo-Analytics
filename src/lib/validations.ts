@@ -62,6 +62,16 @@ export const inviteSchema = z.object({
 });
 export type InviteInput = z.input<typeof inviteSchema>;
 
+export const addUserSchema = z.object({
+  name: z.string().trim().min(1, "Enter their name").max(100),
+  email: z.email("Enter a valid email").trim().toLowerCase().max(191),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  roleId: z.string().min(1, "Pick a role"),
+  /** Only used when the role doesn't see every project */
+  projectIds: z.array(z.string().min(1)).max(200).default([]),
+});
+export type AddUserInput = z.input<typeof addUserSchema>;
+
 export const acceptInviteSchema = z.object({
   token: z.string().min(20).max(200),
   name: z.string().trim().min(1, "Enter your name").max(100),

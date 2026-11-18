@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { InviteCard } from "@/components/team/invite-card";
+import { AddUserDialog } from "@/components/team/add-user-dialog";
 import { MembersCard } from "@/components/team/members-card";
 import { RolesCard } from "@/components/team/roles-card";
 import { db } from "@/lib/db";
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: "Team & roles" };
 
 export default async function TeamPage() {
   const viewer = await requireAdmin();
-  const [roles, users, invitations] = await Promise.all([
+  const [roles, users, invitations, projects] = await Promise.all([
     // Admin first, then the rest alphabetically
     db.role.findMany({ orderBy: [{ isSystem: "desc" }, { name: "asc" }], include: { _count: { select: { users: true } } } }),
     db.user.findMany({
@@ -23,6 +24,8 @@ export default async function TeamPage() {
       orderBy: { createdAt: "desc" },
       include: { role: { select: { name: true } } },
     }),
+    // Projects a new user can be given access to; demo projects are visible to every role that sees all
+    db.project.findMany({ where: { isDemo: false }, orderBy: { name: "asc" }, select: { id: true, name: true, domain: true } }),
   ]);
   const fallback = roles.find((r) => r.isDefault);
   // Users with no role row resolve to the default role, so count and show them there
@@ -37,6 +40,7 @@ export default async function TeamPage() {
           invitations={invitations.map((i) => ({ id: i.id, email: i.email, roleName: i.role.name, expiresAt: i.expiresAt.toISOString() }))}
         />
         <MembersCard
+          action={<AddUserDialog roles={roles.map((r) => ({ id: r.id, name: r.name, seesAll: r.isSystem || r.seeAllProjects }))} projects={projects} />}
           roles={roles.map((r) => ({ id: r.id, name: r.name }))}
           members={users.map((u) => ({
             id: u.id,
