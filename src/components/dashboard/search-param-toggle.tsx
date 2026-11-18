@@ -13,11 +13,14 @@ export function SearchParamToggle({
   value,
   options,
   label,
+  clear = [],
 }: {
   param: string;
   value: string;
   options: { value: string; label: string; disabled?: boolean }[];
   label: string;
+  /** Other params to drop when this one changes */
+  clear?: string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -36,6 +39,7 @@ export function SearchParamToggle({
         const next = v[0];
         if (!next) return;
         const sp = new URLSearchParams(params);
+        for (const k of clear) sp.delete(k);
         sp.set(param, next);
         // Transition keeps the current data on screen while the server renders
         startTransition(() => router.replace(`${pathname}?${sp}`, { scroll: false }));

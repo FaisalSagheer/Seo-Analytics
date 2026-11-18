@@ -1,15 +1,18 @@
 import "server-only";
-import { daysAgo, toDateKey } from "@/lib/dates";
+import { toDateKey } from "@/lib/dates";
+import { compareWindow, type CompareSpec, type Window } from "@/lib/date-range";
 import { getGoogleAccessToken } from "@/lib/providers";
 import { gscDaily, gscHourly } from "@/lib/providers/google";
 
-export type Compare = "none" | "previous" | "year";
 export type Totals = { clicks: number; impressions: number; ctr: number; position: number };
 export type HourPoint = { date: string; clicks: number; impressions: number };
+export type DayPoint = { date: string; clicks: number; impressions: number };
 
 export type LiveReport = {
   /** Hour-by-hour points for the chart, or null when the range is shown by day */
   hourly: HourPoint[] | null;
+  /** Day-by-day points when the page asked for them (ranges beyond the synced window) */
+  daily: DayPoint[] | null;
   /** Totals for the selected range straight from Search Console; null when the page should use its synced numbers */
   current: Totals | null;
   /** Totals for the comparison range; null when not comparing */
@@ -38,57 +41,55 @@ export function sumTotals(rows: Row[]): Totals | null {
   return { clicks, impressions, ctr: impressions ? clicks / impressions : 0, position: impressions ? weighted / impressions : 0 };
 }
 
-const shiftYear = (d: Date) => {
-  const out = new Date(d);
-  out.setUTCFullYear(out.getUTCFullYear() - 1);
-  return out;
-};
+const HOUR_MS = 3_600_000;
 
 /**
  * What the Performance page reads live from Search Console: hourly points for a
- * short range, and totals for the selected and comparison ranges.
+ * short range, day points for a long one, and totals for the selected and comparison ranges.
  */
 export async function loadLiveReport(
   project: { id: string; userId: string; gscSiteUrl: string | null },
-  opts: { days: number; hourly: boolean; compare: Compare },
+  opts: { window: Window; days: number; hourly: boolean; compare: CompareSpec; wantDaily: boolean },
 ): Promise<LiveReport> {
-  const empty: LiveReport = { hourly: null, current: null, previous: null, lastDataAt: null };
-  if (!project.gscSiteUrl || (!opts.hourly && opts.compare === "none")) return empty;
+  const empty: LiveReport = { hourly: null, daily: null, current: null, previous: null, lastDataAt: null };
+  const { window: win, days, compare } = opts;
+  if (!project.gscSiteUrl || (!opts.hourly && !opts.wantDaily && compare.kind === "none")) return empty;
   const site = project.gscSiteUrl;
   try {
     const token = await getGoogleAccessToken(project);
-    const { days } = opts;
-    const today = daysAgo(0);
-    const curStart = daysAgo(days - 1);
-    const prevEnd = daysAgo(days);
-    const prevStart = daysAgo(days === 1 ? 1 : 2 * days - 1);
-    const dailyTotals = async (from: Date, to: Date) => sumTotals(await gscDaily(token, site, toDateKey(from), toDateKey(to)));
+    const dailyRows = (w: Window) => gscDaily(token, site, toDateKey(w.start), toDateKey(w.end));
 
     let hourly: HourPoint[] | null = null;
+    let daily: DayPoint[] | null = null;
     let current: Totals | null = null;
     let previous: Totals | null = null;
     let lastDataAt: Date | null = null;
 
     if (opts.hourly) {
-      const rows = await gscHourly(token, site, toDateKey(daysAgo(days === 1 ? 1 : days - 1)), toDateKey(today));
-      // A 24 hour range is the latest 24 hours, which straddles two calendar days
+      // A 24 hour range is the latest 24 hours, which straddles two calendar days; week over week needs a week more
+      const from = days === 1 ? new Date(win.end.getTime() - (compare.kind === "week" ? 8 : 1) * 86_400_000) : win.start;
+      const rows = await gscHourly(token, site, toDateKey(from), toDateKey(win.end));
       const cur = days === 1 ? rows.slice(-24) : rows;
       hourly = cur.map((r) => ({ date: r.time, clicks: r.clicks, impressions: r.impressions }));
       current = sumTotals(cur);
       lastDataAt = cur.length ? new Date(cur[cur.length - 1].time) : null;
-      if (opts.compare === "previous" && days === 1) previous = sumTotals(rows.slice(-48, -24));
+      if (days === 1 && cur.length) {
+        const last = new Date(cur[cur.length - 1].time).getTime();
+        if (compare.kind === "previous") previous = sumTotals(rows.slice(-48, -24));
+        if (compare.kind === "week") {
+          const end = last - 7 * 86_400_000;
+          previous = sumTotals(rows.filter((r) => new Date(r.time).getTime() > end - 24 * HOUR_MS && new Date(r.time).getTime() <= end));
+        }
+      }
+    } else if (opts.wantDaily || compare.kind !== "none") {
+      const rows = await dailyRows(win);
+      current = sumTotals(rows);
+      if (opts.wantDaily) daily = rows.map((r) => ({ date: r.date, clicks: r.clicks, impressions: r.impressions }));
     }
 
-    if (opts.compare === "previous" && previous == null) {
-      const [cur, prev] = await Promise.all([current ? null : dailyTotals(curStart, today), dailyTotals(prevStart, prevEnd)]);
-      current ??= cur;
-      previous = prev;
-    } else if (opts.compare === "year") {
-      const [cur, prev] = await Promise.all([current ? null : dailyTotals(curStart, today), dailyTotals(shiftYear(curStart), shiftYear(today))]);
-      current ??= cur;
-      previous = prev;
-    }
-    return { hourly, current, previous, lastDataAt };
+    const cmp = compareWindow(compare, win);
+    if (cmp && previous == null) previous = sumTotals(await dailyRows(cmp));
+    return { hourly, daily, current, previous, lastDataAt };
   } catch (err) {
     return { ...empty, error: err instanceof Error ? err.message : "Couldn't read Search Console" };
   }

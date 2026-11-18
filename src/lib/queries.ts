@@ -50,16 +50,16 @@ export function rankChange(previous: number | null, current: number | null): num
   return (previous ?? 101) - (current ?? 101);
 }
 
-export async function getProjectReport(projectId: string, days: number): Promise<ProjectReport | null> {
+export async function getProjectReport(projectId: string, days: number, range?: { from: Date; to: Date }): Promise<ProjectReport | null> {
   const project = await db.project.findUnique({ where: { id: projectId } });
   if (!project) return null;
 
-  const to = utcDay();
-  const from = daysAgo(days - 1);
+  const to = range?.to ?? utcDay();
+  const from = range?.from ?? daysAgo(days - 1);
   const [rows, gsc, ga4] = await Promise.all([
     getRankingRows(projectId, days),
-    db.searchConsoleDaily.findMany({ where: { projectId, date: { gte: from } } }),
-    db.analyticsDaily.findMany({ where: { projectId, date: { gte: from } } }),
+    db.searchConsoleDaily.findMany({ where: { projectId, date: { gte: from, lte: to } } }),
+    db.analyticsDaily.findMany({ where: { projectId, date: { gte: from, lte: to } } }),
   ]);
 
   const gscBy = new Map(gsc.map((g) => [toDateKey(g.date), g]));

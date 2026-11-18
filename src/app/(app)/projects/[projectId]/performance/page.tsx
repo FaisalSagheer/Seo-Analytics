@@ -6,6 +6,7 @@ import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
+import { resolveCompare, resolveRange, spanDays } from "@/lib/date-range";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { QueriesTable, type QueryRow } from "@/components/performance/queries-table";
@@ -14,9 +15,9 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/u
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
-import { daysAgo, parseRange, toDateKey } from "@/lib/dates";
+import { daysAgo, toDateKey } from "@/lib/dates";
 import { formatNumber, formatPercent, formatPosition, formatRelative } from "@/lib/format";
-import { MAX_HOURLY_DAYS, loadLiveReport, type Compare } from "@/lib/search-console-live";
+import { MAX_HOURLY_DAYS, loadLiveReport } from "@/lib/search-console-live";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
 import { gscBreakdown, type GscBreakdownRow } from "@/lib/providers/google";
 import { getGoogleAccessToken } from "@/lib/providers";
@@ -35,7 +36,7 @@ const toRows = (rows: GscBreakdownRow[], name: (key: string) => string = (k) => 
   }));
 
 /** The Pages, Countries, Devices and Search appearance reports, read from Search Console for the chosen range. */
-async function loadSearchReport(project: { id: string; userId: string; gscSiteUrl: string | null }, days: number) {
+async function loadSearchReport(project: { id: string; userId: string; gscSiteUrl: string | null }, range: { start: Date; end: Date }) {
   if (!project.gscSiteUrl)
     return {
       data: null,
@@ -43,8 +44,8 @@ async function loadSearchReport(project: { id: string; userId: string; gscSiteUr
     };
   try {
     const token = await getGoogleAccessToken(project);
-    const start = toDateKey(daysAgo(days));
-    const end = toDateKey(daysAgo(0));
+    const start = toDateKey(range.start);
+    const end = toDateKey(range.end);
     const site = project.gscSiteUrl;
     const [pages, countries, devices, appearance] = await Promise.all(
       (["page", "country", "device", "searchAppearance"] as const).map((d) => gscBreakdown(token, site, d, start, end)),
@@ -68,32 +69,40 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const { projectId } = await params;
   const { project } = await requireProject(projectId);
   const sp = await searchParams;
-  const days = sp.days === "1" ? 1 : parseRange(sp.days, 90);
-  // Hourly needs Search Console's short-lived hourly data, so only short ranges offer it; a 24 hour range defaults to it
-  const canHourly = days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
+  const range = resolveRange(sp, 90);
+  const { days } = range;
+  const compareSpec = resolveCompare(sp, days);
+  // Hourly needs Search Console's short-lived hourly data, so only the 24 hour and 7 day presets offer it
+  const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
   const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
-  const compare: Compare = sp.compare === "previous" || sp.compare === "year" ? sp.compare : "none";
-  const live = project.isDemo ? null : await loadLiveReport(project, { days, hourly, compare });
+  // Synced data covers about 90 days; longer or older ranges are read live
+  const wantDaily = !project.isDemo && Boolean(project.gscSiteUrl) && (range.custom ? range.start < daysAgo(89) : days > 90);
+  const live = project.isDemo ? null : await loadLiveReport(project, { window: range, days, hourly, compare: compareSpec, wantDaily });
+  // How far back from today the range starts, for the keyword history behind the charts
+  const sinceDays = spanDays({ start: range.start, end: daysAgo(0) });
 
   const [report, queries, rankings, gscAgg, gaAgg] = await Promise.all([
-    getProjectReport(project.id, days),
+    getProjectReport(project.id, sinceDays, { from: range.start, to: range.end }),
     getGscQueries(project.id),
     getRankingRows(project.id, 28),
     db.searchConsoleDaily.aggregate({
-      where: { projectId: project.id, date: { gte: daysAgo(days - 1) } },
+      where: { projectId: project.id, date: { gte: range.start, lte: range.end } },
       _sum: { clicks: true, impressions: true },
       _avg: { position: true },
     }),
     db.analyticsDaily.aggregate({
-      where: { projectId: project.id, date: { gte: daysAgo(days - 1) } },
+      where: { projectId: project.id, date: { gte: range.start, lte: range.end } },
       _avg: { engagementRate: true },
     }),
   ]);
-  const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, days);
-  const series = report!.series.map((p) => ({
-    ...p,
-    ctr: p.clicks != null && p.impressions ? p.clicks / p.impressions : null,
-  }));
+  const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, range);
+  const liveDay = new Map((live?.daily ?? []).map((d) => [d.date, d]));
+  const series = report!.series.map((p) => {
+    const d = liveDay.get(p.date);
+    const clicks = d ? d.clicks : p.clicks;
+    const impressions = d ? d.impressions : p.impressions;
+    return { ...p, clicks, impressions, ctr: clicks != null && impressions ? clicks / impressions : null };
+  });
   const totals = report!.totals;
 
   // Live Search Console totals win when the page is hourly or comparing, so both periods come from the same source
@@ -102,7 +111,9 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const position = live?.current ? live.current.position : gscAgg._avg.position;
   const prev = live?.current ? live.previous : null;
   const pct = (cur: number, before: number | undefined) => (before ? ((cur - before) / before) * 100 : null);
-  const compareHint = prev ? (compare === "year" ? "vs same period last year" : "vs previous period") : undefined;
+  const compareHint = prev
+    ? { previous: "vs previous period", year: "vs same period last year", week: "vs same hours last week", custom: "vs custom period", none: "" }[compareSpec.kind]
+    : undefined;
   const lastUpdate = hourly && live?.lastDataAt ? live.lastDataAt : project.lastSyncedAt;
   const connected = project.isDemo || Boolean(project.gscSiteUrl || project.ga4PropertyId);
 
@@ -127,7 +138,16 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         actions={
           <>
             <span className="text-muted-foreground hidden text-sm sm:inline">Last update: {formatRelative(lastUpdate)}</span>
-            <RangePicker value={days} includeDay />
+            <RangePicker
+              value={days}
+              advanced
+              custom={range.custom ? { from: toDateKey(range.start), to: toDateKey(range.end) } : undefined}
+              compare={{
+                kind: compareSpec.kind,
+                from: compareSpec.custom ? toDateKey(compareSpec.custom.start) : undefined,
+                to: compareSpec.custom ? toDateKey(compareSpec.custom.end) : undefined,
+              }}
+            />
             <SearchParamSelect
               param="by"
               label="Granularity"
@@ -135,16 +155,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
               items={[
                 { value: "hour", label: "Hourly", disabled: !canHourly },
                 { value: "day", label: "Daily" },
-              ]}
-            />
-            <SearchParamSelect
-              param="compare"
-              label="Compare"
-              value={compare}
-              items={[
-                { value: "none", label: "No comparison" },
-                { value: "previous", label: "Previous period" },
-                { value: "year", label: "Same period last year" },
               ]}
             />
             <SyncButton projectId={project.id} parts={["google"]} label="Sync Google" />

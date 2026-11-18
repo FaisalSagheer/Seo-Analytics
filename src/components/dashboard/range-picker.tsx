@@ -1,17 +1,47 @@
+import { DateRangeDialog, type DateRangeState } from "@/components/dashboard/date-range-dialog";
 import { SearchParamToggle } from "@/components/dashboard/search-param-toggle";
-import { RANGE_OPTIONS } from "@/lib/dates";
+import { BASIC_PRESETS, PERF_PRESETS, earliestDate } from "@/lib/date-range";
+import { toDateKey, utcDay } from "@/lib/dates";
 
-const LABELS: Record<number, string> = { 1: "24h", 7: "7d", 28: "28d", 90: "3m", 180: "6m", 365: "12m" };
+const LABELS: Record<number, string> = { 1: "24h", 7: "7d", 28: "28d" };
 
-/** Writes `?days=` so the server component re-renders with the new range. */
-export function RangePicker({ value, includeDay = false }: { value: number; includeDay?: boolean }) {
-  const options = includeDay ? [1, ...RANGE_OPTIONS] : RANGE_OPTIONS;
+/**
+ * Quick 7d / 28d buttons (plus 24h on pages with live data) and a Date range dialog for the
+ * longer ranges. `advanced` adds custom dates, 16 months and comparison; it needs a page that reads live data.
+ */
+export function RangePicker({
+  value,
+  advanced = false,
+  custom,
+  compare,
+}: {
+  value: number;
+  advanced?: boolean;
+  custom?: { from: string; to: string };
+  compare?: DateRangeState["compare"];
+}) {
+  const quick = advanced ? [1, 7, 28] : [7, 28];
   return (
-    <SearchParamToggle
-      param="days"
-      value={String(value)}
-      label="Date range"
-      options={options.map((d) => ({ value: String(d), label: LABELS[d] }))}
-    />
+    <div className="flex flex-wrap items-center gap-2">
+      <SearchParamToggle
+        param="days"
+        value={custom ? "" : String(value)}
+        label="Date range"
+        options={quick.map((d) => ({ value: String(d), label: LABELS[d] }))}
+        // A quick button replaces any custom dates
+        clear={["from", "to"]}
+      />
+      <DateRangeDialog
+        days={value}
+        from={custom?.from}
+        to={custom?.to}
+        compare={compare ?? { kind: "none" }}
+        presets={advanced ? PERF_PRESETS : BASIC_PRESETS}
+        allowCustom={advanced}
+        allowCompare={advanced}
+        minDate={toDateKey(earliestDate())}
+        maxDate={toDateKey(utcDay())}
+      />
+    </div>
   );
 }
