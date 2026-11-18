@@ -113,7 +113,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const { days } = range;
   const compareSpec = resolveCompare(sp, range);
   // Hourly needs Search Console's short-lived hourly data, so only the 24 hour and 7 day presets offer it
-  const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
+  const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl || project.ga4PropertyId) && !project.isDemo;
   const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
   // Synced data covers about 90 days; longer or older ranges are read live
   const wantDaily = !project.isDemo && Boolean(project.gscSiteUrl) && (range.custom ? range.start < daysAgo(89) : days > 90);
@@ -137,7 +137,9 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   ]);
   const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, range);
   const liveDay = new Map((live?.daily ?? []).map((d) => [d.date, d]));
-  const ga4Report = project.isDemo ? { data: null, note: "Demo projects have no live Google Analytics data." } : await loadGa4Report(project, range, compareWindow(compareSpec, range));
+  const ga4Report = project.isDemo
+    ? { data: null, note: "Demo projects have no live Google Analytics data." }
+    : await loadGa4Report(project, range, compareWindow(compareSpec, range));
   const series = report!.series.map((p) => {
     const d = liveDay.get(p.date);
     const clicks = d ? d.clicks : p.clicks;
@@ -153,7 +155,9 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const prev = live?.current ? live.previous : null;
   const pct = (cur: number, before: number | undefined) => (before ? ((cur - before) / before) * 100 : null);
   const compareHint = prev
-    ? { previous: "vs previous period", year: "vs same period last year", week: "vs same hours last week", custom: "vs custom period", none: "" }[compareSpec.kind]
+    ? { previous: "vs previous period", year: "vs same period last year", week: "vs same hours last week", custom: "vs custom period", none: "" }[
+        compareSpec.kind
+      ]
     : undefined;
   const lastUpdate = hourly && live?.lastDataAt ? live.lastDataAt : project.lastSyncedAt;
   const connected = project.isDemo || Boolean(project.gscSiteUrl || project.ga4PropertyId);
@@ -203,6 +207,12 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         }
       />
       {project.isDemo && <DemoAlert />}
+      {live?.ga4Error && (
+        <Alert variant="destructive">
+          <AlertTitle>Couldn&apos;t read hourly Google Analytics data</AlertTitle>
+          <AlertDescription>{live.ga4Error}</AlertDescription>
+        </Alert>
+      )}
       {live?.error && (
         <Alert variant="destructive">
           <AlertTitle>Couldn&apos;t read live Search Console data</AlertTitle>
@@ -224,7 +234,13 @@ export default async function PerformancePage({ params, searchParams }: PageProp
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <StatCard label="Clicks" value={formatNumber(clicks)} delta={prev ? pct(clicks, prev.clicks) : undefined} deltaSuffix="%" hint={compareHint} />
-        <StatCard label="Impressions" value={formatNumber(impressions)} delta={prev ? pct(impressions, prev.impressions) : undefined} deltaSuffix="%" hint={compareHint} />
+        <StatCard
+          label="Impressions"
+          value={formatNumber(impressions)}
+          delta={prev ? pct(impressions, prev.impressions) : undefined}
+          deltaSuffix="%"
+          hint={compareHint}
+        />
         <StatCard
           label="CTR"
           value={formatPercent(impressions ? clicks / impressions : null)}
@@ -247,39 +263,60 @@ export default async function PerformancePage({ params, searchParams }: PageProp
       <Card>
         <CardHeader>
           <CardTitle>Traffic</CardTitle>
-          <CardDescription>Clicks from Search Console and organic sessions from GA4. Hover one chart to read all three.</CardDescription>
+          <CardDescription>
+            Clicks from Search Console and organic sessions from GA4. In the hourly view, Search Console hours are UTC and GA4 hours follow the property time
+            zone.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {live?.hourly ? (
+          {live?.hourly || live?.ga4Hourly ? (
             <>
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Clicks per hour (UTC)</h3>
-                <TrendChart
-                  syncId="hourly"
-                  hourly
-                  data={live.hourly}
-                  series={[{ key: "clicks", label: "Clicks", color: "var(--chart-1)" }]}
-                  height={200}
-                  emptyMessage="Search Console has no hourly data for this range yet."
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Impressions per hour (UTC)</h3>
-                <TrendChart
-                  syncId="hourly"
-                  hourly
-                  data={live.hourly}
-                  series={[
-                    {
-                      key: "impressions",
-                      label: "Impressions",
-                      color: "var(--chart-2)",
-                    },
-                  ]}
-                  height={200}
-                  emptyMessage="Search Console has no hourly data for this range yet."
-                />
-              </div>
+              {live.hourly && (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium">Clicks per hour (UTC)</h3>
+                    <TrendChart
+                      syncId="hourly"
+                      hourly
+                      data={live.hourly}
+                      series={[{ key: "clicks", label: "Clicks", color: "var(--chart-1)" }]}
+                      height={200}
+                      emptyMessage="Search Console has no hourly data for this range yet."
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium">Impressions per hour (UTC)</h3>
+                    <TrendChart
+                      syncId="hourly"
+                      hourly
+                      data={live.hourly}
+                      series={[
+                        {
+                          key: "impressions",
+                          label: "Impressions",
+                          color: "var(--chart-2)",
+                        },
+                      ]}
+                      height={200}
+                      emptyMessage="Search Console has no hourly data for this range yet."
+                    />
+                  </div>
+                </>
+              )}
+              {live.ga4Hourly && (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-medium">Organic sessions per hour (GA4, property time zone)</h3>
+                  <TrendChart
+                    syncId="hourly"
+                    hourly
+                    hourZone=""
+                    data={live.ga4Hourly}
+                    series={[{ key: "sessions", label: "Sessions", color: "var(--chart-3)" }]}
+                    height={200}
+                    emptyMessage="Google Analytics has no hourly sessions for this range yet."
+                  />
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -353,7 +390,8 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         <CardHeader>
           <CardTitle>Google Analytics</CardTitle>
           <CardDescription>
-            Reports from GA4 for the range above, with the change from the comparison period when one is chosen. Channels covers all traffic; landing pages, countries and devices are organic search only.
+            Reports from GA4 for the range above, with the change from the comparison period when one is chosen. Channels covers all traffic; landing pages,
+            countries and devices are organic search only.
           </CardDescription>
         </CardHeader>
         <CardContent>

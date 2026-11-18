@@ -219,6 +219,32 @@ export async function ga4Daily(token: string, propertyId: string, startDate: str
   });
 }
 
+export type Ga4HourRow = { time: string; sessions: number; users: number };
+
+/**
+ * Organic sessions per hour. GA4 reports hours in the property's own time zone; the values are
+ * returned as if that clock were UTC, so a chart shows the property's local hours.
+ */
+export async function ga4Hourly(token: string, propertyId: string, startDate: string, endDate: string): Promise<Ga4HourRow[]> {
+  const r = await call<{ rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[] }>(
+    token,
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "dateHour" }], // YYYYMMDDHH
+      metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+      dimensionFilter: { filter: { fieldName: "sessionDefaultChannelGroup", stringFilter: { matchType: "EXACT", value: "Organic Search" } } },
+      limit: 10_000,
+    },
+  );
+  return (r.rows ?? [])
+    .map((row) => {
+      const v = row.dimensionValues[0].value;
+      return { time: `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}T${v.slice(8, 10)}:00:00.000Z`, sessions: Number(row.metricValues[0].value), users: Number(row.metricValues[1].value) };
+    })
+    .sort((a, b) => a.time.localeCompare(b.time));
+}
+
 export type Ga4Dimension = "sessionDefaultChannelGroup" | "landingPagePlusQueryString" | "country" | "deviceCategory";
 export type Ga4BreakdownRow = { key: string; sessions: number; users: number; engagementRate: number; conversions: number };
 

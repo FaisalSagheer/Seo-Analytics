@@ -45,6 +45,7 @@ export function TrendChart({
   syncId,
   className,
   hourly = false,
+  hourZone = "UTC",
 }: {
   /** Charts sharing a syncId move their hover crosshair together */
   syncId?: string;
@@ -58,6 +59,8 @@ export function TrendChart({
   className?: string;
   /** The `date` values are ISO timestamps (one point per hour, shown in UTC) */
   hourly?: boolean;
+  /** Shown after the hour in the tooltip; empty when the zone is named elsewhere */
+  hourZone?: string;
 }) {
   // An all-null or all-zero series draws as a flat line on the axis, which
   // reads as broken. Treat it as empty.
@@ -107,7 +110,7 @@ export function TrendChart({
             <ChartTooltipContent
               labelFormatter={(_, payload) => {
                 const d = payload?.[0]?.payload?.date;
-                return typeof d === "string" ? (hourly ? `${formatHour(d)} UTC` : formatDate(d, "long")) : "";
+                return typeof d === "string" ? (hourly ? `${formatHour(d)}${hourZone ? ` ${hourZone}` : ""}` : formatDate(d, "long")) : "";
               }}
               formatter={(value, name) => (
                 <div className="flex w-full items-center justify-between gap-4">
