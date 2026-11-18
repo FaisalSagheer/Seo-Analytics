@@ -2,19 +2,15 @@ import "server-only";
 import { toDateKey } from "@/lib/dates";
 import { compareWindow, type CompareSpec, type Window } from "@/lib/date-range";
 import { getGoogleAccessToken } from "@/lib/providers";
-import { ga4Hourly, gscDaily, gscHourly } from "@/lib/providers/google";
+import { gscDaily, gscHourly } from "@/lib/providers/google";
 
 export type Totals = { clicks: number; impressions: number; ctr: number; position: number };
 export type HourPoint = { date: string; clicks: number; impressions: number };
-export type SessionPoint = { date: string; sessions: number; users: number };
 export type DayPoint = { date: string; clicks: number; impressions: number };
 
 export type LiveReport = {
   /** Hour-by-hour points for the chart, or null when the range is shown by day */
   hourly: HourPoint[] | null;
-  /** Organic sessions per hour from GA4, in the property's time zone; null when GA4 isn't set up or failed */
-  ga4Hourly: SessionPoint[] | null;
-  ga4Error?: string;
   /** Day-by-day points when the page asked for them (ranges beyond the synced window) */
   daily: DayPoint[] | null;
   /** Totals for the selected range straight from Search Console; null when the page should use its synced numbers */
@@ -52,13 +48,13 @@ const HOUR_MS = 3_600_000;
  * short range, day points for a long one, and totals for the selected and comparison ranges.
  */
 export async function loadLiveReport(
-  project: { id: string; userId: string; gscSiteUrl: string | null; ga4PropertyId: string | null },
+  project: { id: string; userId: string; gscSiteUrl: string | null },
   opts: { window: Window; days: number; hourly: boolean; compare: CompareSpec; wantDaily: boolean },
 ): Promise<LiveReport> {
-  const empty: LiveReport = { hourly: null, ga4Hourly: null, daily: null, current: null, previous: null, lastDataAt: null };
+  const empty: LiveReport = { hourly: null, daily: null, current: null, previous: null, lastDataAt: null };
   const { window: win, days, compare } = opts;
   if (!opts.hourly && !opts.wantDaily && compare.kind === "none") return empty;
-  if (!project.gscSiteUrl && !(opts.hourly && project.ga4PropertyId)) return empty;
+  if (!project.gscSiteUrl) return empty;
   const site = project.gscSiteUrl;
   const out: LiveReport = { ...empty };
   let token: string;
@@ -68,8 +64,8 @@ export async function loadLiveReport(
     return { ...empty, error: err instanceof Error ? err.message : "Couldn't read Search Console" };
   }
 
-  // Search Console: hourly or daily points and the totals the stat cards compare
-  if (site) {
+  // Hourly or daily points and the totals the stat cards compare
+  {
     try {
       const dailyRows = (w: Window) => gscDaily(token, site, toDateKey(w.start), toDateKey(w.end));
       let previous: Totals | null = null;
@@ -104,23 +100,5 @@ export async function loadLiveReport(
     }
   }
 
-  // GA4: organic sessions per hour, with hours that had no sessions filled in as zero so the line is continuous
-  if (opts.hourly && project.ga4PropertyId) {
-    try {
-      const from = days === 1 ? new Date(win.end.getTime() - 86_400_000) : win.start;
-      const rows = await ga4Hourly(token, project.ga4PropertyId, toDateKey(from), toDateKey(win.end));
-      const lastMs = rows.length ? new Date(rows[rows.length - 1].time).getTime() : 0;
-      const firstMs = days === 1 ? lastMs - 23 * HOUR_MS : rows.length ? new Date(rows[0].time).getTime() : 0;
-      const byTime = new Map(rows.map((r) => [new Date(r.time).getTime(), r]));
-      const points: SessionPoint[] = [];
-      for (let t = firstMs; rows.length && t <= lastMs; t += HOUR_MS) {
-        const r = byTime.get(t);
-        points.push({ date: new Date(t).toISOString(), sessions: r?.sessions ?? 0, users: r?.users ?? 0 });
-      }
-      out.ga4Hourly = points;
-    } catch (err) {
-      out.ga4Error = err instanceof Error ? err.message : "Couldn't read Google Analytics";
-    }
-  }
   return out;
 }

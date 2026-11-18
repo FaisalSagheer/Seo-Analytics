@@ -88,8 +88,8 @@ function Ga4Table({ heading, rows, filterable = false, empty }: { heading: strin
   );
 }
 
-/** Google Analytics report tabs. Channels covers all traffic; the others are organic search only. */
-export function Ga4Report({ data, note }: { data: Ga4ReportData | null; note?: string }) {
+/** Google Analytics report tabs. Channels covers all traffic; the others are organic search only. Hourly is per hour in the property time zone. */
+export function Ga4Report({ data, hourly, note }: { data: Ga4ReportData | null; hourly?: Ga4Row[] | null; note?: string }) {
   const empty = note ?? "No data for this period.";
   return (
     <Tabs defaultValue="channels">
@@ -98,6 +98,7 @@ export function Ga4Report({ data, note }: { data: Ga4ReportData | null; note?: s
         <TabsTrigger value="pages">Landing pages</TabsTrigger>
         <TabsTrigger value="countries">Countries</TabsTrigger>
         <TabsTrigger value="devices">Devices</TabsTrigger>
+        <TabsTrigger value="hourly">Hourly</TabsTrigger>
       </TabsList>
       <TabsContent value="channels" className="pt-4">
         <Ga4Table heading="Channel" rows={data?.channels ?? []} empty={empty} />
@@ -110,6 +111,9 @@ export function Ga4Report({ data, note }: { data: Ga4ReportData | null; note?: s
       </TabsContent>
       <TabsContent value="devices" className="pt-4">
         <Ga4Table heading="Device" rows={data?.devices ?? []} empty={empty} />
+      </TabsContent>
+      <TabsContent value="hourly" className="pt-4">
+        <Ga4Table heading="Hour" rows={hourly ?? []} empty={hourly === undefined ? empty : "Choose the 24h or 7d range with Hourly selected to see sessions hour by hour."} />
       </TabsContent>
     </Tabs>
   );

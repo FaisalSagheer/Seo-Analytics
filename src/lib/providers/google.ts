@@ -219,7 +219,7 @@ export async function ga4Daily(token: string, propertyId: string, startDate: str
   });
 }
 
-export type Ga4HourRow = { time: string; sessions: number; users: number };
+export type Ga4HourRow = { time: string; sessions: number; users: number; engagementRate: number; conversions: number };
 
 /**
  * Organic sessions per hour. GA4 reports hours in the property's own time zone; the values are
@@ -232,7 +232,7 @@ export async function ga4Hourly(token: string, propertyId: string, startDate: st
     {
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: "dateHour" }], // YYYYMMDDHH
-      metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+      metrics: [{ name: "sessions" }, { name: "totalUsers" }, { name: "engagementRate" }, { name: "keyEvents" }],
       dimensionFilter: { filter: { fieldName: "sessionDefaultChannelGroup", stringFilter: { matchType: "EXACT", value: "Organic Search" } } },
       limit: 10_000,
     },
@@ -240,7 +240,11 @@ export async function ga4Hourly(token: string, propertyId: string, startDate: st
   return (r.rows ?? [])
     .map((row) => {
       const v = row.dimensionValues[0].value;
-      return { time: `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}T${v.slice(8, 10)}:00:00.000Z`, sessions: Number(row.metricValues[0].value), users: Number(row.metricValues[1].value) };
+      return { time: `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}T${v.slice(8, 10)}:00:00.000Z`, sessions: Number(row.metricValues[0].value),
+        users: Number(row.metricValues[1].value),
+        engagementRate: Number(row.metricValues[2].value),
+        conversions: Math.round(Number(row.metricValues[3].value)),
+      };
     })
     .sort((a, b) => a.time.localeCompare(b.time));
 }

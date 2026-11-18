@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
+  ChartColumnIcon,
   ChartLineIcon,
   ChevronsUpDownIcon,
   CompassIcon,
@@ -52,6 +53,7 @@ const PROJECT_NAV = [
   { segment: "", label: "Overview", icon: LayoutDashboardIcon },
   { segment: "performance", label: "Performance", icon: ChartLineIcon },
   { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
+  { segment: "analytics", label: "Analytics", icon: ChartColumnIcon },
   { segment: "referrals", label: "Referrals", icon: Link2Icon },
   { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
   { segment: "audit", label: "Site audit", icon: ScanSearchIcon },

@@ -6,11 +6,10 @@ import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
-import { compareWindow, resolveCompare, resolveRange, spanDays, type Window } from "@/lib/date-range";
+import { resolveCompare, resolveRange, spanDays } from "@/lib/date-range";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { QueriesTable, type QueryRow } from "@/components/performance/queries-table";
-import { Ga4Report, type Ga4ReportData } from "@/components/performance/ga4-report";
 import { SearchReport, type SearchReportData } from "@/components/performance/search-report";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -20,7 +19,7 @@ import { daysAgo, toDateKey } from "@/lib/dates";
 import { formatNumber, formatPercent, formatPosition, formatRelative } from "@/lib/format";
 import { MAX_HOURLY_DAYS, loadLiveReport } from "@/lib/search-console-live";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
-import { ga4Breakdown, gscBreakdown, type Ga4BreakdownRow, type GscBreakdownRow } from "@/lib/providers/google";
+import { gscBreakdown, type GscBreakdownRow } from "@/lib/providers/google";
 import { getGoogleAccessToken } from "@/lib/providers";
 import { requireProject } from "@/lib/session";
 
@@ -66,45 +65,6 @@ async function loadSearchReport(project: { id: string; userId: string; gscSiteUr
   }
 }
 
-const ZERO = { sessions: 0, users: 0, engagementRate: 0, conversions: 0 };
-const toGa4Rows = (rows: Ga4BreakdownRow[], name: (key: string) => string = (k) => k, before?: Ga4BreakdownRow[]) => {
-  const prev = before ? new Map(before.map((r) => [r.key, r])) : null;
-  return rows.map((r) => ({
-    label: name(r.key),
-    sessions: r.sessions,
-    users: r.users,
-    engagementRate: r.engagementRate,
-    conversions: r.conversions,
-    ...(prev ? { previous: prev.get(r.key) ?? ZERO } : {}),
-  }));
-};
-
-/** The Google Analytics reports (all channels, then organic landing pages, countries and devices) for the chosen range, and the comparison range when asked. */
-async function loadGa4Report(project: { id: string; userId: string; ga4PropertyId: string | null }, range: Window, cmp: Window | null) {
-  if (!project.ga4PropertyId) return { data: null, note: "Choose a GA4 property in project settings." };
-  try {
-    const token = await getGoogleAccessToken(project);
-    const id = project.ga4PropertyId;
-    const run = (w: Window) =>
-      Promise.all([
-        ga4Breakdown(token, id, "sessionDefaultChannelGroup", toDateKey(w.start), toDateKey(w.end), false),
-        ga4Breakdown(token, id, "landingPagePlusQueryString", toDateKey(w.start), toDateKey(w.end)),
-        ga4Breakdown(token, id, "country", toDateKey(w.start), toDateKey(w.end)),
-        ga4Breakdown(token, id, "deviceCategory", toDateKey(w.start), toDateKey(w.end)),
-      ]);
-    const [[channels, pages, countries, devices], before] = await Promise.all([run(range), cmp ? run(cmp) : Promise.resolve(null)]);
-    const data: Ga4ReportData = {
-      channels: toGa4Rows(channels, undefined, before?.[0]),
-      pages: toGa4Rows(pages, undefined, before?.[1]),
-      countries: toGa4Rows(countries, undefined, before?.[2]),
-      devices: toGa4Rows(devices, label, before?.[3]),
-    };
-    return { data, note: undefined };
-  } catch (err) {
-    return { data: null, note: `Couldn't load Google Analytics: ${err instanceof Error ? err.message : "unknown error"}` };
-  }
-}
-
 export default async function PerformancePage({ params, searchParams }: PageProps<"/projects/[projectId]/performance">) {
   const { projectId } = await params;
   const { project } = await requireProject(projectId);
@@ -113,7 +73,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const { days } = range;
   const compareSpec = resolveCompare(sp, range);
   // Hourly needs Search Console's short-lived hourly data, so only the 24 hour and 7 day presets offer it
-  const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl || project.ga4PropertyId) && !project.isDemo;
+  const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
   const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
   // Synced data covers about 90 days; longer or older ranges are read live
   const wantDaily = !project.isDemo && Boolean(project.gscSiteUrl) && (range.custom ? range.start < daysAgo(89) : days > 90);
@@ -137,9 +97,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   ]);
   const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, range);
   const liveDay = new Map((live?.daily ?? []).map((d) => [d.date, d]));
-  const ga4Report = project.isDemo
-    ? { data: null, note: "Demo projects have no live Google Analytics data." }
-    : await loadGa4Report(project, range, compareWindow(compareSpec, range));
   const series = report!.series.map((p) => {
     const d = liveDay.get(p.date);
     const clicks = d ? d.clicks : p.clicks;
@@ -207,12 +164,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         }
       />
       {project.isDemo && <DemoAlert />}
-      {live?.ga4Error && (
-        <Alert variant="destructive">
-          <AlertTitle>Couldn&apos;t read hourly Google Analytics data</AlertTitle>
-          <AlertDescription>{live.ga4Error}</AlertDescription>
-        </Alert>
-      )}
       {live?.error && (
         <Alert variant="destructive">
           <AlertTitle>Couldn&apos;t read live Search Console data</AlertTitle>
@@ -269,10 +220,8 @@ export default async function PerformancePage({ params, searchParams }: PageProp
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {live?.hourly || live?.ga4Hourly ? (
+          {live?.hourly ? (
             <>
-              {live.hourly && (
-                <>
                   <div className="flex flex-col gap-2">
                     <h3 className="text-sm font-medium">Clicks per hour (UTC)</h3>
                     <TrendChart
@@ -301,22 +250,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
                       emptyMessage="Search Console has no hourly data for this range yet."
                     />
                   </div>
-                </>
-              )}
-              {live.ga4Hourly && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium">Organic sessions per hour (GA4, property time zone)</h3>
-                  <TrendChart
-                    syncId="hourly"
-                    hourly
-                    hourZone=""
-                    data={live.ga4Hourly}
-                    series={[{ key: "sessions", label: "Sessions", color: "var(--chart-3)" }]}
-                    height={200}
-                    emptyMessage="Google Analytics has no hourly sessions for this range yet."
-                  />
-                </div>
-              )}
             </>
           ) : (
             <>
@@ -383,19 +316,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
               </div>
             }
           />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Google Analytics</CardTitle>
-          <CardDescription>
-            Reports from GA4 for the range above, with the change from the comparison period when one is chosen. Channels covers all traffic; landing pages,
-            countries and devices are organic search only.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Ga4Report data={ga4Report.data} note={ga4Report.note} />
         </CardContent>
       </Card>
     </>
