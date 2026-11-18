@@ -5,6 +5,7 @@ import { TrendChart } from "@/components/charts/trend-chart";
 import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
+import { SearchParamSelect } from "@/components/dashboard/search-param-select";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { QueriesTable, type QueryRow } from "@/components/performance/queries-table";
@@ -14,7 +15,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { daysAgo, parseRange, toDateKey } from "@/lib/dates";
-import { formatNumber, formatPercent, formatPosition } from "@/lib/format";
+import { formatNumber, formatPercent, formatPosition, formatRelative } from "@/lib/format";
+import { MAX_HOURLY_DAYS, loadLiveReport, type Compare } from "@/lib/search-console-live";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
 import { gscBreakdown, type GscBreakdownRow } from "@/lib/providers/google";
 import { getGoogleAccessToken } from "@/lib/providers";
@@ -24,11 +26,21 @@ export const metadata: Metadata = { title: "Performance" };
 
 const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/_/g, " ");
 const toRows = (rows: GscBreakdownRow[], name: (key: string) => string = (k) => k) =>
-  rows.map((r) => ({ label: name(r.key), clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position }));
+  rows.map((r) => ({
+    label: name(r.key),
+    clicks: r.clicks,
+    impressions: r.impressions,
+    ctr: r.ctr,
+    position: r.position,
+  }));
 
 /** The Pages, Countries, Devices and Search appearance reports, read from Search Console for the chosen range. */
 async function loadSearchReport(project: { id: string; userId: string; gscSiteUrl: string | null }, days: number) {
-  if (!project.gscSiteUrl) return { data: null, note: "Choose a Search Console site in project settings." };
+  if (!project.gscSiteUrl)
+    return {
+      data: null,
+      note: "Choose a Search Console site in project settings.",
+    };
   try {
     const token = await getGoogleAccessToken(project);
     const start = toDateKey(daysAgo(days));
@@ -45,14 +57,23 @@ async function loadSearchReport(project: { id: string; userId: string; gscSiteUr
     };
     return { data, note: undefined };
   } catch (err) {
-    return { data: null, note: `Couldn't load Search Console: ${err instanceof Error ? err.message : "unknown error"}` };
+    return {
+      data: null,
+      note: `Couldn't load Search Console: ${err instanceof Error ? err.message : "unknown error"}`,
+    };
   }
 }
 
 export default async function PerformancePage({ params, searchParams }: PageProps<"/projects/[projectId]/performance">) {
   const { projectId } = await params;
   const { project } = await requireProject(projectId);
-  const days = parseRange((await searchParams).days, 90);
+  const sp = await searchParams;
+  const days = sp.days === "1" ? 1 : parseRange(sp.days, 90);
+  // Hourly needs Search Console's short-lived hourly data, so only short ranges offer it; a 24 hour range defaults to it
+  const canHourly = days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
+  const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
+  const compare: Compare = sp.compare === "previous" || sp.compare === "year" ? sp.compare : "none";
+  const live = project.isDemo ? null : await loadLiveReport(project, { days, hourly, compare });
 
   const [report, queries, rankings, gscAgg, gaAgg] = await Promise.all([
     getProjectReport(project.id, days),
@@ -69,11 +90,20 @@ export default async function PerformancePage({ params, searchParams }: PageProp
     }),
   ]);
   const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, days);
-  const series = report!.series.map((p) => ({ ...p, ctr: p.clicks != null && p.impressions ? p.clicks / p.impressions : null }));
+  const series = report!.series.map((p) => ({
+    ...p,
+    ctr: p.clicks != null && p.impressions ? p.clicks / p.impressions : null,
+  }));
   const totals = report!.totals;
 
-  const clicks = gscAgg._sum.clicks ?? 0;
-  const impressions = gscAgg._sum.impressions ?? 0;
+  // Live Search Console totals win when the page is hourly or comparing, so both periods come from the same source
+  const clicks = live?.current?.clicks ?? gscAgg._sum.clicks ?? 0;
+  const impressions = live?.current?.impressions ?? gscAgg._sum.impressions ?? 0;
+  const position = live?.current ? live.current.position : gscAgg._avg.position;
+  const prev = live?.current ? live.previous : null;
+  const pct = (cur: number, before: number | undefined) => (before ? ((cur - before) / before) * 100 : null);
+  const compareHint = prev ? (compare === "year" ? "vs same period last year" : "vs previous period") : undefined;
+  const lastUpdate = hourly && live?.lastDataAt ? live.lastDataAt : project.lastSyncedAt;
   const connected = project.isDemo || Boolean(project.gscSiteUrl || project.ga4PropertyId);
 
   const tracked = new Map(rankings.map((r) => [r.phrase, r]));
@@ -96,12 +126,38 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         description="Search Console, GA4 and tracked rankings on one timeline."
         actions={
           <>
-            <RangePicker value={days} />
+            <span className="text-muted-foreground hidden text-sm sm:inline">Last update: {formatRelative(lastUpdate)}</span>
+            <RangePicker value={days} includeDay />
+            <SearchParamSelect
+              param="by"
+              label="Granularity"
+              value={hourly ? "hour" : "day"}
+              items={[
+                { value: "hour", label: "Hourly", disabled: !canHourly },
+                { value: "day", label: "Daily" },
+              ]}
+            />
+            <SearchParamSelect
+              param="compare"
+              label="Compare"
+              value={compare}
+              items={[
+                { value: "none", label: "No comparison" },
+                { value: "previous", label: "Previous period" },
+                { value: "year", label: "Same period last year" },
+              ]}
+            />
             <SyncButton projectId={project.id} parts={["google"]} label="Sync Google" />
           </>
         }
       />
       {project.isDemo && <DemoAlert />}
+      {live?.error && (
+        <Alert variant="destructive">
+          <AlertTitle>Couldn&apos;t read live Search Console data</AlertTitle>
+          <AlertDescription>{live.error}</AlertDescription>
+        </Alert>
+      )}
       {!connected && (
         <Alert>
           <PlugIcon />
@@ -116,10 +172,23 @@ export default async function PerformancePage({ params, searchParams }: PageProp
       )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-        <StatCard label="Clicks" value={formatNumber(clicks)} />
-        <StatCard label="Impressions" value={formatNumber(impressions)} />
-        <StatCard label="CTR" value={formatPercent(impressions ? clicks / impressions : null)} />
-        <StatCard label="GSC avg. position" value={formatPosition(gscAgg._avg.position != null ? Number(gscAgg._avg.position.toFixed(1)) : null)} />
+        <StatCard label="Clicks" value={formatNumber(clicks)} delta={prev ? pct(clicks, prev.clicks) : undefined} deltaSuffix="%" hint={compareHint} />
+        <StatCard label="Impressions" value={formatNumber(impressions)} delta={prev ? pct(impressions, prev.impressions) : undefined} deltaSuffix="%" hint={compareHint} />
+        <StatCard
+          label="CTR"
+          value={formatPercent(impressions ? clicks / impressions : null)}
+          delta={prev && impressions ? (clicks / impressions - prev.ctr) * 100 : prev ? null : undefined}
+          deltaSuffix=" pp"
+          deltaDigits={1}
+          hint={compareHint}
+        />
+        <StatCard
+          label="GSC avg. position"
+          value={formatPosition(position != null ? Number(position.toFixed(1)) : null)}
+          delta={prev && position != null ? prev.position - position : prev ? null : undefined}
+          deltaDigits={1}
+          hint={compareHint}
+        />
         <StatCard label="Organic sessions" value={formatNumber(totals.sessions)} />
         <StatCard label="Engagement rate" value={formatPercent(gaAgg._avg.engagementRate)} />
       </div>
@@ -130,38 +199,81 @@ export default async function PerformancePage({ params, searchParams }: PageProp
           <CardDescription>Clicks from Search Console and organic sessions from GA4. Hover one chart to read all three.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <TrendChart
-            syncId="perf"
-            data={series}
-            series={[
-              { key: "clicks", label: "Clicks (GSC)", color: "var(--chart-1)" },
-              { key: "sessions", label: "Sessions (GA4)", color: "var(--chart-2)" },
-            ]}
-            height={240}
-          />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium">Click-through rate</h3>
+          {live?.hourly ? (
+            <>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium">Clicks per hour (UTC)</h3>
+                <TrendChart
+                  syncId="hourly"
+                  hourly
+                  data={live.hourly}
+                  series={[{ key: "clicks", label: "Clicks", color: "var(--chart-1)" }]}
+                  height={200}
+                  emptyMessage="Search Console has no hourly data for this range yet."
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium">Impressions per hour (UTC)</h3>
+                <TrendChart
+                  syncId="hourly"
+                  hourly
+                  data={live.hourly}
+                  series={[
+                    {
+                      key: "impressions",
+                      label: "Impressions",
+                      color: "var(--chart-2)",
+                    },
+                  ]}
+                  height={200}
+                  emptyMessage="Search Console has no hourly data for this range yet."
+                />
+              </div>
+            </>
+          ) : (
+            <>
               <TrendChart
                 syncId="perf"
                 data={series}
-                series={[{ key: "ctr", label: "CTR", color: "var(--chart-3)" }]}
-                format="percent"
-                height={180}
+                series={[
+                  {
+                    key: "clicks",
+                    label: "Clicks (GSC)",
+                    color: "var(--chart-1)",
+                  },
+                  {
+                    key: "sessions",
+                    label: "Sessions (GA4)",
+                    color: "var(--chart-2)",
+                  },
+                ]}
+                height={240}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium">Tracked keywords, avg. position</h3>
-              <TrendChart
-                syncId="perf"
-                data={series}
-                series={[{ key: "avgPosition", label: "Avg. position", color: "var(--chart-4)" }]}
-                format="position"
-                reversed
-                height={180}
-              />
-            </div>
-          </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-medium">Click-through rate</h3>
+                  <TrendChart syncId="perf" data={series} series={[{ key: "ctr", label: "CTR", color: "var(--chart-3)" }]} format="percent" height={180} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-medium">Tracked keywords, avg. position</h3>
+                  <TrendChart
+                    syncId="perf"
+                    data={series}
+                    series={[
+                      {
+                        key: "avgPosition",
+                        label: "Avg. position",
+                        color: "var(--chart-4)",
+                      },
+                    ]}
+                    format="position"
+                    reversed
+                    height={180}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -71,6 +71,23 @@ export async function gscDaily(token: string, siteUrl: string, startDate: string
   }));
 }
 
+export type GscHourRow = { time: string; clicks: number; impressions: number; ctr: number; position: number };
+
+/** Hour-by-hour totals. Search Console keeps hourly data for only the last few days, so keep the window short. */
+export async function gscHourly(token: string, siteUrl: string, startDate: string, endDate: string): Promise<GscHourRow[]> {
+  const r = await call<{ rows?: GscRow[] }>(token, gscUrl(siteUrl), {
+    startDate,
+    endDate,
+    dimensions: ["hour"],
+    type: "web",
+    dataState: "hourly_all",
+    rowLimit: 25_000,
+  });
+  return (r.rows ?? [])
+    .map((row) => ({ time: new Date(row.keys[0]).toISOString(), clicks: row.clicks, impressions: row.impressions, ctr: row.ctr, position: row.position }))
+    .sort((a, b) => a.time.localeCompare(b.time));
+}
+
 export async function gscQueries(token: string, siteUrl: string, startDate: string, endDate: string): Promise<GscQueryRow[]> {
   const r = await call<{ rows?: GscRow[] }>(token, gscUrl(siteUrl), {
     startDate,

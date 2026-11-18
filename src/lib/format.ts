@@ -45,6 +45,13 @@ export function formatDate(d: Date | string, style: "short" | "long" = "short"):
   return (style === "short" ? shortDate : longDate).format(date);
 }
 
+const hourFmt = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", timeZone: "UTC" });
+
+/** An ISO timestamp as "Nov 18, 1 PM", always in UTC so server and browser agree. */
+export function formatHour(iso: string): string {
+  return hourFmt.format(new Date(iso));
+}
+
 export function formatRelative(d: Date | null | undefined): string {
   if (!d) return "never";
   const mins = Math.round((Date.now() - d.getTime()) / 60_000);
