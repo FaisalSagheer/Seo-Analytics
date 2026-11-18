@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { formatNumber, formatPercent, formatPosition } from "@/lib/format";
+import { PAGE_SIZE, TablePager } from "@/components/performance/table-pager";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -11,10 +12,12 @@ export type BreakdownRow = { label: string; clicks: number; impressions: number;
 /** A Search Console report table: one dimension, with clicks, impressions, CTR and position. */
 export function BreakdownTable({ heading, rows, filterable = false, empty }: { heading: string; rows: BreakdownRow[]; filterable?: boolean; empty: string }) {
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return needle ? rows.filter((r) => r.label.toLowerCase().includes(needle)) : rows;
   }, [rows, q]);
+  const shown = visible.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4">
@@ -23,7 +26,10 @@ export function BreakdownTable({ heading, rows, filterable = false, empty }: { h
           <InputGroupAddon>
             <SearchIcon />
           </InputGroupAddon>
-          <InputGroupInput placeholder={`Filter ${heading.toLowerCase()}`} value={q} onChange={(e) => setQ(e.target.value)} />
+          <InputGroupInput placeholder={`Filter ${heading.toLowerCase()}`} value={q} onChange={(e) => {
+              setQ(e.target.value);
+              setPage(0);
+            }} />
         </InputGroup>
       )}
       <div className="rounded-lg border">
@@ -38,14 +44,14 @@ export function BreakdownTable({ heading, rows, filterable = false, empty }: { h
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.length === 0 ? (
+            {shown.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-muted-foreground h-24 text-center">
                   {rows.length === 0 ? empty : "Nothing matches."}
                 </TableCell>
               </TableRow>
             ) : (
-              visible.map((r) => (
+              shown.map((r) => (
                 <TableRow key={r.label}>
                   <TableCell className="max-w-96 truncate" title={r.label}>
                     {r.label}
@@ -60,6 +66,7 @@ export function BreakdownTable({ heading, rows, filterable = false, empty }: { h
           </TableBody>
         </Table>
       </div>
+      <TablePager page={page} total={visible.length} onPage={setPage} />
     </div>
   );
 }

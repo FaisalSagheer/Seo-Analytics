@@ -5,6 +5,7 @@ import { PlusIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 import { addKeywords } from "@/lib/actions/projects";
 import { formatNumber, formatPercent, formatPosition } from "@/lib/format";
+import { PAGE_SIZE, TablePager } from "@/components/performance/table-pager";
 import { Delta } from "@/components/dashboard/delta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function QueriesTable({ projectId, rows }: { projectId: string; rows: Que
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<View>("all");
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -49,6 +51,7 @@ export function QueriesTable({ projectId, rows }: { projectId: string; rows: Que
       }
     });
   }, [rows, view, q]);
+  const shown = visible.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   function track(query: string) {
     startTransition(async () => {
@@ -65,9 +68,16 @@ export function QueriesTable({ projectId, rows }: { projectId: string; rows: Que
           <InputGroupAddon>
             <SearchIcon />
           </InputGroupAddon>
-          <InputGroupInput placeholder="Filter queries" value={q} onChange={(e) => setQ(e.target.value)} />
+          <InputGroupInput placeholder="Filter queries" value={q} onChange={(e) => {
+              setQ(e.target.value);
+              setPage(0);
+            }} />
         </InputGroup>
-        <ToggleGroup variant="outline" size="sm" value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)}>
+        <ToggleGroup variant="outline" size="sm" value={[view]} onValueChange={(v) => {
+            if (!v[0]) return;
+            setView(v[0] as View);
+            setPage(0);
+          }}>
           <ToggleGroupItem value="all">All</ToggleGroupItem>
           <ToggleGroupItem value="striking">Striking distance</ToggleGroupItem>
           <ToggleGroupItem value="tracked">Tracked</ToggleGroupItem>
@@ -89,14 +99,14 @@ export function QueriesTable({ projectId, rows }: { projectId: string; rows: Que
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.length === 0 ? (
+            {shown.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-muted-foreground h-24 text-center">
                   {rows.length === 0 ? "No Search Console queries synced yet." : "No queries match."}
                 </TableCell>
               </TableRow>
             ) : (
-              visible.map((r) => (
+              shown.map((r) => (
                 <TableRow key={r.query}>
                   <TableCell className="max-w-72">
                     <span className="flex items-center gap-2">
@@ -132,6 +142,7 @@ export function QueriesTable({ projectId, rows }: { projectId: string; rows: Que
           </TableBody>
         </Table>
       </div>
+      <TablePager page={page} total={visible.length} onPage={setPage} />
     </div>
   );
 }
