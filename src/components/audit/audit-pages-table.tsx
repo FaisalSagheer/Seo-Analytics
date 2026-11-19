@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import { TablePager, usePaged } from "@/components/performance/table-pager";
+import { InspectButton } from "@/components/audit/url-inspector";
+import { useCan } from "@/components/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,7 +30,8 @@ const FILTERS: { value: Severity | "all"; label: string }[] = [
 const BADGE: Record<Severity, "destructive" | "secondary" | "outline"> = { error: "destructive", warning: "secondary", notice: "outline" };
 const ORDER: Record<Severity, number> = { error: 0, warning: 1, notice: 2 };
 
-export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; origin: string }) {
+export function AuditPagesTable({ pages, origin, inspectProjectId }: { pages: AuditPageRow[]; origin: string; inspectProjectId?: string }) {
+  const canInspect = useCan("data.sync") && Boolean(inspectProjectId);
   const [filter, setFilter] = useState<Severity | "all">("all");
   const [query, setQuery] = useState("");
 
@@ -74,12 +77,13 @@ export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; orig
             <TableHead className="text-right">Words</TableHead>
             <TableHead className="text-right">Load</TableHead>
             <TableHead>Issues</TableHead>
+            {canInspect && <TableHead className="w-24"><span className="sr-only">Inspect</span></TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {shown.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-muted-foreground h-24 text-center">
+              <TableCell colSpan={canInspect ? 6 : 5} className="text-muted-foreground h-24 text-center">
                 {pages.length === 0 ? "No pages were crawled." : "No pages match."}
               </TableCell>
             </TableRow>
@@ -109,6 +113,11 @@ export function AuditPagesTable({ pages, origin }: { pages: AuditPageRow[]; orig
                     )}
                   </div>
                 </TableCell>
+                {canInspect && (
+                  <TableCell className="text-right">
+                    <InspectButton projectId={inspectProjectId!} url={p.url} />
+                  </TableCell>
+                )}
               </TableRow>
             ))
           )}

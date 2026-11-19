@@ -55,6 +55,8 @@ export const LIMITS = {
   resetRequestEmail: { max: 3, window: 60 * 60 },
   resetRequestIp: { max: 10, window: 60 * 60 },
   resetComplete: { max: 10, window: 60 * 60 },
+  /** URL inspections per project; Google allows about 2,000 per site a day */
+  inspect: { max: 200, window: 60 * 60 },
   /** Requests with a missing or wrong API key */
   apiFail: { max: 100, window: 15 * 60 },
 } as const;

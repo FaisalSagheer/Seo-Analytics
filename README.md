@@ -119,6 +119,9 @@ Every upload is a snapshot with the date you exported it. The latest list of lin
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.
 
+
+**URL inspection.** On **Site audit**, type any page of the site into **URL inspection**, or click **Inspect** on a crawled page. It asks Search Console how Google sees that URL: whether it's on Google and why not, indexing and robots.txt, the last crawl, Google's chosen canonical next to yours (with a warning when they differ), sitemaps, mobile usability, rich results, and a link to the same view in Search Console. It needs the project's Search Console site, accepts only URLs inside that property, and is available to roles with **Run data syncs**. Google allows about 2,000 inspections per site a day, so each project is limited to 200 an hour, and an answer is reused for 5 minutes.
+
 ## Scheduled sync
 
 Rank checks and data pulls run when you click **Refresh** or **Check now**, and on a schedule through:

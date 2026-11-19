@@ -389,3 +389,85 @@ export async function ga4ReferralPages(token: string, propertyId: string, startD
   }
   return out;
 }
+
+// ---- URL Inspection (Search Console) ----
+
+export type UrlInspection = {
+  /** PASS (on Google), NEUTRAL (excluded) or FAIL (error) */
+  verdict: string | null;
+  coverageState: string | null;
+  indexingState: string | null;
+  robotsTxtState: string | null;
+  pageFetchState: string | null;
+  lastCrawlTime: string | null;
+  crawledAs: string | null;
+  googleCanonical: string | null;
+  userCanonical: string | null;
+  sitemaps: string[];
+  referringUrls: string[];
+  mobile: { verdict: string; issues: string[] } | null;
+  richResults: { verdict: string; items: { type: string; issues: string[] }[] } | null;
+  /** The same inspection in Search Console */
+  link: string | null;
+};
+
+type InspectResponse = {
+  inspectionResult?: {
+    inspectionResultLink?: string;
+    indexStatusResult?: {
+      verdict?: string;
+      coverageState?: string;
+      indexingState?: string;
+      robotsTxtState?: string;
+      pageFetchState?: string;
+      lastCrawlTime?: string;
+      crawledAs?: string;
+      googleCanonical?: string;
+      userCanonical?: string;
+      sitemap?: string[];
+      referringUrls?: string[];
+    };
+    mobileUsabilityResult?: { verdict?: string; issues?: { message?: string; issueType?: string }[] };
+    richResultsResult?: {
+      verdict?: string;
+      detectedItems?: { richResultType?: string; items?: { issues?: { issueMessage?: string }[] }[] }[];
+    };
+  };
+};
+
+/** Google's view of one URL: index status, last crawl, canonicals, mobile usability and rich results. */
+export async function gscInspectUrl(token: string, siteUrl: string, inspectionUrl: string): Promise<UrlInspection> {
+  const r = await call<InspectResponse>(token, "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect", {
+    inspectionUrl,
+    siteUrl,
+    languageCode: "en-US",
+  });
+  const res = r.inspectionResult ?? {};
+  const idx = res.indexStatusResult ?? {};
+  const mob = res.mobileUsabilityResult;
+  const rich = res.richResultsResult;
+  return {
+    verdict: idx.verdict ?? null,
+    coverageState: idx.coverageState ?? null,
+    indexingState: idx.indexingState ?? null,
+    robotsTxtState: idx.robotsTxtState ?? null,
+    pageFetchState: idx.pageFetchState ?? null,
+    lastCrawlTime: idx.lastCrawlTime ?? null,
+    crawledAs: idx.crawledAs ?? null,
+    googleCanonical: idx.googleCanonical ?? null,
+    userCanonical: idx.userCanonical ?? null,
+    sitemaps: (idx.sitemap ?? []).slice(0, 10),
+    referringUrls: (idx.referringUrls ?? []).slice(0, 10),
+    mobile: mob?.verdict ? { verdict: mob.verdict, issues: (mob.issues ?? []).map((i) => i.message ?? i.issueType ?? "").filter(Boolean) } : null,
+    richResults: rich?.verdict
+      ? {
+          verdict: rich.verdict,
+          items: (rich.detectedItems ?? []).map((d) => ({
+            type: d.richResultType ?? "Rich result",
+            issues: (d.items ?? []).flatMap((i) => (i.issues ?? []).map((x) => x.issueMessage ?? "")).filter(Boolean),
+          })),
+        }
+      : null,
+    link: res.inspectionResultLink && /^https:\/\//.test(res.inspectionResultLink) ? res.inspectionResultLink : null,
+  };
+}

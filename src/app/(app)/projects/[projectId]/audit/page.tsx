@@ -3,6 +3,7 @@ import { ScanSearchIcon } from "lucide-react";
 import { AuditButton } from "@/components/audit/audit-button";
 import { AuditExportButton, type AuditExportRow } from "@/components/audit/audit-export-button";
 import { AuditPagesTable, type AuditPageRow } from "@/components/audit/audit-pages-table";
+import { UrlInspector } from "@/components/audit/url-inspector";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -72,6 +73,10 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
       ]
     : [];
 
+  // URL inspection needs a real Search Console site
+  const inspectable = !project.isDemo && Boolean(project.gscSiteUrl);
+  const inspector = inspectable ? <UrlInspector projectId={project.id} property={project.gscSiteUrl!} /> : null;
+
   const header = (
     <PageHeader
       title="Site audit"
@@ -88,6 +93,7 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
     return (
       <>
         {header}
+        {inspector}
         {showFailure && (
           <Alert variant="destructive">
             <AlertTitle>The last audit failed</AlertTitle>
@@ -129,6 +135,7 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
   return (
     <>
       {header}
+      {inspector}
       {showFailure && (
         <Alert variant="destructive">
           <AlertTitle>The last audit failed</AlertTitle>
@@ -193,7 +200,7 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
           <CardDescription>Hover an issue for how to fix it.</CardDescription>
         </CardHeader>
         <CardContent>
-          <AuditPagesTable pages={pages} origin={origin} />
+          <AuditPagesTable pages={pages} origin={origin} inspectProjectId={inspectable ? project.id : undefined} />
         </CardContent>
       </Card>
     </>
