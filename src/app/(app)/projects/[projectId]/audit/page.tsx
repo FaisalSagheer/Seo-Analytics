@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ScanSearchIcon } from "lucide-react";
 import { AuditButton } from "@/components/audit/audit-button";
+import { AuditExportButton, type AuditExportRow } from "@/components/audit/audit-export-button";
 import { AuditPagesTable, type AuditPageRow } from "@/components/audit/audit-pages-table";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -29,10 +30,57 @@ export default async function AuditPage({ params }: PageProps<"/projects/[projec
   ]);
   const showFailure = lastFailed && (!run || lastFailed.startedAt > run.startedAt);
 
+  // Issue labels split by severity, so the export reads like the page
+  const bySeverity = (codes: IssueCode[], s: Severity) => codes.filter((c) => severityOf(c) === s).map((c) => ISSUES[c].label);
+  const exportRows: AuditExportRow[] = run
+    ? [
+        ...(asCodes(run.siteIssues).length
+          ? [{
+              url: "Whole site",
+              statusCode: null,
+              title: null,
+              metaDescription: null,
+              h1: null,
+              wordCount: null,
+              loadMs: null,
+              internalLinks: null,
+              externalLinks: null,
+              canonical: null,
+              errors: bySeverity(asCodes(run.siteIssues), "error"),
+              warnings: bySeverity(asCodes(run.siteIssues), "warning"),
+              notices: bySeverity(asCodes(run.siteIssues), "notice"),
+            }]
+          : []),
+        ...run.pages.map((p) => {
+          const codes = asCodes(p.issues);
+          return {
+            url: p.url,
+            statusCode: p.statusCode,
+            title: p.title,
+            metaDescription: p.metaDescription,
+            h1: p.h1,
+            wordCount: p.wordCount,
+            loadMs: p.loadMs,
+            internalLinks: p.internalLinks,
+            externalLinks: p.externalLinks,
+            canonical: p.canonical,
+            errors: bySeverity(codes, "error"),
+            warnings: bySeverity(codes, "warning"),
+            notices: bySeverity(codes, "notice"),
+          };
+        }),
+      ]
+    : [];
+
   const header = (
     <PageHeader
       title="Site audit"
-      actions={<AuditButton projectId={project.id} label={run ? "Re-run audit" : "Run audit"} />}
+      actions={
+        <>
+          {run && <AuditExportButton domain={project.domain} date={(run.finishedAt ?? run.startedAt).toISOString().slice(0, 10)} rows={exportRows} />}
+          <AuditButton projectId={project.id} label={run ? "Re-run audit" : "Run audit"} />
+        </>
+      }
     />
   );
 
