@@ -184,10 +184,27 @@ model Keyword {
   searchVolume Int?
   createdAt    DateTime       @default(now())
   snapshots    RankSnapshot[]
+  pages        RankPage[]
 
   @@unique([projectId, phrase(length: 191)], map: "Keyword_projectId_phrase_key")
   @@index([projectId], map: "Keyword_projectId_idx")
   @@map("keyword")
+}
+
+/// Search Console numbers for one keyword on one page on one day. Shows which pages rank for a keyword and when that changes.
+model RankPage {
+  id          String   @id @default(cuid())
+  keywordId   String
+  keyword     Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade, map: "RankPage_keywordId_fkey")
+  date        DateTime @db.Date
+  page        String   @db.VarChar(2048)
+  /// Average position of this page for the keyword that day
+  position    Float
+  impressions Int
+  clicks      Int
+
+  @@index([keywordId, date], map: "RankPage_keywordId_date_idx")
+  @@map("rankpage")
 }
 
 model RankSnapshot {

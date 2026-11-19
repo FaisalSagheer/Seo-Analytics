@@ -75,33 +75,43 @@ async function syncRankingsFromSearchConsole(project: Project, keywords: { id: s
   let lastError = "";
   await mapLimit(keywords, 5, async (k) => {
     try {
-      const { days, url } = await gscKeywordHistory(token, siteUrl, k.phrase, start, end, filters);
+      const { days, pages } = await gscKeywordHistory(token, siteUrl, k.phrase, start, end, filters);
+      const day = (date: string) => new Date(`${date}T00:00:00Z`);
+      // Which pages ranked for this keyword, per day; the window's rows are replaced with what was just fetched
+      const pageRows = pages.map((p) => ({
+        keywordId: k.id,
+        date: day(p.date),
+        page: p.page.slice(0, 2048),
+        position: p.position,
+        impressions: p.impressions,
+        clicks: p.clicks,
+      }));
       if (options.replaceHistory) {
         // The fetch for this keyword succeeded, so its old rows can go now, in one step with the new ones
         await db.$transaction([
           db.rankSnapshot.deleteMany({ where: { keywordId: k.id, source: "GOOGLE" } }),
           db.rankSnapshot.createMany({
-            data: days.map((d) => ({ keywordId: k.id, checkedAt: new Date(`${d.date}T00:00:00Z`), position: d.position, url, source: "GOOGLE" as const })),
+            data: days.map((d) => ({ keywordId: k.id, checkedAt: day(d.date), position: d.position, url: d.url, source: "GOOGLE" as const })),
             skipDuplicates: true,
           }),
+          db.rankPage.deleteMany({ where: { keywordId: k.id } }),
+          db.rankPage.createMany({ data: pageRows }),
         ]);
         if (days.length === 0) noData++;
         return;
       }
-      if (days.length === 0) {
-        noData++;
-        return;
-      }
-      await db.$transaction(
-        days.map((d) => {
-          const checkedAt = new Date(`${d.date}T00:00:00Z`);
-          return db.rankSnapshot.upsert({
-            where: { keywordId_checkedAt: { keywordId: k.id, checkedAt } },
-            create: { keywordId: k.id, checkedAt, position: d.position, url, source: "GOOGLE" },
-            update: { position: d.position, url, source: "GOOGLE" },
-          });
-        }),
-      );
+      await db.$transaction([
+        ...days.map((d) =>
+          db.rankSnapshot.upsert({
+            where: { keywordId_checkedAt: { keywordId: k.id, checkedAt: day(d.date) } },
+            create: { keywordId: k.id, checkedAt: day(d.date), position: d.position, url: d.url, source: "GOOGLE" },
+            update: { position: d.position, url: d.url, source: "GOOGLE" },
+          }),
+        ),
+        db.rankPage.deleteMany({ where: { keywordId: k.id, date: { gte: day(start), lte: day(end) } } }),
+        db.rankPage.createMany({ data: pageRows }),
+      ]);
+      if (days.length === 0) noData++;
     } catch (err) {
       failed++;
       lastError = err instanceof Error ? err.message : String(err);

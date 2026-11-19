@@ -23,6 +23,10 @@ export type RankingRow = {
   change: number | null;
   best: number | null;
   url: string | null;
+  /** The page that ranked before the current one, when it changed within the range */
+  previousUrl: string | null;
+  /** Pages that each got at least COMPETING_SHARE of the keyword's impressions in the range */
+  competingPages: number;
   history: { date: string; position: number | null }[];
 };
 

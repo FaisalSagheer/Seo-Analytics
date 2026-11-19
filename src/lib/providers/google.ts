@@ -158,11 +158,15 @@ export async function gscBreakdown(
 }
 
 export type GscKeywordFilters = { device?: "DESKTOP" | "MOBILE"; country?: string };
+export type GscKeywordPageDay = { date: string; page: string; position: number; impressions: number; clicks: number };
+
 export type GscKeywordHistory = {
-  /** Average position per day (impression-weighted across pages), YYYY-MM-DD */
-  days: { date: string; position: number }[];
-  /** The page that got the most impressions for the query */
+  /** Average position per day (impression-weighted across pages), YYYY-MM-DD, with that day's top page */
+  days: { date: string; position: number; url: string | null }[];
+  /** The page that got the most impressions for the query over the whole window */
   url: string | null;
+  /** Every page that showed for the query, per day */
+  pages: GscKeywordPageDay[];
 };
 
 /**
@@ -192,22 +196,28 @@ export async function gscKeywordHistory(
     rowLimit: 25_000,
     dataState: "all",
   });
-  const byDate = new Map<string, { weighted: number; impressions: number }>();
+  const byDate = new Map<string, { weighted: number; impressions: number; top: { page: string; impressions: number; position: number } | null }>();
   const byPage = new Map<string, number>();
+  const pages: GscKeywordPageDay[] = [];
   for (const row of r.rows ?? []) {
     const [date, page] = row.keys;
-    const d = byDate.get(date) ?? { weighted: 0, impressions: 0 };
+    const d = byDate.get(date) ?? { weighted: 0, impressions: 0, top: null };
     d.weighted += row.position * row.impressions;
     d.impressions += row.impressions;
+    // The day's ranking page: most impressions, and on a tie the better position
+    if (!d.top || row.impressions > d.top.impressions || (row.impressions === d.top.impressions && row.position < d.top.position)) {
+      d.top = { page, impressions: row.impressions, position: row.position };
+    }
     byDate.set(date, d);
     byPage.set(page, (byPage.get(page) ?? 0) + row.impressions);
+    pages.push({ date, page, position: row.position, impressions: row.impressions, clicks: row.clicks });
   }
   const days = [...byDate]
     .filter(([, v]) => v.impressions > 0)
-    .map(([date, v]) => ({ date, position: Math.max(1, Math.round(v.weighted / v.impressions)) }))
+    .map(([date, v]) => ({ date, position: Math.max(1, Math.round(v.weighted / v.impressions)), url: v.top?.page ?? null }))
     .sort((a, b) => a.date.localeCompare(b.date));
   const url = [...byPage].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  return { days, url };
+  return { days, url, pages };
 }
 
 // ---- GA4 ----

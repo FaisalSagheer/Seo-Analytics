@@ -81,6 +81,8 @@ GA4 is filtered to `sessionDefaultChannelGroup = Organic Search`, and conversion
 
 Search Console reports the **average position** your pages were shown at for a query, not a one-off live search result. A keyword gets a position on days it had at least one impression; days with none have no position. Search Console data runs about two days behind, and the project's device and country are applied as filters.
 
+**Which page ranks.** Each day stores the page that got the most impressions for the keyword, so the Rankings table shows today's page and the keyword's change log shows when it switched. A keyword's page lists every page of the site that showed for it in the range, with impressions, share, clicks and average position. Rankings flags **Page changed** when the ranking page switched in the selected range, and **N pages compete** when two or more pages each get at least 20% of the keyword's impressions; the **Ranking page** filter narrows the table to either.
+
 ## Team, roles and client access
 
 Each user has one role. A role decides what they can change (for example create projects, edit settings or manage API keys), and whether they **see every project**:

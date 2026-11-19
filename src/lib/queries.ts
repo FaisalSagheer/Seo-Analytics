@@ -10,15 +10,37 @@ export function getProject(projectId: string) {
 }
 
 
+/** A page counts as competing for a keyword when it gets at least this share of the keyword's impressions. */
+export const COMPETING_SHARE = 0.2;
+
 export async function getRankingRows(projectId: string, days: number): Promise<RankingRow[]> {
   const from = daysAgo(days - 1);
-  const keywords = await db.keyword.findMany({
-    where: { projectId },
-    orderBy: { createdAt: "asc" },
-    include: {
-      snapshots: { where: { checkedAt: { gte: from } }, orderBy: { checkedAt: "asc" } },
-    },
-  });
+  const [keywords, pageTotals] = await Promise.all([
+    db.keyword.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        snapshots: { where: { checkedAt: { gte: from } }, orderBy: { checkedAt: "asc" } },
+      },
+    }),
+    db.rankPage.groupBy({
+      by: ["keywordId", "page"],
+      where: { date: { gte: from }, keyword: { projectId } },
+      _sum: { impressions: true },
+    }),
+  ]);
+  // How many pages split each keyword's impressions in the range
+  const shares = new Map<string, number[]>();
+  for (const t of pageTotals) {
+    const list = shares.get(t.keywordId) ?? [];
+    list.push(t._sum.impressions ?? 0);
+    shares.set(t.keywordId, list);
+  }
+  const competing = (keywordId: string) => {
+    const list = shares.get(keywordId) ?? [];
+    const total = list.reduce((a, b) => a + b, 0);
+    return total > 0 ? list.filter((n) => n / total >= COMPETING_SHARE).length : 0;
+  };
 
   return keywords.map((k) => {
     const history = k.snapshots.map((s) => ({ date: toDateKey(s.checkedAt), position: s.position }));
@@ -39,6 +61,9 @@ export async function getRankingRows(projectId: string, days: number): Promise<R
       change: hasPrevious ? rankChange(previous, position) : null,
       best: ranked.length ? Math.min(...ranked) : null,
       url: last?.url ?? null,
+      // The most recent earlier page that differs from today's, if the ranking page switched in this range
+      previousUrl: last?.url ? ([...k.snapshots].reverse().find((s) => s.url && s.url !== last.url)?.url ?? null) : null,
+      competingPages: competing(k.id),
       history,
     };
   });

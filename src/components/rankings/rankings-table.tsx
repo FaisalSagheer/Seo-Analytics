@@ -22,6 +22,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 type Bucket = "all" | "top3" | "top10" | "11-20" | "21-50" | "51-100" | "unranked";
 type Movement = "all" | "up" | "down" | "flat";
 type SortKey = "phrase" | "position" | "change" | "searchVolume" | "best";
+type PageFilter = "all" | "changed" | "competing";
+
+const PAGE_FILTERS: { value: PageFilter; label: string }[] = [
+  { value: "all", label: "Any page" },
+  { value: "changed", label: "Page changed" },
+  { value: "competing", label: "Pages compete" },
+];
+
+function matchesPages(r: RankingRow, f: PageFilter) {
+  if (f === "changed") return r.previousUrl != null;
+  if (f === "competing") return r.competingPages >= 2;
+  return true;
+}
+
+/** The path part of a URL, which is what tells two of the site's pages apart. */
+const pathOf = (url: string) => url.replace(/^https?:\/\/[^/]+/, "") || "/";
 
 const BUCKETS: { value: Bucket; label: string }[] = [
   { value: "all", label: "All positions" },
@@ -95,6 +111,7 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
   const [tag, setTag] = useState<string>("all");
   const [bucket, setBucket] = useState<Bucket>("all");
   const [movement, setMovement] = useState<Movement>("all");
+  const [pageFilter, setPageFilter] = useState<PageFilter>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "position", dir: 1 });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const canEdit = useCan("keywords.manage");
@@ -110,14 +127,15 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
           (!q || r.phrase.includes(q)) &&
           (tag === "all" || r.tags.includes(tag)) &&
           inBucket(r.position, bucket) &&
-          matchesMovement(r.change, movement),
+          matchesMovement(r.change, movement) &&
+          matchesPages(r, pageFilter),
       )
       .sort((a, b) => {
         const av = sortValue(a, sort.key);
         const bv = sortValue(b, sort.key);
         return (typeof av === "string" ? av.localeCompare(bv as string) : av - (bv as number)) * sort.dir;
       });
-  }, [rows, query, tag, bucket, movement, sort]);
+  }, [rows, query, tag, bucket, movement, pageFilter, sort]);
 
   const { page, setPage, shown } = usePaged(visible);
   const allSelected = shown.length > 0 && shown.every((r) => selected.has(r.keywordId));
@@ -177,6 +195,10 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
             setMovement(v as Movement);
             setPage(0);
           }} label="Movement" />
+        <FilterSelect items={PAGE_FILTERS} value={pageFilter} onChange={(v) => {
+            setPageFilter(v as PageFilter);
+            setPage(0);
+          }} label="Ranking page" />
         <span className="text-muted-foreground ml-auto text-sm">
           {visible.length} of {rows.length}
         </span>
@@ -282,11 +304,25 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
                         rel="noreferrer"
                         className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
                       >
-                        <span className="truncate">{r.url.replace(/^https?:\/\/[^/]+/, "") || "/"}</span>
+                        <span className="truncate">{pathOf(r.url)}</span>
                         <ExternalLinkIcon className="size-3 shrink-0" />
                       </a>
                     ) : (
                       <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                    {(r.previousUrl || r.competingPages >= 2) && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {r.previousUrl && (
+                          <Badge variant="outline" className="text-[10px]" title={`Was ${pathOf(r.previousUrl)}`}>
+                            Page changed
+                          </Badge>
+                        )}
+                        {r.competingPages >= 2 && (
+                          <Badge variant="outline" className="text-[10px] text-amber-700 dark:text-amber-400" title="Several of your pages split this keyword's impressions">
+                            {r.competingPages} pages compete
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </TableCell>
                   {canEdit && (
