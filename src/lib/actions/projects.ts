@@ -142,8 +142,8 @@ export async function setProjectCountry(
   let warning: string | undefined;
   // Demo rankings are generated, and without a Search Console site there is nothing to re-measure yet
   if (!project.isDemo && project.gscSiteUrl) {
-    await db.rankSnapshot.deleteMany({ where: { source: "GOOGLE", keyword: { projectId: project.id } } });
-    const result = await syncProject(updated, ["rankings"]);
+    // Each keyword's old-country history is replaced only once its new data has arrived
+    const result = await syncProject(updated, ["rankings"], { replaceHistory: true });
     synced = Boolean(result.rankings?.ok);
     warning = result.rankings?.ok ? result.rankings.warning : `Rankings couldn't be updated yet: ${result.rankings?.message ?? "unknown error"}`;
   }

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { decrypt, encrypt } from "@/lib/crypto";
+import { decrypt, encrypt, sha256 } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { GOOGLE_DATA_SCOPES } from "@/lib/providers/google";
 import { parseServiceAccountKey, serviceAccountAccessToken } from "@/lib/providers/google-auth";
@@ -36,11 +36,27 @@ export async function getGoogleSource(project: ProjectRef): Promise<{ source: "p
  * project's own service account (the client's) wins; otherwise the project
  * owner's Google connection from Settings is used.
  */
+/**
+ * Service account tokens last an hour. Minting a new one for every request would also defeat the
+ * response cache (its key includes the token), so each key's token is reused until shortly before it expires.
+ */
+const SA_TOKEN_TTL_MS = 50 * 60_000;
+const saTokens = new Map<string, { token: string; until: number }>();
+
+async function serviceAccountToken(secretEncrypted: string): Promise<string> {
+  const id = sha256(secretEncrypted);
+  const cached = saTokens.get(id);
+  if (cached && cached.until > Date.now()) return cached.token;
+  const token = await serviceAccountAccessToken(parseServiceAccountKey(decrypt(secretEncrypted)));
+  saTokens.set(id, { token, until: Date.now() + SA_TOKEN_TTL_MS });
+  return token;
+}
+
 export async function getGoogleAccessToken(project: ProjectRef): Promise<string> {
   const own = await db.projectCredential.findUnique({ where: { projectId_provider: { projectId: project.id, provider: "GOOGLE" } } });
   if (own) {
     try {
-      return await serviceAccountAccessToken(parseServiceAccountKey(decrypt(own.secretEncrypted)));
+      return await serviceAccountToken(own.secretEncrypted);
     } catch (err) {
       throw new ProviderNotConfiguredError(
         `This project's Google service account (${own.login}) didn't work: ${err instanceof Error ? err.message : String(err)}. Replace the key in Project settings.`,

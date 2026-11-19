@@ -1,4 +1,6 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { db } from "@/lib/db";
 import type { Ga4DailyRow, GscDailyRow, GscQueryRow } from "@/lib/types";
 
 export const GOOGLE_DATA_SCOPES = [
@@ -16,7 +18,35 @@ export class GoogleApiError extends Error {
   }
 }
 
+/** How long a Google answer is reused. Reports and rank re-syncs repeat the same requests; this keeps API quota in check. */
+const CACHE_SECONDS = 5 * 60;
+
+/**
+ * The cache key includes the access token, so an answer is only ever reused for the same Google
+ * access that fetched it: another project, or another key, can never read it. Only the hash is stored.
+ */
+function cacheKey(token: string, url: string, body: unknown) {
+  return createHash("sha256").update(`${token}\u0000${url}\u0000${body === undefined ? "" : JSON.stringify(body)}`).digest("hex");
+}
+
 async function call<T>(token: string, url: string, body?: unknown): Promise<T> {
+  const key = cacheKey(token, url, body);
+  // A cache problem must never break a report: on any error, just ask Google
+  try {
+    const hit = await db.providerCache.findUnique({ where: { key } });
+    if (hit && hit.expiresAt > new Date()) return hit.payload as T;
+  } catch {}
+  const data = await fetchGoogle<T>(token, url, body);
+  try {
+    const expiresAt = new Date(Date.now() + CACHE_SECONDS * 1000);
+    await db.providerCache.upsert({ where: { key }, create: { key, payload: data as object, expiresAt }, update: { payload: data as object, expiresAt } });
+    // Now and then, drop answers that expired a while ago
+    if (Math.random() < 0.02) await db.providerCache.deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - 3_600_000) } } });
+  } catch {}
+  return data;
+}
+
+async function fetchGoogle<T>(token: string, url: string, body?: unknown): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30_000);
   try {

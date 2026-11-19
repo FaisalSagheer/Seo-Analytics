@@ -26,13 +26,22 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return out;
 }
 
-export async function syncRankings(project: Project, keywordIds?: string[]) {
+export type RankSyncOptions = {
+  /**
+   * Replace each keyword's Search Console history with what this sync fetched, instead of merging
+   * day by day. Used after the project's country changes. A keyword's old rows go only once its new
+   * data has arrived, so a failed sync leaves the previous history in place.
+   */
+  replaceHistory?: boolean;
+};
+
+export async function syncRankings(project: Project, keywordIds?: string[], options: RankSyncOptions = {}) {
   const keywords = await db.keyword.findMany({
     where: { projectId: project.id, ...(keywordIds ? { id: { in: keywordIds } } : {}) },
   });
   if (project.isDemo) return syncDemoRankings(project, keywords);
   if (!project.gscSiteUrl) throw new ProviderNotConfiguredError("Pick a Search Console site in Project settings to track rankings.");
-  return syncRankingsFromSearchConsole(project, keywords);
+  return syncRankingsFromSearchConsole(project, keywords, options);
 }
 
 /** The demo project has no Google account behind it, so its positions are generated. */
@@ -55,7 +64,7 @@ async function syncDemoRankings(project: Project, keywords: { id: string; phrase
  * Rank history from Search Console: the average position of the site for each
  * tracked keyword, per day, back 90 days. Days with no impressions get no row.
  */
-async function syncRankingsFromSearchConsole(project: Project, keywords: { id: string; phrase: string }[]) {
+async function syncRankingsFromSearchConsole(project: Project, keywords: { id: string; phrase: string }[], options: RankSyncOptions = {}) {
   const token = await getGoogleAccessToken(project);
   const siteUrl = project.gscSiteUrl!;
   const start = toDateKey(daysAgo(90));
@@ -67,6 +76,18 @@ async function syncRankingsFromSearchConsole(project: Project, keywords: { id: s
   await mapLimit(keywords, 5, async (k) => {
     try {
       const { days, url } = await gscKeywordHistory(token, siteUrl, k.phrase, start, end, filters);
+      if (options.replaceHistory) {
+        // The fetch for this keyword succeeded, so its old rows can go now, in one step with the new ones
+        await db.$transaction([
+          db.rankSnapshot.deleteMany({ where: { keywordId: k.id, source: "GOOGLE" } }),
+          db.rankSnapshot.createMany({
+            data: days.map((d) => ({ keywordId: k.id, checkedAt: new Date(`${d.date}T00:00:00Z`), position: d.position, url, source: "GOOGLE" as const })),
+            skipDuplicates: true,
+          }),
+        ]);
+        if (days.length === 0) noData++;
+        return;
+      }
       if (days.length === 0) {
         noData++;
         return;
@@ -218,10 +239,14 @@ export async function syncGoogle(project: Project) {
 }
 
 /** Runs each part independently so one failing provider doesn't block the rest. */
-export async function syncProject(project: Project, parts: SyncPart[] = ["rankings", "google"]): Promise<SyncResult> {
+export async function syncProject(
+  project: Project,
+  parts: SyncPart[] = ["rankings", "google"],
+  options: RankSyncOptions = {},
+): Promise<SyncResult> {
   const result: SyncResult = { rankings: undefined, google: undefined };
   const runners: Record<SyncPart, () => Promise<unknown>> = {
-    rankings: () => syncRankings(project),
+    rankings: () => syncRankings(project, undefined, options),
     google: () => syncGoogle(project),
   };
   for (const part of parts) {
