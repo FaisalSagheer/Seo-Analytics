@@ -138,6 +138,19 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
     });
   }
 
+  function removeOne(r: RankingRow) {
+    startTransition(async () => {
+      const res = await deleteKeywords({ projectId, keywordIds: [r.keywordId] });
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(`Removed "${r.phrase}"`);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(r.keywordId);
+        return next;
+      });
+    });
+  }
+
   const sortProps = { active: sort.key, onSort: toggleSort };
 
   return (
@@ -207,12 +220,13 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
               <SortHead k="best" {...sortProps}>Best</SortHead>
               <SortHead k="searchVolume" {...sortProps}>Volume</SortHead>
               <TableHead>Ranking URL</TableHead>
+              {canEdit && <TableHead className="w-10"><span className="sr-only">Remove</span></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {shown.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 8 : 7} className="text-muted-foreground h-24 text-center">
+                <TableCell colSpan={canEdit ? 9 : 7} className="text-muted-foreground h-24 text-center">
                   {rows.length === 0 ? "No keywords tracked yet. Add some to start the history." : "No keywords match these filters."}
                 </TableCell>
               </TableRow>
@@ -275,6 +289,24 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
                       <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <ConfirmDelete
+                        triggerRender={<Button variant="ghost" size="icon-sm" aria-label={`Remove ${r.phrase}`} disabled={pending} />}
+                        title={`Remove "${r.phrase}"?`}
+                        description="Its ranking history is deleted with it and can't be recovered."
+                        details={[
+                          { label: "Keyword", value: r.phrase },
+                          { label: "Position", value: r.position ?? "100+" },
+                          ...(r.tags.length > 0 ? [{ label: "Tags", value: r.tags.join(", ") }] : []),
+                        ]}
+                        confirmLabel="Remove"
+                        onConfirm={() => removeOne(r)}
+                      >
+                        <Trash2Icon />
+                      </ConfirmDelete>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
