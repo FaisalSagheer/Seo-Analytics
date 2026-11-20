@@ -5,6 +5,7 @@ import { ExternalLinkIcon } from "lucide-react";
 import type { ProductHealth } from "@/lib/shopping";
 import type { ProductHealthStatus, ProductIssue } from "@/lib/providers/google";
 import { TablePager, usePaged } from "@/components/performance/table-pager";
+import { Pick } from "@/components/shopping/fields";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatNumber } from "@/lib/format";
@@ -23,7 +24,7 @@ const SEVERITY_BADGE: Record<ProductIssue["severity"], "destructive" | "outline"
   NOT_IMPACTED: "secondary",
 };
 
-type Filter = "all" | Exclude<ProductHealthStatus, "APPROVED">;
+type Filter = "all" | ProductHealthStatus;
 
 /** Issues across the catalogue, and the products that aren't fully approved. */
 export function ProductHealthPanel({ health }: { health: ProductHealth }) {
@@ -31,11 +32,14 @@ export function ProductHealthPanel({ health }: { health: ProductHealth }) {
   const products = useMemo(() => (filter === "all" ? health.problems : health.problems.filter((p) => p.status === filter)), [health.problems, filter]);
   const issuePages = usePaged(health.issues);
   const productPages = usePaged(products);
-  const filters: { value: Filter; label: string; count: number }[] = [
-    { value: "all", label: "All with issues", count: health.problems.length },
-    { value: "DISAPPROVED", label: "Disapproved", count: health.counts.DISAPPROVED },
-    { value: "LIMITED", label: "Limited", count: health.counts.LIMITED },
-    { value: "PENDING", label: "Pending", count: health.counts.PENDING },
+  // Counted from the listed products, so each option's number matches what it shows
+  const count = (s: ProductHealthStatus) => health.problems.filter((p) => p.status === s).length;
+  const filters: { value: Filter; label: string }[] = [
+    { value: "all", label: `All with issues (${formatNumber(health.problems.length)})` },
+    { value: "DISAPPROVED", label: `Disapproved (${formatNumber(count("DISAPPROVED"))})` },
+    { value: "LIMITED", label: `Limited (${formatNumber(count("LIMITED"))})` },
+    { value: "PENDING", label: `Pending (${formatNumber(count("PENDING"))})` },
+    { value: "APPROVED", label: `Approved with issues (${formatNumber(count("APPROVED"))})` },
   ];
 
   return (
@@ -81,22 +85,16 @@ export function ProductHealthPanel({ health }: { health: ProductHealth }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter products by status">
-          {filters.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              aria-pressed={filter === f.value}
-              onClick={() => {
-                setFilter(f.value);
-                productPages.setPage(0);
-              }}
-              className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm"
-            >
-              {f.label} <span className="tabular-nums">({formatNumber(f.count)})</span>
-            </button>
-          ))}
-        </div>
+        <Pick
+          label="Filter products by status"
+          className="sm:w-64"
+          value={filter}
+          options={filters}
+          onChange={(f) => {
+            setFilter(f);
+            productPages.setPage(0);
+          }}
+        />
         <Table>
           <TableHeader>
             <TableRow>

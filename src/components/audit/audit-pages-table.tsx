@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import { TablePager, usePaged } from "@/components/performance/table-pager";
 import { InspectButton } from "@/components/audit/url-inspector";
+import { Pick } from "@/components/shopping/fields";
 import { useCan } from "@/components/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -48,22 +49,19 @@ export function AuditPagesTable({ pages, origin, inspectProjectId }: { pages: Au
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1" role="group" aria-label="Filter by severity">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              aria-pressed={filter === f.value}
-              onClick={() => {
-                setFilter(f.value);
-                setPage(0);
-              }}
-              className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm"
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <Pick
+          label="Filter by severity"
+          className="sm:w-56"
+          value={filter}
+          options={FILTERS.map((f) => ({
+            value: f.value,
+            label: `${f.label} (${(f.value === "all" ? pages : pages.filter((p) => p.issues.some((c) => severityOf(c) === f.value))).length})`,
+          }))}
+          onChange={(f) => {
+            setFilter(f);
+            setPage(0);
+          }}
+        />
         <Input className="ml-auto h-8 w-full sm:w-64" placeholder="Search URL or title" value={query} onChange={(e) => {
             setQuery(e.target.value);
             setPage(0);
