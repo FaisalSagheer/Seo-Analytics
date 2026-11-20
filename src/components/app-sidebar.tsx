@@ -24,6 +24,7 @@ import {
   PlusIcon,
   ScanSearchIcon,
   ShoppingBagIcon,
+  SparklesIcon,
   Settings2Icon,
   SettingsIcon,
   TrendingUpIcon,
@@ -275,8 +276,16 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     children: [
       { segment: "products", label: "Products" },
       { segment: "shipping", label: "Shipping and returns" },
-      { segment: "store-quality", label: "Store quality", external: true },
+      { segment: "mc/store-quality", label: "Store quality", external: true },
       { segment: "reviews", label: "Reviews" },
+    ],
+  },
+  {
+    label: "Creative content",
+    icon: SparklesIcon,
+    children: [
+      { segment: "mc/product-studio", label: "Product Studio", external: true },
+      { segment: "mc/video-assets", label: "Video assets", external: true },
     ],
   },
   {
@@ -332,7 +341,7 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
           return (
             <SidebarMenuItem key={item.label}>
               {/* The heading opens its first page (also when the sidebar is collapsed to icons); the arrow folds it */}
-              <SidebarMenuButton tooltip={item.label} render={<Link href={hrefOf(item.children[0].segment)} />}>
+              <SidebarMenuButton tooltip={item.label} render={<Link href={hrefOf(item.children[0].segment)} {...(item.children[0].external ? { target: "_blank", rel: "noreferrer" } : {})} />}>
                 <item.icon />
                 <span>{item.label}</span>
               </SidebarMenuButton>
