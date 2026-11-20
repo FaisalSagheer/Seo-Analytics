@@ -1137,3 +1137,33 @@ export const listAccountServices = (token: string, accountId: string) => allPage
 export const decideAccountService = (token: string, serviceName: string, approve: boolean) =>
   fetchGoogle<AccountServiceDoc>(token, `${MERCHANT_API}/accounts/v1/${serviceName}:${approve ? "approve" : "reject"}`, {});
 export const listRelationships = (token: string, accountId: string) => allPages<RelationshipDoc>(token, `${acct(accountId)}/relationships`, "accountRelationships", 100);
+
+// ---- Product Studio (Merchant API preview: Google enables it per Cloud project)
+
+const STUDIO = (accountId: string) => `${MERCHANT_API}/productstudio/v1alpha/accounts/${accountId}`;
+export type TextSuggestion = { text?: string; score?: number; changeSummary?: string };
+export type GeneratedImageDoc = { uri?: string; imageBytes?: string };
+
+/** Suggested title and description for a product, from its attributes (and image). */
+export const suggestProductText = (token: string, accountId: string, attributes: Record<string, string>, imageUri: string | undefined, outputSpec: { tone?: string; targetLanguage?: string }) =>
+  fetchGoogle<{ title?: TextSuggestion; description?: TextSuggestion }>(token, `${STUDIO(accountId)}:generateProductTextSuggestions`, {
+    productInfo: { productAttributes: attributes, ...(imageUri ? { productImage: { uri: imageUri } } : {}) },
+    outputSpec,
+  });
+
+/** Runs one image tool on a product image URL: remove the background, generate a new one, or upscale. */
+export async function editProductImage(
+  token: string,
+  accountId: string,
+  imageUri: string,
+  tool: "remove" | "background" | "upscale",
+  config?: { productDescription?: string; backgroundDescription?: string },
+): Promise<GeneratedImageDoc> {
+  const method = tool === "remove" ? "removeProductImageBackground" : tool === "background" ? "generateProductImageBackground" : "upscaleProductImage";
+  const r = await fetchGoogle<{ generatedImage?: GeneratedImageDoc }>(token, `${STUDIO(accountId)}/generatedImages:${method}`, {
+    inputImage: { imageUri },
+    outputConfig: { returnImageUri: true },
+    ...(tool === "background" ? { config } : tool === "remove" ? { config: { backgroundColor: { red: 255, green: 255, blue: 255 } } } : {}),
+  });
+  return r.generatedImage ?? {};
+}

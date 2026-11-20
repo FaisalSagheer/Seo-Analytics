@@ -7,6 +7,8 @@ import { propertyChoiceDenied } from "@/lib/google-access";
 import { getGoogleAccessToken } from "@/lib/providers";
 import {
   GoogleApiError,
+  editProductImage,
+  suggestProductText,
   createConversionSource,
   decideAccountService,
   deleteConversionSource,
@@ -856,5 +858,64 @@ export async function decideServiceLink(projectId: string, name: string, approve
     return ok(undefined);
   } catch (err) {
     return explain(err, ctx.project);
+  }
+}
+
+// ---- Product Studio ----
+
+// Product Studio only generates; nothing changes in Merchant Center until a suggestion is applied.
+// It still uses the write check, since generating spends the account's quota.
+
+const studioProblem = async (err: unknown, project: { id: string; userId: string; merchantId: string | null }) => {
+  if (err instanceof GoogleApiError && (err.status === 403 || err.status === 404) && /productstudio|not (been )?enabled|allowlist|alpha|not allowed|permission/i.test(err.message)) {
+    return fail("Product Studio's API is a Google preview: Google has to enable it for this app's Google Cloud project before it works. Google said: " + err.message);
+  }
+  return explain(err, project);
+};
+
+export type StudioText = { title: { text: string; summary: string | null } | null; description: { text: string; summary: string | null } | null };
+
+/** Suggests a title and description for a product from its attributes. */
+export async function studioSuggestText(projectId: string, productName: string, tone: string, language: string): Promise<ActionResult<StudioText>> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!productOf(productName, ctx.merchantId)) return fail("That product isn't in this account.");
+  if (language && !/^[a-z]{2}$/.test(language)) return fail("The language must be a 2-letter code, e.g. en.");
+  try {
+    const p = await getProduct(ctx.token, productName);
+    const attrs: Record<string, string> = {};
+    for (const [k, v] of Object.entries(p.productAttributes ?? {})) {
+      if (typeof v === "string" && v.trim()) attrs[k] = v;
+      else if (Array.isArray(v) && v.every((x) => typeof x === "string") && v.length) attrs[k] = v.join(", ");
+    }
+    if (!attrs.title && !attrs.description) return fail("This product has no title or description to start from.");
+    const image = typeof p.productAttributes?.imageLink === "string" && /^https:\/\//.test(p.productAttributes.imageLink) ? p.productAttributes.imageLink : undefined;
+    const r = await suggestProductText(ctx.token, ctx.merchantId, attrs, image, { tone: tone || undefined, targetLanguage: language || undefined });
+    const pick = (x?: { text?: string; changeSummary?: string }) => (x?.text ? { text: x.text, summary: x.changeSummary ?? null } : null);
+    return ok({ title: pick(r.title), description: pick(r.description) });
+  } catch (err) {
+    return studioProblem(err, ctx.project);
+  }
+}
+
+/** One image tool on a product image; returns a link to (or the data of) the new image. Nothing is saved. */
+export async function studioEditImage(
+  projectId: string,
+  imageUri: string,
+  tool: "remove" | "background" | "upscale",
+  backgroundDescription?: string,
+): Promise<ActionResult<{ src: string }>> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!/^https:\/\/[^\s]+$/i.test(imageUri)) return fail("The image must be an https:// link.");
+  if (!["remove", "background", "upscale"].includes(tool)) return fail("Choose an image tool.");
+  if (tool === "background" && !backgroundDescription?.trim()) return fail("Describe the background you want.");
+  try {
+    const img = await editProductImage(ctx.token, ctx.merchantId, imageUri, tool, tool === "background" ? { backgroundDescription: backgroundDescription!.trim() } : undefined);
+    if (img.uri && /^https:\/\//.test(img.uri)) return ok({ src: img.uri });
+    if (img.imageBytes) return ok({ src: `data:image/png;base64,${img.imageBytes}` });
+    return fail("Google didn't return an image.");
+  } catch (err) {
+    return studioProblem(err, ctx.project);
   }
 }
