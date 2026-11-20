@@ -6,6 +6,7 @@ import { requireProject } from "@/lib/session";
 
 // Merchant Center pages Google's API doesn't cover; the sidebar opens them in Merchant Center itself
 const PAGES: Record<string, { title: string; path: string }> = {
+  notifications: { title: "Notifications", path: "notifications" },
   "store-quality": { title: "Store quality", path: "storequality" },
   "product-studio": { title: "Product Studio", path: "productstudio" },
   "video-assets": { title: "Video assets", path: "videoassets" },

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ExternalLinkIcon } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { AccountIssueList } from "@/components/shopping/account-issues";
 import { NoMerchant } from "@/components/shopping/merchant-states";
@@ -23,7 +25,15 @@ export default async function NotificationsPage({ params }: PageProps<"/projects
   const issues = await loadAccountIssues(project);
   return (
     <>
-      {header}
+      <PageHeader
+        title="Notifications"
+        actions={
+          <a href={`/projects/${project.id}/shopping/mc/notifications`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <ExternalLinkIcon data-icon="inline-start" />
+            Open in Merchant Center
+          </a>
+        }
+      />
       <Card>
         <CardHeader>
           <CardTitle>Account issues</CardTitle>
