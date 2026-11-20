@@ -115,6 +115,19 @@ Search Console shows who links to you, but Google offers no API for it, so **Bac
 
 Every upload is a snapshot with the date you exported it. The latest list of linking sites is compared with the one before it to show **New sites**, **Lost sites** and the change per site, and a chart appears once you have two uploads. Import again every month or so. Search Console only exports your top links, so a site that drops out can be a lost link or just one that fell below the cut. The last 24 imports are kept, and a client role needs the **Run data syncs** permission to upload or delete one. The data is also at `GET /api/v1/projects/{id}/backlinks`.
 
+## Shopping (Merchant Center)
+
+The **Shopping** page shows a store's Google Shopping results from its Merchant Center account through Google's Merchant API (v1): clicks, impressions, CTR and conversions per day and per product, for free listings, Shopping ads or both, compared with the previous period. Conversions are only reported for free listings. **Product health** counts approved, limited, pending and disapproved products, lists the issues behind them with Google's help links, and filters the products by status.
+
+Setup for each project:
+
+1. Enable the **Merchant API** in your Google Cloud project, next to the Search Console and Analytics APIs.
+2. Give the project's Google access to the store's Merchant Center account. With a service account, add its email in Merchant Center under Settings, People and access, with Performance and insights (or Admin) access. With your own Google account, reconnect Google in Settings so it includes Merchant Center.
+3. In Project settings, choose the **Merchant Center account**.
+4. If Google asks for it, register the app once with **Register** on the Shopping page; this needs Admin access to the Merchant Center account.
+
+Up to 5,000 products are read for Product health, and answers are reused for 5 minutes.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.

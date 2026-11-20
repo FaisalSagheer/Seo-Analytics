@@ -1,6 +1,6 @@
 import "server-only";
 import { createSign } from "node:crypto";
-import { GOOGLE_DATA_SCOPES } from "@/lib/providers/google";
+import { GOOGLE_DATA_SCOPES, MERCHANT_SCOPE } from "@/lib/providers/google";
 
 /**
  * Service-account access for Search Console and GA4. A client creates a service
@@ -42,7 +42,7 @@ const b64url = (v: string | Buffer) => Buffer.from(v).toString("base64url");
 export function signServiceAccountJwt(key: ServiceAccountKey, audience: string, nowMs = Date.now()): string {
   const iat = Math.floor(nowMs / 1000);
   const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claims = b64url(JSON.stringify({ iss: key.client_email, scope: GOOGLE_DATA_SCOPES.join(" "), aud: audience, iat, exp: iat + 3600 }));
+  const claims = b64url(JSON.stringify({ iss: key.client_email, scope: [...GOOGLE_DATA_SCOPES, MERCHANT_SCOPE].join(" "), aud: audience, iat, exp: iat + 3600 }));
   const signature = createSign("RSA-SHA256").update(`${header}.${claims}`).sign(key.private_key);
   return `${header}.${claims}.${b64url(signature)}`;
 }

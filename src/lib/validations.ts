@@ -30,6 +30,13 @@ export const projectGoogleSchema = z.object({
     .regex(/^\d*$/, "GA4 property id is digits only")
     .nullable()
     .transform((v) => v || null),
+  merchantId: z
+    .string()
+    .trim()
+    .regex(/^\d{0,20}$/, "Merchant Center id is digits only")
+    .nullable()
+    .optional()
+    .transform((v) => v || null),
 });
 export type ProjectGoogleInput = z.input<typeof projectGoogleSchema>;
 

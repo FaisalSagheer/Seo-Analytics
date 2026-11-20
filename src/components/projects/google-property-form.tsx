@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
-type Options = { sites: string[]; properties: { id: string; name: string }[] };
+type Options = { sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[] };
 
 export function GooglePropertyForm({
   connected,
@@ -51,14 +51,20 @@ export function GooglePropertyForm({
   }
 
   const siteItems = [{ value: "", label: "None" }, ...(options?.sites ?? []).map((s) => ({ value: s, label: s }))];
+  const merchantItems = [
+    { value: "", label: "None" },
+    ...(options?.merchants ?? []).map((m) => ({ value: m.id, label: m.name === m.id ? m.id : `${m.name} (${m.id})` })),
+    // Keep a saved account selectable even if this access can't list it right now
+    ...(draft.merchantId && !(options?.merchants ?? []).some((m) => m.id === draft.merchantId) ? [{ value: draft.merchantId, label: draft.merchantId }] : []),
+  ];
   const propItems = [{ value: "", label: "None" }, ...(options?.properties ?? []).map((p) => ({ value: p.id, label: p.name }))];
 
   return (
     <Card>
       <form onSubmit={save}>
         <CardHeader>
-          <CardTitle>Search Console and GA4</CardTitle>
-          <CardDescription>Pick which properties feed this project&apos;s performance reports.</CardDescription>
+          <CardTitle>Google properties</CardTitle>
+          <CardDescription>Pick which Search Console site, GA4 property and Merchant Center account feed this project&apos;s reports.</CardDescription>
         </CardHeader>
         <CardContent className="py-6">
           {!connected ? (
@@ -113,6 +119,26 @@ export function GooglePropertyForm({
                   </SelectContent>
                 </Select>
                 <FieldDescription>Only organic-search sessions are pulled, so they line up with rankings.</FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel>Merchant Center account</FieldLabel>
+                <Select items={merchantItems} value={draft.merchantId ?? ""} onValueChange={(v) => setDraft({ ...draft, merchantId: v || null })}>
+                  <SelectTrigger className="w-full" aria-label="Merchant Center account">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {merchantItems.map((i) => (
+                        <SelectItem key={i.value} value={i.value}>
+                          {i.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  For the Shopping page. If the list is empty, add this project&apos;s Google access as a user in Merchant Center, or reconnect Google in Settings.
+                </FieldDescription>
               </Field>
             </FieldGroup>
           )}

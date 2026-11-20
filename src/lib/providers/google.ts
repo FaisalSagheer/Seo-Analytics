@@ -8,6 +8,12 @@ export const GOOGLE_DATA_SCOPES = [
   "https://www.googleapis.com/auth/analytics.readonly",
 ];
 
+/**
+ * Merchant Center (Shopping). Kept apart from GOOGLE_DATA_SCOPES: connections made before it
+ * existed don't carry it, and they must keep working for Search Console and GA4.
+ */
+export const MERCHANT_SCOPE = "https://www.googleapis.com/auth/content";
+
 export class GoogleApiError extends Error {
   constructor(
     message: string,
@@ -46,7 +52,7 @@ async function call<T>(token: string, url: string, body?: unknown): Promise<T> {
   return data;
 }
 
-async function fetchGoogle<T>(token: string, url: string, body?: unknown): Promise<T> {
+export async function fetchGoogle<T>(token: string, url: string, body?: unknown): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30_000);
   try {
@@ -470,4 +476,194 @@ export async function gscInspectUrl(token: string, siteUrl: string, inspectionUr
       : null,
     link: res.inspectionResultLink && /^https:\/\//.test(res.inspectionResultLink) ? res.inspectionResultLink : null,
   };
+}
+
+// ---- Merchant Center (Merchant API v1) ----
+
+const MERCHANT_API = "https://merchantapi.googleapis.com";
+
+export type MerchantAccount = { id: string; name: string };
+
+/** Merchant Center accounts this Google access can see. */
+export async function listMerchantAccounts(token: string): Promise<MerchantAccount[]> {
+  const r = await call<{ accounts?: { accountId?: string; accountName?: string }[] }>(token, `${MERCHANT_API}/accounts/v1/accounts?pageSize=250`);
+  return (r.accounts ?? [])
+    .filter((a): a is { accountId: string; accountName?: string } => Boolean(a.accountId))
+    .map((a) => ({ id: a.accountId, name: a.accountName || a.accountId }));
+}
+
+type ReportRow = {
+  productPerformanceView?: {
+    date?: { year: number; month: number; day: number };
+    marketingMethod?: string;
+    offerId?: string;
+    title?: string;
+    clicks?: string;
+    impressions?: string;
+    conversions?: number;
+  };
+};
+
+/** Runs a Merchant Center Query Language report, following pages up to a cap. */
+async function merchantReport(token: string, accountId: string, query: string, maxPages = 10): Promise<ReportRow[]> {
+  const rows: ReportRow[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < maxPages; i++) {
+    const r = await call<{ results?: ReportRow[]; nextPageToken?: string }>(token, `${MERCHANT_API}/reports/v1/accounts/${accountId}/reports:search`, {
+      query,
+      pageSize: 5000,
+      ...(pageToken ? { pageToken } : {}),
+    });
+    rows.push(...(r.results ?? []));
+    pageToken = r.nextPageToken;
+    if (!pageToken) break;
+  }
+  return rows;
+}
+
+export type MarketingMethod = "ORGANIC" | "ADS" | "AFFILIATE" | "OTHER";
+const asMethod = (m: string | undefined): MarketingMethod => (m === "ORGANIC" || m === "ADS" || m === "AFFILIATE" ? m : "OTHER");
+const dateKey = (d?: { year: number; month: number; day: number }) =>
+  d ? `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}` : "";
+
+export type ShoppingDay = { date: string; method: MarketingMethod; clicks: number; impressions: number; conversions: number };
+export type ShoppingProductRow = { offerId: string; title: string; method: MarketingMethod; clicks: number; impressions: number; conversions: number };
+
+/** Dates are YYYY-MM-DD and already validated (src/lib/date-range.ts), so they are safe inside the query. */
+export const shoppingDailyQuery = (start: string, end: string) =>
+  `SELECT date, marketing_method, clicks, impressions, conversions FROM product_performance_view WHERE date BETWEEN '${start}' AND '${end}'`;
+export const shoppingProductsQuery = (start: string, end: string) =>
+  `SELECT offer_id, title, marketing_method, clicks, impressions, conversions FROM product_performance_view WHERE date BETWEEN '${start}' AND '${end}'`;
+
+/** Clicks, impressions and conversions per day and marketing method (free listings, ads, affiliate). */
+export async function merchantDaily(token: string, accountId: string, start: string, end: string): Promise<ShoppingDay[]> {
+  const rows = await merchantReport(token, accountId, shoppingDailyQuery(start, end));
+  return rows
+    .map((r) => r.productPerformanceView)
+    .filter((v): v is NonNullable<typeof v> => Boolean(v?.date))
+    .map((v) => ({
+      date: dateKey(v.date),
+      method: asMethod(v.marketingMethod),
+      clicks: Number(v.clicks ?? 0),
+      impressions: Number(v.impressions ?? 0),
+      conversions: Number(v.conversions ?? 0),
+    }));
+}
+
+/** The same metrics per product for the range. */
+export async function merchantProductPerformance(token: string, accountId: string, start: string, end: string): Promise<ShoppingProductRow[]> {
+  const rows = await merchantReport(token, accountId, shoppingProductsQuery(start, end), 5);
+  return rows
+    .map((r) => r.productPerformanceView)
+    .filter((v): v is NonNullable<typeof v> => Boolean(v))
+    .map((v) => ({
+      offerId: v.offerId ?? "",
+      title: v.title ?? v.offerId ?? "",
+      method: asMethod(v.marketingMethod),
+      clicks: Number(v.clicks ?? 0),
+      impressions: Number(v.impressions ?? 0),
+      conversions: Number(v.conversions ?? 0),
+    }));
+}
+
+export type ProductHealthStatus = "APPROVED" | "LIMITED" | "PENDING" | "DISAPPROVED";
+export type ProductIssue = {
+  code: string;
+  description: string;
+  detail: string | null;
+  severity: "DISAPPROVED" | "DEMOTED" | "NOT_IMPACTED";
+  attribute: string | null;
+  documentation: string | null;
+};
+export type MerchantProduct = {
+  offerId: string;
+  title: string;
+  link: string | null;
+  imageLink: string | null;
+  availability: string | null;
+  status: ProductHealthStatus;
+  issues: ProductIssue[];
+};
+
+type ApiProduct = {
+  offerId?: string;
+  productAttributes?: { title?: string; link?: string; imageLink?: string; availability?: string };
+  productStatus?: {
+    destinationStatuses?: { reportingContext?: string; approvedCountries?: string[]; pendingCountries?: string[]; disapprovedCountries?: string[] }[];
+    itemLevelIssues?: { code?: string; description?: string; detail?: string; severity?: string; attribute?: string; documentation?: string }[];
+  };
+};
+
+const SEVERITY_RANK: Record<ProductIssue["severity"], number> = { DISAPPROVED: 0, DEMOTED: 1, NOT_IMPACTED: 2 };
+
+/**
+ * A product's status across its destinations: approved somewhere and nothing limiting it,
+ * approved but disapproved or demoted somewhere (limited), only pending, or disapproved everywhere.
+ */
+export function productHealth(p: ApiProduct): { status: ProductHealthStatus; issues: ProductIssue[] } {
+  const dests = p.productStatus?.destinationStatuses ?? [];
+  const approved = dests.some((d) => (d.approvedCountries ?? []).length > 0);
+  const pending = dests.some((d) => (d.pendingCountries ?? []).length > 0);
+  const disapproved = dests.some((d) => (d.disapprovedCountries ?? []).length > 0);
+  // One entry per issue code; the same issue is repeated for each destination it affects
+  const byCode = new Map<string, ProductIssue>();
+  for (const i of p.productStatus?.itemLevelIssues ?? []) {
+    const severity = i.severity === "DISAPPROVED" || i.severity === "DEMOTED" ? i.severity : "NOT_IMPACTED";
+    const code = i.code ?? i.description ?? "issue";
+    const prev = byCode.get(code);
+    if (prev && SEVERITY_RANK[prev.severity] <= SEVERITY_RANK[severity]) continue;
+    byCode.set(code, {
+      code,
+      description: i.description ?? code,
+      detail: i.detail ?? null,
+      severity,
+      attribute: i.attribute ?? null,
+      documentation: i.documentation && /^https:\/\//.test(i.documentation) ? i.documentation : null,
+    });
+  }
+  const issues = [...byCode.values()].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  const limiting = issues.some((i) => i.severity !== "NOT_IMPACTED");
+  const status: ProductHealthStatus = approved
+    ? disapproved || limiting
+      ? "LIMITED"
+      : "APPROVED"
+    : pending && !disapproved
+      ? "PENDING"
+      : "DISAPPROVED";
+  return { status, issues };
+}
+
+/** Processed products with their status and issues, up to `maxPages` × 1000 products. */
+export async function listMerchantProducts(token: string, accountId: string, maxPages = 5): Promise<{ products: MerchantProduct[]; truncated: boolean }> {
+  const products: MerchantProduct[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < maxPages; i++) {
+    const url = `${MERCHANT_API}/products/v1/accounts/${accountId}/products?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`;
+    const r = await call<{ products?: ApiProduct[]; nextPageToken?: string }>(token, url);
+    for (const p of r.products ?? []) {
+      const { status, issues } = productHealth(p);
+      const link = p.productAttributes?.link;
+      const image = p.productAttributes?.imageLink;
+      products.push({
+        offerId: p.offerId ?? "",
+        title: p.productAttributes?.title ?? p.offerId ?? "",
+        link: link && /^https?:\/\//i.test(link) ? link : null,
+        imageLink: image && /^https:\/\//i.test(image) ? image : null,
+        availability: p.productAttributes?.availability ?? null,
+        status,
+        issues,
+      });
+    }
+    pageToken = r.nextPageToken;
+    if (!pageToken) return { products, truncated: false };
+  }
+  return { products, truncated: true };
+}
+
+/**
+ * Registers this app's Google Cloud project with a Merchant Center account, which Google asks for
+ * before the Merchant API answers. Needs Admin access to the account. Never cached.
+ */
+export async function registerMerchantGcp(token: string, accountId: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/accounts/v1/accounts/${accountId}/developerRegistration:registerGcp`, {});
 }

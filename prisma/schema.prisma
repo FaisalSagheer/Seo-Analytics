@@ -140,6 +140,8 @@ model Project {
   gscSiteUrl          String?
   /// GA4 property id, digits only
   ga4PropertyId       String?
+  /// Merchant Center account id, digits only
+  merchantId          String?   @db.VarChar(32)
   /// Site URL exactly as registered in Bing Webmaster Tools, e.g. "https://example.com/"
   bingSiteUrl         String?
   /// Which backlink sources a refresh fetches (each only when its account is connected)
