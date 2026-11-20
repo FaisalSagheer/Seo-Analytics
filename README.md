@@ -128,6 +128,8 @@ Setup for each project:
 
 Up to 5,000 products are read for Product health, and answers are reused for 5 minutes.
 
+**Shipping & returns.** The **Shipping & returns** tab edits the account's shipping settings: services (delivery, local delivery, collection point), countries, currency, minimum order value, handling and transit days, cutoff times, business days, transit-time tables, warehouses, carrier rates, and rates as one value or as tables by price, weight, items or region with subtables. Saving replaces the shipping settings in Merchant Center in one go; if they were changed in Merchant Center meanwhile, nothing is overwritten and the latest version is loaded. The same tab manages regions (postal codes or geotargets) and return policies (Google can't update a policy, so an edit replaces it). Account issues Google reports are shown above every Shopping tab. Changes need the **Manage Merchant Center** permission (Admins have it) and Admin or Standard access in Merchant Center; everyone else sees a read-only view.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.

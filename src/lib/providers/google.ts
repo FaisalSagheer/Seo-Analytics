@@ -52,12 +52,12 @@ async function call<T>(token: string, url: string, body?: unknown): Promise<T> {
   return data;
 }
 
-export async function fetchGoogle<T>(token: string, url: string, body?: unknown): Promise<T> {
+export async function fetchGoogle<T>(token: string, url: string, body?: unknown, method?: "GET" | "POST" | "PATCH" | "DELETE"): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30_000);
   try {
     const res = await fetch(url, {
-      method: body ? "POST" : "GET",
+      method: method ?? (body ? "POST" : "GET"),
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
@@ -67,7 +67,9 @@ export async function fetchGoogle<T>(token: string, url: string, body?: unknown)
       const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
       throw new GoogleApiError(err?.error?.message ?? `Google API ${res.status}`, res.status);
     }
-    return (await res.json()) as T;
+    // DELETE answers with an empty body
+    const text = await res.text();
+    return (text ? JSON.parse(text) : {}) as T;
   } finally {
     clearTimeout(timer);
   }
@@ -666,4 +668,94 @@ export async function listMerchantProducts(token: string, accountId: string, max
  */
 export async function registerMerchantGcp(token: string, accountId: string): Promise<void> {
   await fetchGoogle(token, `${MERCHANT_API}/accounts/v1/accounts/${accountId}/developerRegistration:registerGcp`, {});
+}
+
+// ---- Merchant Center: shipping, regions, return policies, account issues ----
+// Reads for editing are uncached (fetchGoogle), so a save never starts from a stale copy.
+
+type ShippingDoc = import("@/lib/merchant-shipping").ShippingSettings;
+type RegionDoc = import("@/lib/merchant-shipping").Region;
+type ReturnPolicyDoc = import("@/lib/merchant-shipping").ReturnPolicy;
+
+const acct = (accountId: string) => `${MERCHANT_API}/accounts/v1/accounts/${accountId}`;
+
+/** The account's shipping settings; an account that never set any gets an empty document with an empty etag. */
+export async function getShippingSettings(token: string, accountId: string): Promise<ShippingDoc> {
+  try {
+    return await fetchGoogle<ShippingDoc>(token, `${acct(accountId)}/shippingSettings`);
+  } catch (err) {
+    if (err instanceof GoogleApiError && err.status === 404) return { services: [], warehouses: [], etag: "" };
+    throw err;
+  }
+}
+
+/** Replaces the whole shipping settings document; `etag` must be the one last read. */
+export function insertShippingSettings(token: string, accountId: string, settings: ShippingDoc): Promise<ShippingDoc> {
+  return fetchGoogle<ShippingDoc>(token, `${acct(accountId)}/shippingSettings:insert`, settings);
+}
+
+export async function listRegions(token: string, accountId: string): Promise<RegionDoc[]> {
+  const out: RegionDoc[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < 10; i++) {
+    const r = await fetchGoogle<{ regions?: RegionDoc[]; nextPageToken?: string }>(
+      token,
+      `${acct(accountId)}/regions?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`,
+    );
+    out.push(...(r.regions ?? []));
+    pageToken = r.nextPageToken;
+    if (!pageToken) break;
+  }
+  return out;
+}
+
+export function createRegion(token: string, accountId: string, regionId: string, region: RegionDoc): Promise<RegionDoc> {
+  return fetchGoogle<RegionDoc>(token, `${acct(accountId)}/regions?regionId=${encodeURIComponent(regionId)}`, region);
+}
+
+export function updateRegion(token: string, regionName: string, region: RegionDoc, updateMask: string[]): Promise<RegionDoc> {
+  return fetchGoogle<RegionDoc>(token, `${MERCHANT_API}/accounts/v1/${regionName}?updateMask=${encodeURIComponent(updateMask.join(","))}`, region, "PATCH");
+}
+
+export async function deleteRegion(token: string, regionName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/accounts/v1/${regionName}`, undefined, "DELETE");
+}
+
+export async function listReturnPolicies(token: string, accountId: string): Promise<ReturnPolicyDoc[]> {
+  const out: ReturnPolicyDoc[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < 10; i++) {
+    const r = await fetchGoogle<{ onlineReturnPolicies?: ReturnPolicyDoc[]; nextPageToken?: string }>(
+      token,
+      `${acct(accountId)}/onlineReturnPolicies?pageSize=100${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`,
+    );
+    out.push(...(r.onlineReturnPolicies ?? []));
+    pageToken = r.nextPageToken;
+    if (!pageToken) break;
+  }
+  return out;
+}
+
+export function createReturnPolicy(token: string, accountId: string, policy: ReturnPolicyDoc): Promise<ReturnPolicyDoc> {
+  return fetchGoogle<ReturnPolicyDoc>(token, `${acct(accountId)}/onlineReturnPolicies`, policy);
+}
+
+export async function deleteReturnPolicy(token: string, policyName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/accounts/v1/${policyName}`, undefined, "DELETE");
+}
+
+export type AccountIssue = { title: string; detail: string | null; severity: "CRITICAL" | "ERROR" | "SUGGESTION" | "OTHER"; documentation: string | null; destinations: string[] };
+
+/** Account-level problems (suspensions, policy warnings) shown as a banner on every Shopping tab. */
+export async function listAccountIssues(token: string, accountId: string): Promise<AccountIssue[]> {
+  const r = await call<{
+    accountIssues?: { title?: string; detail?: string; severity?: string; documentationUri?: string; impactedDestinations?: { reportingContext?: string }[] }[];
+  }>(token, `${acct(accountId)}/issues?pageSize=100`);
+  return (r.accountIssues ?? []).map((i) => ({
+    title: i.title ?? "Account issue",
+    detail: i.detail ?? null,
+    severity: i.severity === "CRITICAL" || i.severity === "ERROR" || i.severity === "SUGGESTION" ? i.severity : "OTHER",
+    documentation: i.documentationUri && /^https:\/\//.test(i.documentationUri) ? i.documentationUri : null,
+    destinations: (i.impactedDestinations ?? []).map((d) => d.reportingContext ?? "").filter(Boolean),
+  }));
 }

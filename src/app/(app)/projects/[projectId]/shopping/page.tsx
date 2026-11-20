@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { PlugIcon, ShoppingBagIcon } from "lucide-react";
 import { TrendChart } from "@/components/charts/trend-chart";
-import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
@@ -10,54 +7,19 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { PagedTable } from "@/components/performance/table-pager";
 import { ProductHealthPanel } from "@/components/shopping/product-health";
 import { STATUS_LABEL } from "@/lib/shopping-labels";
-import { RegisterMerchantButton } from "@/components/shopping/register-button";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { NoMerchant, ProblemAlert } from "@/components/shopping/merchant-states";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { compareWindow, resolveRange } from "@/lib/date-range";
 import { formatNumber, formatPercent } from "@/lib/format";
 import type { MarketingMethod, ProductHealthStatus } from "@/lib/providers/google";
 import { requireProject } from "@/lib/session";
-import { loadProductHealth, loadShoppingPerformance, type MethodFilter, type ShoppingProblem } from "@/lib/shopping";
+import { loadProductHealth, loadShoppingPerformance, type MethodFilter } from "@/lib/shopping";
 
 export const metadata: Metadata = { title: "Shopping" };
 
 const METHOD_LABEL: Record<MarketingMethod, string> = { ORGANIC: "Free listings", ADS: "Shopping ads", AFFILIATE: "Affiliate", OTHER: "Other" };
 const pct = (cur: number, before: number | undefined) => (before ? ((cur - before) / before) * 100 : undefined);
-
-function ProblemAlert({ problem, projectId }: { problem: ShoppingProblem; projectId: string }) {
-  return (
-    <Alert variant={problem.kind === "other" ? "destructive" : "default"}>
-      <PlugIcon />
-      <AlertTitle>
-        {problem.kind === "api"
-          ? "Enable the Merchant API"
-          : problem.kind === "registration"
-          ? "Register this app with Merchant Center"
-          : problem.kind === "scope"
-            ? "Reconnect Google"
-            : problem.kind === "access"
-              ? "No access to this Merchant Center account"
-              : "Couldn't read Merchant Center"}
-      </AlertTitle>
-      <AlertDescription>{problem.message}</AlertDescription>
-      {problem.kind === "registration" && (
-        <AlertAction>
-          <RegisterMerchantButton projectId={projectId} />
-        </AlertAction>
-      )}
-      {problem.kind === "scope" && (
-        <AlertAction>
-          <Link href="/settings" className={buttonVariants({ size: "sm", variant: "outline" })}>
-            Google & API
-          </Link>
-        </AlertAction>
-      )}
-    </Alert>
-  );
-}
 
 export default async function ShoppingPage({ params, searchParams }: PageProps<"/projects/[projectId]/shopping">) {
   const { projectId } = await params;
@@ -93,25 +55,7 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
     return (
       <>
         {header}
-        {project.isDemo && <DemoAlert />}
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ShoppingBagIcon />
-            </EmptyMedia>
-            <EmptyTitle>{project.isDemo ? "No Merchant Center in the demo" : "No Merchant Center account selected"}</EmptyTitle>
-            <EmptyDescription>
-              {project.isDemo
-                ? "Demo projects have no Merchant Center data."
-                : "Choose the store's Merchant Center account in Project settings to see Shopping clicks and product status."}
-            </EmptyDescription>
-          </EmptyHeader>
-          {!project.isDemo && (
-            <Link href={`/projects/${project.id}/settings`} className={buttonVariants({ size: "sm", variant: "outline" })}>
-              Project settings
-            </Link>
-          )}
-        </Empty>
+        <NoMerchant project={project} />
       </>
     );
   }

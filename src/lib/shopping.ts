@@ -4,6 +4,11 @@ import type { Window } from "@/lib/date-range";
 import { getGoogleAccessToken, getGoogleSource } from "@/lib/providers";
 import {
   GoogleApiError,
+  getShippingSettings,
+  listAccountIssues,
+  listRegions,
+  listReturnPolicies,
+  type AccountIssue,
   listMerchantProducts,
   merchantDaily,
   merchantProductPerformance,
@@ -180,6 +185,38 @@ export async function loadProductHealth(project: Project): Promise<{ data: Produ
           .slice(0, 2000),
       },
     };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** Account-level warnings for the banner on every Shopping tab; a failure here just hides the banner. */
+export async function loadAccountIssues(project: Project): Promise<AccountIssue[]> {
+  if (!project.merchantId) return [];
+  try {
+    return await listAccountIssues(await getGoogleAccessToken(project), project.merchantId);
+  } catch {
+    return [];
+  }
+}
+
+export type ShippingPage = {
+  settings: import("@/lib/merchant-shipping").ShippingSettings;
+  regions: import("@/lib/merchant-shipping").Region[];
+  policies: import("@/lib/merchant-shipping").ReturnPolicy[];
+};
+
+/** Everything the Shipping & returns tab edits, read fresh (never from the cache). */
+export async function loadShippingPage(project: Project): Promise<{ data: ShippingPage | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const [settings, regions, policies] = await Promise.all([
+      getShippingSettings(token, project.merchantId),
+      listRegions(token, project.merchantId),
+      listReturnPolicies(token, project.merchantId),
+    ]);
+    return { data: { settings, regions, policies } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
