@@ -50,17 +50,30 @@ import {
 
 type ProjectLink = { id: string; name: string; domain: string; isDemo: boolean };
 
-const PROJECT_NAV = [
-  { segment: "", label: "Overview", icon: LayoutDashboardIcon },
-  { segment: "performance", label: "Performance", icon: ChartLineIcon },
-  { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
-  { segment: "referrals", label: "Referrals", icon: Link2Icon },
-  { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
-  { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
-  { segment: "reports", label: "Reports", icon: ChartColumnIcon },
-  { segment: "shopping", label: "Shopping", icon: ShoppingBagIcon },
-  { segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" },
-] as const satisfies readonly { segment: string; label: string; icon: unknown; permission?: Permission }[];
+type NavItem = { segment: string; label: string; icon: typeof ChartLineIcon; permission?: Permission };
+
+// Grouped like the Account section; a group with nothing the viewer may open isn't shown
+const PROJECT_NAV: { label: string | null; items: NavItem[] }[] = [
+  { label: null, items: [{ segment: "", label: "Overview", icon: LayoutDashboardIcon }] },
+  {
+    label: "Search & traffic",
+    items: [
+      { segment: "performance", label: "Performance", icon: ChartLineIcon },
+      { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
+      { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
+      { segment: "reports", label: "Reports", icon: ChartColumnIcon },
+    ],
+  },
+  {
+    label: "Links",
+    items: [
+      { segment: "referrals", label: "Referrals", icon: Link2Icon },
+      { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
+    ],
+  },
+  { label: "Commerce", items: [{ segment: "shopping", label: "Shopping", icon: ShoppingBagIcon }] },
+  { label: "Project", items: [{ segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" }] },
+];
 
 export function AppSidebar({
   projects,
@@ -133,23 +146,29 @@ export function AppSidebar({
 
       <SidebarContent>
         {current ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>{current.domain}</SidebarGroupLabel>
-            <SidebarMenu>
-              {PROJECT_NAV.filter((item) => allowed("permission" in item ? item.permission : undefined)).map((item) => {
-                const href = `/projects/${current.id}${item.segment ? `/${item.segment}` : ""}`;
-                const active = item.segment ? pathname.startsWith(href) : pathname === href;
-                return (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton isActive={active} tooltip={item.label} render={<Link href={href} />}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
+          PROJECT_NAV.map((group) => {
+            const items = group.items.filter((item) => allowed(item.permission));
+            if (!items.length) return null;
+            return (
+              <SidebarGroup key={group.label ?? "top"}>
+                <SidebarGroupLabel>{group.label ?? current.domain}</SidebarGroupLabel>
+                <SidebarMenu>
+                  {items.map((item) => {
+                    const href = `/projects/${current.id}${item.segment ? `/${item.segment}` : ""}`;
+                    const active = item.segment ? pathname.startsWith(href) : pathname === href;
+                    return (
+                      <SidebarMenuItem key={item.label}>
+                        <SidebarMenuButton isActive={active} tooltip={item.label} render={<Link href={href} />}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroup>
+            );
+          })
         ) : (
           <SidebarGroup>
             <SidebarMenu>
