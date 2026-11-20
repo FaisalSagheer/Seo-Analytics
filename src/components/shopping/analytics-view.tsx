@@ -31,12 +31,13 @@ const METHOD_LABEL: Record<MarketingMethod, string> = {
 const pct = (cur: number, before: number | undefined) =>
   before ? ((cur - before) / before) * 100 : undefined;
 
-type View = "summary" | "products" | "online" | "local";
+type View = "summary" | "products" | "online" | "local" | "ads";
 const TITLE: Record<View, string> = {
   summary: "Summary",
   products: "Product performance",
   online: "Online store",
   local: "Physical stores",
+  ads: "Ad campaigns",
 };
 const STORE: Partial<Record<View, StoreType>> = {
   online: "ONLINE_STORE",
@@ -51,15 +52,23 @@ export async function ShoppingAnalytics({
   projectId,
   sp,
   view,
+  intro,
 }: {
   projectId: string;
   sp: Record<string, string | string[] | undefined>;
   view: View;
+  /** Shown above the numbers, e.g. the linked Google Ads accounts */
+  intro?: React.ReactNode;
 }) {
   const { project } = await requireProject(projectId);
   const range = resolveRange(sp, 28);
+  // Ad campaigns always shows Shopping ads only
   const method: MethodFilter =
-    sp.method === "ORGANIC" || sp.method === "ADS" ? sp.method : "all";
+    view === "ads"
+      ? "ADS"
+      : sp.method === "ORGANIC" || sp.method === "ADS"
+        ? sp.method
+        : "all";
 
   const header = (
     <PageHeader
@@ -67,16 +76,18 @@ export async function ShoppingAnalytics({
       actions={
         project.merchantId && !project.isDemo ? (
           <>
-            <SearchParamSelect
-              param="method"
-              label="Listings"
-              value={method}
-              items={[
-                { value: "all", label: "All listings" },
-                { value: "ORGANIC", label: "Free listings" },
-                { value: "ADS", label: "Shopping ads" },
-              ]}
-            />
+            {view !== "ads" && (
+              <SearchParamSelect
+                param="method"
+                label="Listings"
+                value={method}
+                items={[
+                  { value: "all", label: "All listings" },
+                  { value: "ORGANIC", label: "Free listings" },
+                  { value: "ADS", label: "Shopping ads" },
+                ]}
+              />
+            )}
             <RangePicker value={range.days} />
           </>
         ) : undefined
@@ -106,6 +117,7 @@ export async function ShoppingAnalytics({
   return (
     <>
       {header}
+      {intro}
       {problem && <ProblemAlert problem={problem} projectId={project.id} />}
 
       {perf.data && t && (
