@@ -286,7 +286,7 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     icon: SparklesIcon,
     children: [
       { segment: "product-studio", label: "Product Studio" },
-      { segment: "mc/video-assets", label: "Video assets", external: true },
+      { segment: "video-assets", label: "Video assets" },
     ],
   },
   {

@@ -604,6 +604,7 @@ export type MerchantProduct = {
   link: string | null;
   imageLink: string | null;
   availability: string | null;
+  videoLinks: string[];
   status: ProductHealthStatus;
   issues: ProductIssue[];
 };
@@ -679,6 +680,7 @@ export async function listMerchantProducts(token: string, accountId: string, max
         link: link && /^https?:\/\//i.test(link) ? link : null,
         imageLink: image && /^https:\/\//i.test(image) ? image : null,
         availability: p.productAttributes?.availability ?? null,
+        videoLinks: Array.isArray(p.productAttributes?.videoLinks) ? (p.productAttributes.videoLinks as string[]).filter((v) => /^https?:\/\//i.test(v)) : [],
         status,
         issues,
       });

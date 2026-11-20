@@ -437,26 +437,55 @@ export async function saveProductEdits(projectId: string, name: string, before: 
   if (problems.length) return fail(problems.join(" "));
   const fields = changedFields(before, after);
   if (!fields.length) return fail("Nothing changed.");
+  const attrs: Record<string, unknown> = {};
+  for (const f of fields) {
+    const v = attributeValue(after, f);
+    // A cleared field falls back to the feed's value: leave it out, it's named in the mask
+    if (v !== undefined) attrs[f] = v;
+  }
   try {
-    const p = await getProduct(ctx.token, name);
-    if (!p.dataSource || !p.offerId || !p.contentLanguage || !p.feedLabel) return fail("Google didn't return this product's source, so it can't be edited here.");
-    const edits = await ensureSource(ctx.token, ctx.merchantId, EDITS_SOURCE, "supplemental");
-    await linkFirst(ctx.token, p.dataSource, edits.name!);
-    const attrs: Record<string, unknown> = {};
-    for (const f of fields) {
-      const v = attributeValue(after, f);
-      // A cleared field falls back to the feed's value: leave it out, it's named in the mask
-      if (v !== undefined) attrs[f] = v;
-    }
-    const input = { offerId: p.offerId, contentLanguage: p.contentLanguage, feedLabel: p.feedLabel, productAttributes: attrs };
-    const inputName = `accounts/${ctx.merchantId}/productInputs/${inputSegment(p.contentLanguage, p.feedLabel, p.offerId)}`;
-    try {
-      // Patch keeps earlier edits to other attributes
-      await patchProductInput(ctx.token, inputName, edits.name!, input, fields);
-    } catch (err) {
-      if (!(err instanceof GoogleApiError && err.status === 404)) throw err;
-      await insertProductInput(ctx.token, ctx.merchantId, edits.name!, input);
-    }
+    const missing = await overrideAttributes(ctx.token, ctx.merchantId, name, attrs, fields);
+    if (missing) return fail(missing);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/**
+ * Writes attributes over a product through the app's supplemental source; `mask` names every attribute
+ * touched, so one named but absent from `attrs` falls back to the feed. Returns a message if the product can't be edited.
+ */
+async function overrideAttributes(token: string, merchantId: string, name: string, attrs: Record<string, unknown>, mask: string[]): Promise<string | null> {
+  const p = await getProduct(token, name);
+  if (!p.dataSource || !p.offerId || !p.contentLanguage || !p.feedLabel) return "Google didn't return this product's source, so it can't be edited here.";
+  const edits = await ensureSource(token, merchantId, EDITS_SOURCE, "supplemental");
+  await linkFirst(token, p.dataSource, edits.name!);
+  const input = { offerId: p.offerId, contentLanguage: p.contentLanguage, feedLabel: p.feedLabel, productAttributes: attrs };
+  const inputName = `accounts/${merchantId}/productInputs/${inputSegment(p.contentLanguage, p.feedLabel, p.offerId)}`;
+  try {
+    // Patch keeps earlier edits to other attributes
+    await patchProductInput(token, inputName, edits.name!, input, mask);
+  } catch (err) {
+    if (!(err instanceof GoogleApiError && err.status === 404)) throw err;
+    await insertProductInput(token, merchantId, edits.name!, input);
+  }
+  return null;
+}
+
+/** Sets a product's video links (an empty list falls back to the feed's). */
+export async function saveProductVideos(projectId: string, name: string, links: string[]): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
+  const clean = [...new Set(links.map((l) => l.trim()).filter(Boolean))];
+  const bad = clean.find((l) => !/^https?:\/\/[^\s]+$/i.test(l));
+  if (bad) return fail(`"${bad}" isn't a web link. Each video must be a full http:// or https:// URL.`);
+  if (clean.length > 10) return fail("A product can have at most 10 videos.");
+  try {
+    const missing = await overrideAttributes(ctx.token, ctx.merchantId, name, clean.length ? { videoLinks: clean } : {}, ["videoLinks"]);
+    if (missing) return fail(missing);
     await afterWrite(projectId);
     return ok(undefined);
   } catch (err) {

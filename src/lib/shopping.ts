@@ -269,7 +269,7 @@ export async function loadSettingsPage(project: Project): Promise<{ data: Settin
   }
 }
 
-export type CatalogueRow = { name: string; offerId: string; title: string; imageLink: string | null; availability: string | null; status: ProductHealthStatus; issues: number };
+export type CatalogueRow = { name: string; offerId: string; title: string; imageLink: string | null; availability: string | null; status: ProductHealthStatus; issues: number; videos: string[] };
 
 /** The Products tab: every product, slimmed for the browser (details load when one is opened). */
 export async function loadCatalogue(project: Project): Promise<{ data: { rows: CatalogueRow[]; truncated: boolean } | null; problem?: ShoppingProblem }> {
@@ -277,7 +277,7 @@ export async function loadCatalogue(project: Project): Promise<{ data: { rows: C
   try {
     const token = await getGoogleAccessToken(project);
     const { products, truncated } = await listMerchantProducts(token, project.merchantId);
-    const rows = products.map((p) => ({ name: p.name, offerId: p.offerId, title: p.title, imageLink: p.imageLink, availability: p.availability, status: p.status, issues: p.issues.length }));
+    const rows = products.map((p) => ({ name: p.name, offerId: p.offerId, title: p.title, imageLink: p.imageLink, availability: p.availability, status: p.status, issues: p.issues.length, videos: p.videoLinks }));
     return { data: { rows, truncated } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
