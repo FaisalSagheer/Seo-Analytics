@@ -291,8 +291,11 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
   {
     label: "Marketing",
     icon: MegaphoneIcon,
+    // Merchant Center's order; the heading opens Promotions (a page here) rather than an external link
     children: [
       { segment: "promotions", label: "Promotions" },
+      { segment: "mc/ad-campaigns", label: "Ad campaigns", external: true },
+      { segment: "mc/brand", label: "Brand", external: true },
       { segment: "marketing-methods", label: "Marketing methods" },
     ],
   },

@@ -9,6 +9,8 @@ const PAGES: Record<string, { title: string; path: string }> = {
   "store-quality": { title: "Store quality", path: "storequality" },
   "product-studio": { title: "Product Studio", path: "productstudio" },
   "video-assets": { title: "Video assets", path: "videoassets" },
+  "ad-campaigns": { title: "Ad campaigns", path: "campaigns" },
+  brand: { title: "Brand", path: "brand" },
 };
 
 export async function generateMetadata({ params }: PageProps<"/projects/[projectId]/shopping/mc/[page]">): Promise<Metadata> {
