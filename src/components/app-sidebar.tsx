@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
+  ArchiveIcon,
   ChartColumnIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  MegaphoneIcon,
+  StoreIcon,
   ChartLineIcon,
   ChevronsUpDownIcon,
   CompassIcon,
@@ -44,8 +50,12 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
 type ProjectLink = { id: string; name: string; domain: string; isDemo: boolean };
@@ -71,7 +81,6 @@ const PROJECT_NAV: { label: string | null; items: NavItem[] }[] = [
       { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
     ],
   },
-  { label: "Commerce", items: [{ segment: "shopping", label: "Shopping", icon: ShoppingBagIcon }] },
   { label: "Project", items: [{ segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" }] },
 ];
 
@@ -146,10 +155,13 @@ export function AppSidebar({
 
       <SidebarContent>
         {current ? (
-          PROJECT_NAV.map((group) => {
+          PROJECT_NAV.flatMap((group) => {
             const items = group.items.filter((item) => allowed(item.permission));
-            if (!items.length) return null;
-            return (
+            // Merchant Center sits just above Project, even for viewers who can't open Project settings
+            const merchant = group.label === "Project" ? [<MerchantNav key="merchant" base={`/projects/${current.id}/shopping`} pathname={pathname} />] : [];
+            if (!items.length) return merchant;
+            return [
+              ...merchant,
               <SidebarGroup key={group.label ?? "top"}>
                 <SidebarGroupLabel>{group.label ?? current.domain}</SidebarGroupLabel>
                 <SidebarMenu>
@@ -166,8 +178,8 @@ export function AppSidebar({
                     );
                   })}
                 </SidebarMenu>
-              </SidebarGroup>
-            );
+              </SidebarGroup>,
+            ];
           })
         ) : (
           <SidebarGroup>
@@ -248,6 +260,82 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+// Shopping, laid out like Merchant Center's own menu
+const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { segment: string; label: string }[]; segment?: string }[] = [
+  { label: "Overview", icon: ShoppingBagIcon, segment: "" },
+  {
+    label: "Products & store",
+    icon: ArchiveIcon,
+    children: [
+      { segment: "products", label: "Products" },
+      { segment: "shipping", label: "Shipping and returns" },
+    ],
+  },
+  { label: "Marketing", icon: MegaphoneIcon, children: [{ segment: "promotions", label: "Promotions" }] },
+  { label: "Analytics", icon: ChartColumnIcon, children: [{ segment: "insights", label: "Market insights" }] },
+  {
+    label: "Settings",
+    icon: StoreIcon,
+    children: [
+      { segment: "feeds", label: "Data sources" },
+      { segment: "settings", label: "Business info & access" },
+    ],
+  },
+];
+
+function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
+  const [closed, setClosed] = useState<string[]>([]);
+  const hrefOf = (segment: string) => (segment ? `${base}/${segment}` : base);
+  const isActive = (segment: string) => (segment ? pathname.startsWith(hrefOf(segment)) : pathname === base);
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>Merchant Center</SidebarGroupLabel>
+      <SidebarMenu>
+        {MERCHANT_NAV.map((item) => {
+          if (!item.children) {
+            return (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton isActive={isActive(item.segment!)} tooltip={item.label} render={<Link href={hrefOf(item.segment!)} />}>
+                  <item.icon />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          }
+          const open = !closed.includes(item.label);
+          return (
+            <SidebarMenuItem key={item.label}>
+              {/* The heading opens its first page (also when the sidebar is collapsed to icons); the arrow folds it */}
+              <SidebarMenuButton tooltip={item.label} render={<Link href={hrefOf(item.children[0].segment)} />}>
+                <item.icon />
+                <span>{item.label}</span>
+              </SidebarMenuButton>
+              <SidebarMenuAction
+                aria-label={`${open ? "Collapse" : "Expand"} ${item.label}`}
+                aria-expanded={open}
+                onClick={() => setClosed(open ? [...closed, item.label] : closed.filter((l) => l !== item.label))}
+              >
+                {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              </SidebarMenuAction>
+              {open && (
+                <SidebarMenuSub>
+                  {item.children.map((c) => (
+                    <SidebarMenuSubItem key={c.segment}>
+                      <SidebarMenuSubButton isActive={isActive(c.segment)} render={<Link href={hrefOf(c.segment)} />}>
+                        <span>{c.label}</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              )}
+            </SidebarMenuItem>
+          );
+        })}
+      </SidebarMenu>
+    </SidebarGroup>
   );
 }
 
