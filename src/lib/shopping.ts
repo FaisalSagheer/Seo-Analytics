@@ -343,8 +343,7 @@ export async function loadInsights(
   const id = project.merchantId;
   try {
     const token = await getGoogleAccessToken(project);
-    const since = toDateKey(new Date(Date.now() - 21 * 86_400_000));
-    const [prices, sellers] = await Promise.all([insight(project, () => priceCompetitiveness(token, id, country)), insight(project, () => bestSellers(token, id, country, since))]);
+    const [prices, sellers] = await Promise.all([insight(project, () => priceCompetitiveness(token, id, country)), insight(project, () => bestSellers(token, id, country))]);
     return { data: { prices, sellers } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };

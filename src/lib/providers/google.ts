@@ -971,7 +971,7 @@ export type PriceCompetitivenessRow = { offerId: string; title: string; brand: s
 
 /** Your price next to the average price other stores show for the same product, in one country. */
 export async function priceCompetitiveness(token: string, accountId: string, country: string): Promise<PriceCompetitivenessRow[]> {
-  const q = `SELECT report_country_code, offer_id, title, brand, price, benchmark_price FROM price_competitiveness_product_view WHERE report_country_code = '${country}'`;
+  const q = `SELECT id, report_country_code, offer_id, title, brand, price, benchmark_price FROM price_competitiveness_product_view WHERE report_country_code = '${country}'`;
   const rows = await merchantReport(token, accountId, q, 2);
   return rows
     .map((r) => r.priceCompetitivenessProductView)
@@ -999,12 +999,19 @@ export type BestSellerRow = {
 };
 
 /** The most popular products on Google in a country, from the latest weekly report, with whether you sell them. */
-export async function bestSellers(token: string, accountId: string, country: string, since: string): Promise<BestSellerRow[]> {
-  const q =
-    // Google requires the report keys (date, granularity, country, category) in the SELECT
-    "SELECT report_date, report_granularity, report_country_code, report_category_id, rank, previous_rank, title, brand, category_l1, category_l2, relative_demand, relative_demand_change, inventory_status " +
-    `FROM best_sellers_product_cluster_view WHERE report_granularity = 'WEEKLY' AND report_country_code = '${country}' AND report_date >= '${since}' ORDER BY rank LIMIT 1000`;
-  const rows = await merchantReport(token, accountId, q, 1);
+export async function bestSellers(token: string, accountId: string, country: string): Promise<BestSellerRow[]> {
+  // report_date only takes an exact date: weekly reports are dated by the week's Monday, so try the last few Mondays
+  const monday = new Date();
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  let rows: ReportRow[] = [];
+  for (let week = 0; week < 3 && rows.length === 0; week++) {
+    const d = new Date(monday.getTime() - week * 7 * 86_400_000).toISOString().slice(0, 10);
+    const q =
+      // Google requires the report keys (date, granularity, country, category) in the SELECT
+      "SELECT report_date, report_granularity, report_country_code, report_category_id, rank, previous_rank, title, brand, category_l1, category_l2, relative_demand, relative_demand_change, inventory_status " +
+      `FROM best_sellers_product_cluster_view WHERE report_granularity = 'WEEKLY' AND report_country_code = '${country}' AND report_date = '${d}' ORDER BY rank LIMIT 1000`;
+    rows = await merchantReport(token, accountId, q, 1);
+  }
   const all = rows
     .map((r) => r.bestSellersProductClusterView)
     .filter((v): v is NonNullable<typeof v> => Boolean(v?.reportDate && v.rank))
