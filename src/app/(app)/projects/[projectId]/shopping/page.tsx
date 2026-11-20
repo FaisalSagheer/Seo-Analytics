@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
-import { TrendChart } from "@/components/charts/trend-chart";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { PagedTable } from "@/components/performance/table-pager";
 import { ProductHealthPanel } from "@/components/shopping/product-health";
 import { STATUS_LABEL } from "@/lib/shopping-labels";
 import { NoMerchant, ProblemAlert } from "@/components/shopping/merchant-states";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { compareWindow, resolveRange } from "@/lib/date-range";
 import { formatNumber, formatPercent } from "@/lib/format";
-import type { MarketingMethod, ProductHealthStatus } from "@/lib/providers/google";
+import type { ProductHealthStatus } from "@/lib/providers/google";
 import { requireProject } from "@/lib/session";
 import { loadAccountIssues, loadProductHealth, loadShoppingPerformance, type MethodFilter } from "@/lib/shopping";
 import { AccountIssues } from "@/components/shopping/account-issues";
 
 export const metadata: Metadata = { title: "Shopping" };
 
-const METHOD_LABEL: Record<MarketingMethod, string> = { ORGANIC: "Free listings", ADS: "Shopping ads", AFFILIATE: "Affiliate", OTHER: "Other" };
 const pct = (cur: number, before: number | undefined) => (before ? ((cur - before) / before) * 100 : undefined);
 
 export default async function ShoppingPage({ params, searchParams }: PageProps<"/projects/[projectId]/shopping">) {
@@ -88,52 +84,6 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
             <StatCard label="Conversions" value={formatNumber(Math.round(t.conversions))} hint="Free listings only" />
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Clicks per day</CardTitle>
-              <CardDescription>
-                {perf.data.byMethod.length
-                  ? perf.data.byMethod.map((m) => `${METHOD_LABEL[m.method]}: ${formatNumber(m.clicks)} clicks, ${formatNumber(m.impressions)} impressions`).join(" · ")
-                  : "No Shopping clicks in this range."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TrendChart data={perf.data.series} series={[{ key: "clicks", label: "Clicks", color: "var(--chart-1)" }]} height={220} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Products</CardTitle>
-              <CardDescription>Clicks and impressions per product in the range, most clicked first.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PagedTable
-                header={
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Clicks</TableHead>
-                    <TableHead className="text-right">Impressions</TableHead>
-                    <TableHead className="text-right">CTR</TableHead>
-                    <TableHead className="text-right">Conversions</TableHead>
-                  </TableRow>
-                }
-                empty={{ columns: 5, text: "No product had impressions in this range." }}
-                rows={perf.data.products.map((p) => (
-                  <TableRow key={p.offerId}>
-                    <TableCell className="max-w-80">
-                      <span className="block truncate font-medium">{p.title}</span>
-                      <span className="text-muted-foreground block truncate text-xs">{p.offerId}</span>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(p.clicks)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(p.impressions)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatPercent(p.ctr)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(Math.round(p.conversions))}</TableCell>
-                  </TableRow>
-                ))}
-              />
-            </CardContent>
-          </Card>
         </>
       )}
 
