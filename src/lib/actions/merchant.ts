@@ -7,6 +7,17 @@ import { propertyChoiceDenied } from "@/lib/google-access";
 import { getGoogleAccessToken } from "@/lib/providers";
 import {
   GoogleApiError,
+  claimHomepage,
+  createUser,
+  deleteUser,
+  setProgram,
+  unclaimHomepage,
+  renameAccount,
+  updateBusinessInfo,
+  updateHomepage,
+  updateUser,
+  type AccessRight,
+  type BusinessInfoDoc,
   createRegion,
   createReturnPolicy,
   deleteRegion,
@@ -41,8 +52,8 @@ async function afterWrite(projectId: string) {
 const explain = async (err: unknown, project: { id: string; userId: string; merchantId: string | null }) => fail((await merchantProblem(err, project)).message);
 
 // Names come from the browser: they must belong to this project's account
-const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies") =>
-  new RegExp(`^accounts/${merchantId}/${kind}/[A-Za-z0-9_-]+$`).test(name);
+const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users") =>
+  new RegExp(`^accounts/${merchantId}/${kind}/${kind === "users" ? "[^/\\s]+@[^/\\s]+" : "[A-Za-z0-9_-]+"}$`).test(name);
 
 // ---- shipping ----
 
@@ -201,4 +212,144 @@ export async function removeReturnPolicy(projectId: string, name: string): Promi
   }
   await afterWrite(projectId);
   return ok(undefined);
+}
+
+// ---- account settings ----
+
+const RIGHTS: AccessRight[] = ["STANDARD", "READ_ONLY", "ADMIN", "PERFORMANCE_REPORTING", "API_DEVELOPER"];
+const cleanRights = (r: AccessRight[]) => [...new Set(r.filter((x) => RIGHTS.includes(x)))];
+const trimOrUndef = (s?: string) => s?.trim() || undefined;
+
+export type BusinessInfoInput = {
+  name: string;
+  /** The name as loaded, so the account is only renamed when it changed */
+  previousName: string;
+  address: { addressLines: string[]; locality: string; administrativeArea: string; postalCode: string; regionCode: string };
+  customerService: { email: string; uri: string; phone: string };
+};
+
+/** Updates the business name (the account's name), address and customer service. (The business phone is verified in Merchant Center itself.) */
+export async function saveBusinessInfo(projectId: string, input: BusinessInfoInput): Promise<ActionResult<BusinessInfoDoc>> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  const cs = input.customerService;
+  if (cs.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cs.email.trim())) return fail("Enter a valid customer service email.");
+  if (cs.uri && !/^https?:\/\//i.test(cs.uri.trim())) return fail("The customer service URL must start with http:// or https://.");
+  if (cs.phone && !/^\+[1-9]\d{6,14}$/.test(cs.phone.replace(/[\s-]/g, ""))) return fail("Write the phone in international format, e.g. +924211234567.");
+  const a = input.address;
+  if (a.regionCode && !/^[A-Z]{2}$/.test(a.regionCode)) return fail("The country must be a 2-letter code, e.g. PK.");
+  const hasAddress = [a.locality, a.administrativeArea, a.postalCode, a.regionCode, ...a.addressLines].some((x) => x.trim());
+  if (!input.name.trim()) return fail("Enter the business name.");
+  const info: BusinessInfoDoc = {
+    address: hasAddress
+      ? {
+          addressLines: a.addressLines.map((l) => l.trim()).filter(Boolean),
+          locality: trimOrUndef(a.locality),
+          administrativeArea: trimOrUndef(a.administrativeArea),
+          postalCode: trimOrUndef(a.postalCode),
+          regionCode: trimOrUndef(a.regionCode),
+        }
+      : undefined,
+    customerService: {
+      email: trimOrUndef(cs.email),
+      uri: trimOrUndef(cs.uri),
+      phone: cs.phone.trim() ? { e164Number: cs.phone.replace(/[\s-]/g, "") } : undefined,
+    },
+  };
+  try {
+    if (input.name.trim() !== input.previousName) await renameAccount(ctx.token, ctx.merchantId, input.name.trim());
+    // Fields left out of the body but named in the mask are cleared
+    const saved = await updateBusinessInfo(ctx.token, ctx.merchantId, info, "address,customer_service");
+    await afterWrite(projectId);
+    return ok(saved);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Changes the store's homepage URL. Changing it drops the claim, so it's claimed again afterwards if it was claimed. */
+export async function saveHomepage(projectId: string, uri: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(uri.trim())) return fail("Enter the store's full URL, e.g. https://example.com.");
+  try {
+    await updateHomepage(ctx.token, ctx.merchantId, uri.trim());
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Claims (or releases) the homepage. `overwrite` takes the claim from another account. */
+export async function setHomepageClaim(projectId: string, claim: boolean, overwrite = false): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  try {
+    if (claim) await claimHomepage(ctx.token, ctx.merchantId, overwrite);
+    else await unclaimHomepage(ctx.token, ctx.merchantId);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Turns a program (free listings, Shopping ads, …) on or off. */
+export async function toggleProgram(projectId: string, programName: string, enable: boolean): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(programName, ctx.merchantId, "programs")) return fail("That program isn't in this account.");
+  try {
+    await setProgram(ctx.token, programName, enable);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Invites someone to the Merchant Center account. */
+export async function addMerchantUser(projectId: string, email: string, rights: AccessRight[]): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  const e = email.trim().toLowerCase();
+  if (!/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(e)) return fail("Enter a valid email address.");
+  const r = cleanRights(rights);
+  if (!r.length) return fail("Choose at least one access right.");
+  try {
+    await createUser(ctx.token, ctx.merchantId, e, r);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+export async function changeMerchantUser(projectId: string, userName: string, rights: AccessRight[]): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(userName, ctx.merchantId, "users")) return fail("That person isn't in this account.");
+  const r = cleanRights(rights);
+  if (!r.length) return fail("Choose at least one access right.");
+  try {
+    await updateUser(ctx.token, userName, r);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+export async function removeMerchantUser(projectId: string, userName: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(userName, ctx.merchantId, "users")) return fail("That person isn't in this account.");
+  try {
+    await deleteUser(ctx.token, userName);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
 }

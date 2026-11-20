@@ -759,3 +759,74 @@ export async function listAccountIssues(token: string, accountId: string): Promi
     destinations: (i.impactedDestinations ?? []).map((d) => d.reportingContext ?? "").filter(Boolean),
   }));
 }
+
+// ---- Merchant Center account settings: business info, homepage, programs, users
+
+export type PostalAddressDoc = { regionCode?: string; postalCode?: string; administrativeArea?: string; locality?: string; addressLines?: string[]; organization?: string };
+export type BusinessInfoDoc = {
+  address?: PostalAddressDoc;
+  phone?: { e164Number?: string };
+  phoneVerificationState?: string;
+  customerService?: { email?: string; uri?: string; phone?: { e164Number?: string } };
+};
+export type HomepageDoc = { name?: string; uri?: string; claimed?: boolean };
+export type ProgramDoc = {
+  name?: string;
+  state?: "NOT_ELIGIBLE" | "ELIGIBLE" | "ENABLED" | "STATE_UNSPECIFIED";
+  documentationUri?: string;
+  activeRegionCodes?: string[];
+  unmetRequirements?: { title?: string; documentationUri?: string; affectedRegionCodes?: string[] }[];
+};
+export type AccessRight = "STANDARD" | "READ_ONLY" | "ADMIN" | "PERFORMANCE_REPORTING" | "API_DEVELOPER";
+export type UserDoc = { name?: string; state?: "PENDING" | "VERIFIED" | "STATE_UNSPECIFIED"; accessRights?: AccessRight[] };
+
+/** Reads every page of a Merchant API list under `key`. */
+async function allPages<T>(token: string, url: string, key: string, pageSize: number): Promise<T[]> {
+  const out: T[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < 10; i++) {
+    const r = await fetchGoogle<Record<string, unknown>>(token, `${url}?pageSize=${pageSize}${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`);
+    out.push(...((r[key] as T[] | undefined) ?? []));
+    pageToken = r.nextPageToken as string | undefined;
+    if (!pageToken) break;
+  }
+  return out;
+}
+
+/** A missing business info or homepage is a 404; treat it as empty. */
+async function orEmpty<T>(p: Promise<T>): Promise<T> {
+  try {
+    return await p;
+  } catch (err) {
+    if (err instanceof GoogleApiError && err.status === 404) return {} as T;
+    throw err;
+  }
+}
+
+export type AccountDoc = { accountName?: string; timeZone?: { id?: string }; languageCode?: string };
+export const getAccount = (token: string, accountId: string) => fetchGoogle<AccountDoc>(token, acct(accountId));
+export const renameAccount = (token: string, accountId: string, accountName: string) =>
+  fetchGoogle<AccountDoc>(token, `${acct(accountId)}?updateMask=account_name`, { accountName }, "PATCH");
+
+export const getBusinessInfo = (token: string, accountId: string) => orEmpty(fetchGoogle<BusinessInfoDoc>(token, `${acct(accountId)}/businessInfo`));
+export const updateBusinessInfo = (token: string, accountId: string, info: BusinessInfoDoc, updateMask: string) =>
+  fetchGoogle<BusinessInfoDoc>(token, `${acct(accountId)}/businessInfo?updateMask=${encodeURIComponent(updateMask)}`, info, "PATCH");
+
+export const getHomepage = (token: string, accountId: string) => orEmpty(fetchGoogle<HomepageDoc>(token, `${acct(accountId)}/homepage`));
+export const updateHomepage = (token: string, accountId: string, uri: string) =>
+  fetchGoogle<HomepageDoc>(token, `${acct(accountId)}/homepage?updateMask=uri`, { uri }, "PATCH");
+export const claimHomepage = (token: string, accountId: string, overwrite: boolean) => fetchGoogle<HomepageDoc>(token, `${acct(accountId)}/homepage:claim`, { overwrite });
+export const unclaimHomepage = (token: string, accountId: string) => fetchGoogle<HomepageDoc>(token, `${acct(accountId)}/homepage:unclaim`, {});
+
+export const listPrograms = (token: string, accountId: string) => allPages<ProgramDoc>(token, `${acct(accountId)}/programs`, "programs", 1000);
+export const setProgram = (token: string, programName: string, enable: boolean) =>
+  fetchGoogle<ProgramDoc>(token, `${MERCHANT_API}/accounts/v1/${programName}:${enable ? "enable" : "disable"}`, {});
+
+export const listUsers = (token: string, accountId: string) => allPages<UserDoc>(token, `${acct(accountId)}/users`, "users", 100);
+export const createUser = (token: string, accountId: string, email: string, accessRights: AccessRight[]) =>
+  fetchGoogle<UserDoc>(token, `${acct(accountId)}/users?userId=${encodeURIComponent(email)}`, { accessRights });
+export const updateUser = (token: string, userName: string, accessRights: AccessRight[]) =>
+  fetchGoogle<UserDoc>(token, `${MERCHANT_API}/accounts/v1/${userName}?updateMask=access_rights`, { accessRights }, "PATCH");
+export async function deleteUser(token: string, userName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/accounts/v1/${userName}`, undefined, "DELETE");
+}

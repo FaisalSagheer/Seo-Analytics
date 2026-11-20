@@ -4,7 +4,16 @@ import type { Window } from "@/lib/date-range";
 import { getGoogleAccessToken, getGoogleSource } from "@/lib/providers";
 import {
   GoogleApiError,
+  getAccount,
+  getBusinessInfo,
+  getHomepage,
   getShippingSettings,
+  listPrograms,
+  listUsers,
+  type BusinessInfoDoc,
+  type HomepageDoc,
+  type ProgramDoc,
+  type UserDoc,
   listAccountIssues,
   listRegions,
   listReturnPolicies,
@@ -217,6 +226,30 @@ export async function loadShippingPage(project: Project): Promise<{ data: Shippi
       listReturnPolicies(token, project.merchantId),
     ]);
     return { data: { settings, regions, policies } };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+export type SettingsPage = { accountName: string; info: BusinessInfoDoc; homepage: HomepageDoc; programs: ProgramDoc[]; users: UserDoc[] | null };
+
+/** The Settings tab. People and access needs Admin rights in Merchant Center; without them it's `null`. */
+export async function loadSettingsPage(project: Project): Promise<{ data: SettingsPage | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const id = project.merchantId;
+    const [account, info, homepage, programs, users] = await Promise.all([
+      getAccount(token, id),
+      getBusinessInfo(token, id),
+      getHomepage(token, id),
+      listPrograms(token, id),
+      listUsers(token, id).catch((err) => {
+        if (err instanceof GoogleApiError && err.status === 403) return null;
+        throw err;
+      }),
+    ]);
+    return { data: { accountName: account.accountName ?? "", info, homepage, programs, users } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
