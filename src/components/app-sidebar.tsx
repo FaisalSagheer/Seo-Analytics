@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   ArchiveIcon,
   BellIcon,
@@ -59,6 +59,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 type ProjectLink = { id: string; name: string; domain: string; isDemo: boolean };
@@ -332,12 +333,20 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
         {MERCHANT_NAV.map((item) => {
           if (!item.children) {
             return (
-              <SidebarMenuItem key={item.label}>
-                <SidebarMenuButton isActive={isActive(item.segment!)} tooltip={item.label} render={<Link href={hrefOf(item.segment!)} />}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Fragment key={item.label}>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive={isActive(item.segment!)} tooltip={item.label} render={<Link href={hrefOf(item.segment!)} />}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {/* A line under Notifications, as in Merchant Center */}
+                {item.segment === "notifications" && (
+                  <li role="none">
+                    <SidebarSeparator className="mx-0 my-1" />
+                  </li>
+                )}
+              </Fragment>
             );
           }
           const open = !closed.includes(item.label);
