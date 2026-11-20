@@ -578,6 +578,10 @@ export type ProductIssue = {
   documentation: string | null;
 };
 export type MerchantProduct = {
+  /** accounts/{id}/products/{lang~label~offer} */
+  name: string;
+  /** The primary data source the product comes from */
+  dataSource: string | null;
   offerId: string;
   title: string;
   link: string | null;
@@ -588,8 +592,12 @@ export type MerchantProduct = {
 };
 
 type ApiProduct = {
+  name?: string;
+  dataSource?: string;
   offerId?: string;
-  productAttributes?: { title?: string; link?: string; imageLink?: string; availability?: string };
+  contentLanguage?: string;
+  feedLabel?: string;
+  productAttributes?: { title?: string; link?: string; imageLink?: string; availability?: string; [k: string]: unknown };
   productStatus?: {
     destinationStatuses?: { reportingContext?: string; approvedCountries?: string[]; pendingCountries?: string[]; disapprovedCountries?: string[] }[];
     itemLevelIssues?: { code?: string; description?: string; detail?: string; severity?: string; attribute?: string; documentation?: string }[];
@@ -647,6 +655,8 @@ export async function listMerchantProducts(token: string, accountId: string, max
       const link = p.productAttributes?.link;
       const image = p.productAttributes?.imageLink;
       products.push({
+        name: p.name ?? "",
+        dataSource: p.dataSource ?? null,
         offerId: p.offerId ?? "",
         title: p.productAttributes?.title ?? p.offerId ?? "",
         link: link && /^https?:\/\//i.test(link) ? link : null,
@@ -829,4 +839,78 @@ export const updateUser = (token: string, userName: string, accessRights: Access
   fetchGoogle<UserDoc>(token, `${MERCHANT_API}/accounts/v1/${userName}?updateMask=access_rights`, { accessRights }, "PATCH");
 export async function deleteUser(token: string, userName: string): Promise<void> {
   await fetchGoogle(token, `${MERCHANT_API}/accounts/v1/${userName}`, undefined, "DELETE");
+}
+
+// ---- products and data sources
+
+export type ProductDoc = ApiProduct & { productStatus?: ApiProduct["productStatus"] & { lastUpdateDate?: string; creationDate?: string } };
+
+export const getProduct = (token: string, productName: string) => fetchGoogle<ProductDoc>(token, `${MERCHANT_API}/products/v1/${productName}`);
+
+export type ProductInputDoc = { offerId: string; contentLanguage: string; feedLabel: string; productAttributes: Record<string, unknown> };
+
+export const insertProductInput = (token: string, accountId: string, dataSource: string, input: ProductInputDoc) =>
+  fetchGoogle<ProductInputDoc>(token, `${MERCHANT_API}/products/v1/accounts/${accountId}/productInputs:insert?dataSource=${encodeURIComponent(dataSource)}`, input);
+
+/** `updateMask` lists top-level attributes; named ones missing from the body are removed. */
+export const patchProductInput = (token: string, inputName: string, dataSource: string, input: ProductInputDoc, updateMask: string[]) =>
+  fetchGoogle<ProductInputDoc>(
+    token,
+    `${MERCHANT_API}/products/v1/${inputName}?dataSource=${encodeURIComponent(dataSource)}&updateMask=${encodeURIComponent(updateMask.map((f) => `productAttributes.${f}`).join(","))}`,
+    input,
+    "PATCH",
+  );
+
+export async function deleteProductInput(token: string, inputName: string, dataSource: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/products/v1/${inputName}?dataSource=${encodeURIComponent(dataSource)}`, undefined, "DELETE");
+}
+
+export type DataSourceRef = { self?: boolean; supplementalDataSourceName?: string; primaryDataSourceName?: string };
+export type DataSourceDoc = {
+  name?: string;
+  dataSourceId?: string;
+  displayName?: string;
+  input?: "API" | "FILE" | "UI" | "AUTOFEED" | "INPUT_UNSPECIFIED";
+  primaryProductDataSource?: { feedLabel?: string; contentLanguage?: string; countries?: string[]; defaultRule?: { takeFromDataSources?: DataSourceRef[] }; destinations?: { destination?: string; state?: string }[] };
+  supplementalProductDataSource?: { feedLabel?: string; contentLanguage?: string; referencingPrimaryDataSources?: DataSourceRef[] };
+  promotionDataSource?: { targetCountry?: string; contentLanguage?: string };
+  localInventoryDataSource?: Record<string, unknown>;
+  regionalInventoryDataSource?: Record<string, unknown>;
+  productReviewDataSource?: Record<string, unknown>;
+  merchantReviewDataSource?: Record<string, unknown>;
+  fileInput?: {
+    fileInputType?: "UPLOAD" | "FETCH" | "GOOGLE_SHEETS" | "FILE_INPUT_TYPE_UNSPECIFIED";
+    fileName?: string;
+    fetchSettings?: { enabled?: boolean; fetchUri?: string; frequency?: string; dayOfWeek?: string; dayOfMonth?: number; timeOfDay?: { hours?: number }; timeZone?: string; username?: string; password?: string };
+  };
+};
+export type FileUploadDoc = {
+  processingState?: "FAILED" | "IN_PROGRESS" | "SUCCEEDED" | "PROCESSING_STATE_UNSPECIFIED";
+  itemsTotal?: string;
+  itemsCreated?: string;
+  itemsUpdated?: string;
+  uploadTime?: string;
+  issues?: { title?: string; description?: string; code?: string; count?: string; severity?: string; documentationUri?: string }[];
+};
+
+const DS = (accountId: string) => `${MERCHANT_API}/datasources/v1/accounts/${accountId}/dataSources`;
+export const listDataSources = (token: string, accountId: string) => allPages<DataSourceDoc>(token, DS(accountId), "dataSources", 1000);
+export const getDataSource = (token: string, dsName: string) => fetchGoogle<DataSourceDoc>(token, `${MERCHANT_API}/datasources/v1/${dsName}`);
+export const createDataSource = (token: string, accountId: string, ds: DataSourceDoc) => fetchGoogle<DataSourceDoc>(token, DS(accountId), ds);
+export const patchDataSource = (token: string, dsName: string, ds: DataSourceDoc, updateMask: string) =>
+  fetchGoogle<DataSourceDoc>(token, `${MERCHANT_API}/datasources/v1/${dsName}?updateMask=${encodeURIComponent(updateMask)}`, ds, "PATCH");
+export async function deleteDataSource(token: string, dsName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/datasources/v1/${dsName}`, undefined, "DELETE");
+}
+export async function fetchDataSourceNow(token: string, dsName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/datasources/v1/${dsName}:fetch`, {});
+}
+/** The latest file upload of a file feed; `null` when there's none yet. */
+export async function latestFileUpload(token: string, dsName: string): Promise<FileUploadDoc | null> {
+  try {
+    return await fetchGoogle<FileUploadDoc>(token, `${MERCHANT_API}/datasources/v1/${dsName}/fileUploads/latest`);
+  } catch (err) {
+    if (err instanceof GoogleApiError && err.status === 404) return null;
+    throw err;
+  }
 }

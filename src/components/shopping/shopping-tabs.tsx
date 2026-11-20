@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { segment: "", label: "Overview" },
   { segment: "shipping", label: "Shipping & returns" },
+  { segment: "products", label: "Products" },
   { segment: "settings", label: "Settings" },
 ];
 

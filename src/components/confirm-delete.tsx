@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type ReactElement, type ReactNode } from "react";
+import { Fragment, useState, type ReactElement, type ReactNode } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +41,10 @@ export function ConfirmDelete({
   confirmLabel?: string;
   onConfirm: () => void;
 }) {
+  // Closed here, not by unmounting: the action may fail or leave the trigger in place
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger render={triggerRender}>{children}</AlertDialogTrigger>
       <AlertDialogContent className="data-[size=default]:sm:max-w-md">
         <AlertDialogHeader>
@@ -62,7 +64,13 @@ export function ConfirmDelete({
         {note && <p className="text-muted-foreground text-sm">{note}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={() => {
+              setOpen(false);
+              onConfirm();
+            }}
+          >
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

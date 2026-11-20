@@ -254,3 +254,18 @@ export async function loadSettingsPage(project: Project): Promise<{ data: Settin
     return { data: null, problem: await merchantProblem(err, project) };
   }
 }
+
+export type CatalogueRow = { name: string; offerId: string; title: string; imageLink: string | null; availability: string | null; status: ProductHealthStatus; issues: number };
+
+/** The Products tab: every product, slimmed for the browser (details load when one is opened). */
+export async function loadCatalogue(project: Project): Promise<{ data: { rows: CatalogueRow[]; truncated: boolean } | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const { products, truncated } = await listMerchantProducts(token, project.merchantId);
+    const rows = products.map((p) => ({ name: p.name, offerId: p.offerId, title: p.title, imageLink: p.imageLink, availability: p.availability, status: p.status, issues: p.issues.length }));
+    return { data: { rows, truncated } };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
