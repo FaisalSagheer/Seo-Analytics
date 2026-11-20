@@ -9,6 +9,7 @@ import {
   ChartColumnIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  ExternalLinkIcon,
   MegaphoneIcon,
   StoreIcon,
   ChartLineIcon,
@@ -265,7 +266,7 @@ export function AppSidebar({
 }
 
 // Shopping, laid out like Merchant Center's own menu
-const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { segment: string; label: string }[]; segment?: string }[] = [
+const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { segment: string; label: string; external?: boolean }[]; segment?: string }[] = [
   { label: "Overview", icon: ShoppingBagIcon, segment: "" },
   { label: "Notifications", icon: BellIcon, segment: "notifications" },
   {
@@ -274,6 +275,7 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     children: [
       { segment: "products", label: "Products" },
       { segment: "shipping", label: "Shipping and returns" },
+      { segment: "store-quality", label: "Store quality", external: true },
       { segment: "reviews", label: "Reviews" },
     ],
   },
@@ -345,8 +347,10 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
                 <SidebarMenuSub>
                   {item.children.map((c) => (
                     <SidebarMenuSubItem key={c.segment}>
-                      <SidebarMenuSubButton isActive={isActive(c.segment)} render={<Link href={hrefOf(c.segment)} />}>
+                      {/* External ones open Merchant Center in a new tab */}
+                      <SidebarMenuSubButton isActive={isActive(c.segment)} render={<Link href={hrefOf(c.segment)} {...(c.external ? { target: "_blank", rel: "noreferrer" } : {})} />}>
                         <span>{c.label}</span>
+                        {c.external && <ExternalLinkIcon className="ml-auto" />}
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   ))}
