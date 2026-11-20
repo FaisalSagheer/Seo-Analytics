@@ -296,11 +296,21 @@ export async function loadFeeds(project: Project): Promise<{ data: FeedRow[] | n
 }
 
 /** The Promotions tab, with whether each promotion's source is one the app can write to. */
-export async function loadPromotions(project: Project): Promise<{ data: (PromotionDoc & { editable: boolean })[] | null; problem?: ShoppingProblem }> {
+export async function loadPromotions(
+  project: Project,
+): Promise<{ data: (PromotionDoc & { editable: boolean })[] | null; problem?: ShoppingProblem; unavailable?: string }> {
   if (!project.merchantId) return { data: null };
   try {
     const token = await getGoogleAccessToken(project);
-    const [promos, sources] = await Promise.all([listPromotions(token, project.merchantId), listDataSources(token, project.merchantId)]);
+    // Data sources first: if they load, the account is reachable and a refusal below is about promotions only
+    const sources = await listDataSources(token, project.merchantId);
+    let promos: PromotionDoc[];
+    try {
+      promos = await listPromotions(token, project.merchantId);
+    } catch (err) {
+      if (err instanceof GoogleApiError && err.status === 403) return { data: null, unavailable: err.message };
+      throw err;
+    }
     const api = new Set(sources.filter((d) => d.input === "API").map((d) => d.name));
     return { data: promos.map((p) => ({ ...p, editable: api.has(p.dataSource) })) };
   } catch (err) {
