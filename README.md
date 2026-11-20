@@ -135,6 +135,12 @@ Open a project's **Site audit** page and click **Run audit**. It crawls the doma
 
 **URL inspection.** On **Site audit**, type any page of the site into **URL inspection**, or click **Inspect** on a crawled page. It asks Search Console how Google sees that URL: whether it's on Google and why not, indexing and robots.txt, the last crawl, Google's chosen canonical next to yours (with a warning when they differ), sitemaps, mobile usability, rich results, and a link to the same view in Search Console. It needs the project's Search Console site, accepts only URLs inside that property, and is available to roles with **Run data syncs**. Google allows about 2,000 inspections per site a day, so each project is limited to 200 an hour, and an answer is reused for 5 minutes.
 
+## Deploying on Vercel
+
+Vercel runs `npm run vercel-build` (scripts/vercel-build.mjs). On **production** deploys it applies pending database migrations with `prisma migrate deploy` before building, so the code never runs against an older schema. **Preview** deploys skip migrations, so a branch can't change the live database. If a migration fails, the build stops and the previous deployment stays live; Vercel's build log shows why.
+
+For this to work, the database settings (`DB_*` or `DATABASE_URL`) must be set for the Production environment in Vercel, and the database must accept connections from Vercel's build servers. Set `SKIP_MIGRATIONS=true` to deploy without migrating.
+
 ## Scheduled sync
 
 Rank checks and data pulls run when you click **Refresh** or **Check now**, and on a schedule through:
