@@ -138,6 +138,8 @@ Up to 5,000 products are read for Product health, and answers are reused for 5 m
 
 **Promotions.** The **Promotions** tab lists promotions with their offer, dates, code, issues and status per destination (in review, scheduled, live, rejected, ended). **New promotion** creates a percent-off, amount-off or free-shipping promotion for all products or chosen product IDs, with optional code and minimum purchase, through a promotion data source per country and language ("Seo Engine promotions PK/en") created on first use; reusing an ID replaces that promotion. Google can't delete promotions, so **End now** ends one by setting its end time to now; promotions from files or Merchant Center itself are ended there.
 
+**Insights.** The **Insights** tab shows, for the chosen country (the project's country by default), **price competitiveness** (your price next to the average price other stores show for the same product, most overpriced first) and **best sellers** (last week's most popular products on Google by category, with rank changes, demand, and whether you sell them). Google only offers these reports to eligible accounts; when one isn't available it says so instead of failing the page.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.

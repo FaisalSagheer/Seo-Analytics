@@ -495,6 +495,20 @@ export async function listMerchantAccounts(token: string): Promise<MerchantAccou
 }
 
 type ReportRow = {
+  priceCompetitivenessProductView?: { offerId?: string; title?: string; brand?: string; reportCountryCode?: string; price?: { amountMicros?: string; currencyCode?: string }; benchmarkPrice?: { amountMicros?: string; currencyCode?: string } };
+  bestSellersProductClusterView?: {
+    reportDate?: { year: number; month: number; day: number };
+    rank?: string;
+    previousRank?: string;
+    title?: string;
+    brand?: string;
+    categoryL1?: string;
+    categoryL2?: string;
+    relativeDemand?: string;
+    relativeDemandChange?: string;
+    inventoryStatus?: string;
+    brandInventoryStatus?: string;
+  };
   productPerformanceView?: {
     date?: { year: number; month: number; day: number };
     marketingMethod?: string;
@@ -950,3 +964,65 @@ export const listPromotions = (token: string, accountId: string) =>
 /** Creates a promotion, or replaces the one with the same ID, country and language. */
 export const insertPromotion = (token: string, accountId: string, dataSource: string, promotion: PromotionDoc) =>
   fetchGoogle<PromotionDoc>(token, `${MERCHANT_API}/promotions/v1/accounts/${accountId}/promotions:insert`, { promotion, dataSource });
+
+// ---- market insights
+
+export type PriceCompetitivenessRow = { offerId: string; title: string; brand: string | null; price: number; benchmark: number; currency: string };
+
+/** Your price next to the average price other stores show for the same product, in one country. */
+export async function priceCompetitiveness(token: string, accountId: string, country: string): Promise<PriceCompetitivenessRow[]> {
+  const q = `SELECT offer_id, title, brand, price, benchmark_price FROM price_competitiveness_product_view WHERE report_country_code = '${country}'`;
+  const rows = await merchantReport(token, accountId, q, 2);
+  return rows
+    .map((r) => r.priceCompetitivenessProductView)
+    .filter((v): v is NonNullable<typeof v> => Boolean(v?.price?.amountMicros && v.benchmarkPrice?.amountMicros))
+    .map((v) => ({
+      offerId: v.offerId ?? "",
+      title: v.title ?? v.offerId ?? "",
+      brand: v.brand ?? null,
+      price: Number(v.price!.amountMicros) / 1e6,
+      benchmark: Number(v.benchmarkPrice!.amountMicros) / 1e6,
+      currency: v.price!.currencyCode ?? "",
+    }));
+}
+
+export type BestSellerRow = {
+  date: string;
+  rank: number;
+  previousRank: number | null;
+  title: string;
+  brand: string | null;
+  category: string | null;
+  demand: string | null;
+  change: string | null;
+  inventory: "IN_STOCK" | "OUT_OF_STOCK" | "NOT_IN_INVENTORY" | null;
+};
+
+/** The most popular products on Google in a country, from the latest weekly report, with whether you sell them. */
+export async function bestSellers(token: string, accountId: string, country: string, since: string): Promise<BestSellerRow[]> {
+  const q =
+    "SELECT report_date, rank, previous_rank, title, brand, category_l1, category_l2, relative_demand, relative_demand_change, inventory_status " +
+    `FROM best_sellers_product_cluster_view WHERE report_granularity = 'WEEKLY' AND report_country_code = '${country}' AND report_date >= '${since}' ORDER BY rank LIMIT 1000`;
+  const rows = await merchantReport(token, accountId, q, 1);
+  const all = rows
+    .map((r) => r.bestSellersProductClusterView)
+    .filter((v): v is NonNullable<typeof v> => Boolean(v?.reportDate && v.rank))
+    .map((v): BestSellerRow => {
+      const d = v.reportDate!;
+      const inv = v.inventoryStatus;
+      return {
+        date: `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`,
+        rank: Number(v.rank),
+        previousRank: v.previousRank ? Number(v.previousRank) : null,
+        title: v.title ?? "",
+        brand: v.brand ?? null,
+        category: [v.categoryL1, v.categoryL2].filter(Boolean).join(" › ") || null,
+        demand: v.relativeDemand ?? null,
+        change: v.relativeDemandChange ?? null,
+        inventory: inv === "IN_STOCK" || inv === "OUT_OF_STOCK" || inv === "NOT_IN_INVENTORY" ? inv : null,
+      };
+    });
+  // Only the newest week
+  const latest = all.reduce((m, r) => (r.date > m ? r.date : m), "");
+  return all.filter((r) => r.date === latest).sort((a, b) => a.rank - b.rank);
+}

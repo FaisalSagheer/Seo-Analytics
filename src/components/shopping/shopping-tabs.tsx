@@ -10,6 +10,7 @@ const TABS = [
   { segment: "products", label: "Products" },
   { segment: "feeds", label: "Feeds" },
   { segment: "promotions", label: "Promotions" },
+  { segment: "insights", label: "Insights" },
   { segment: "settings", label: "Settings" },
 ];
 

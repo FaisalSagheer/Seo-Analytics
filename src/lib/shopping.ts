@@ -11,6 +11,10 @@ import {
   latestFileUpload,
   listDataSources,
   listPromotions,
+  bestSellers,
+  priceCompetitiveness,
+  type BestSellerRow,
+  type PriceCompetitivenessRow,
   type PromotionDoc,
   type DataSourceDoc,
   type FileUploadDoc,
@@ -299,6 +303,39 @@ export async function loadPromotions(project: Project): Promise<{ data: (Promoti
     const [promos, sources] = await Promise.all([listPromotions(token, project.merchantId), listDataSources(token, project.merchantId)]);
     const api = new Set(sources.filter((d) => d.input === "API").map((d) => d.name));
     return { data: promos.map((p) => ({ ...p, editable: api.has(p.dataSource) })) };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+type Insight<T> = { rows: T[] } | { note: string };
+
+/** A market-insights report that isn't available is a note, not a failure: most stores aren't eligible for every report. */
+async function insight<T>(project: Project, run: () => Promise<T[]>): Promise<Insight<T>> {
+  try {
+    return { rows: await run() };
+  } catch (err) {
+    const p = await merchantProblem(err, project);
+    // Not being eligible for a report (often a 403) isn't an access problem with the account
+    const raw = err instanceof Error ? err.message : "";
+    if (p.kind !== "other" && !/eligib|market insights|not available|not enabled for/i.test(raw)) throw err;
+    return { note: p.kind === "other" ? p.message : `Merchant Center: ${raw}` };
+  }
+}
+
+/** The Insights tab for one country (two-letter, upper case). */
+export async function loadInsights(
+  project: Project,
+  country: string,
+): Promise<{ data: { prices: Insight<PriceCompetitivenessRow>; sellers: Insight<BestSellerRow> } | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  if (!/^[A-Z]{2}$/.test(country)) return { data: null };
+  const id = project.merchantId;
+  try {
+    const token = await getGoogleAccessToken(project);
+    const since = toDateKey(new Date(Date.now() - 21 * 86_400_000));
+    const [prices, sellers] = await Promise.all([insight(project, () => priceCompetitiveness(token, id, country)), insight(project, () => bestSellers(token, id, country, since))]);
+    return { data: { prices, sellers } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
