@@ -11,6 +11,8 @@ import {
   latestFileUpload,
   listDataSources,
   listPromotions,
+  listProductReviews,
+  type ProductReviewDoc,
   bestSellers,
   priceCompetitiveness,
   type BestSellerRow,
@@ -356,6 +358,16 @@ export async function loadPrograms(project: Project): Promise<{ data: ProgramDoc
   if (!project.merchantId) return { data: null };
   try {
     return { data: await listPrograms(await getGoogleAccessToken(project), project.merchantId) };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** Reviews: product reviews sent to Merchant Center (from a review aggregator or the store's own source). */
+export async function loadReviews(project: Project): Promise<{ data: ProductReviewDoc[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    return { data: await listProductReviews(await getGoogleAccessToken(project), project.merchantId) };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }

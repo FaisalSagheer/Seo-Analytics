@@ -1037,3 +1037,32 @@ export async function bestSellers(token: string, accountId: string, country: str
   const latest = all.reduce((m, r) => (r.date > m ? r.date : m), "");
   return all.filter((r) => r.date === latest).sort((a, b) => a.rank - b.rank);
 }
+
+// ---- product reviews (submitted through the product ratings program)
+
+export type ProductReviewDoc = {
+  name?: string;
+  productReviewId?: string;
+  productReviewAttributes?: {
+    title?: string;
+    content?: string;
+    rating?: number;
+    minRating?: string;
+    maxRating?: string;
+    reviewTime?: string;
+    reviewerUsername?: string;
+    productNames?: string[];
+    pros?: string[];
+    cons?: string[];
+    isVerifiedPurchase?: boolean;
+  };
+  productReviewStatus?: {
+    itemLevelIssues?: { description?: string; detail?: string; severity?: string; documentation?: string }[];
+  };
+};
+
+export const listProductReviews = (token: string, accountId: string) =>
+  allPages<ProductReviewDoc>(token, `${MERCHANT_API}/reviews/v1/accounts/${accountId}/productReviews`, "productReviews", 1000);
+export async function deleteProductReview(token: string, reviewName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/reviews/v1/${reviewName}`, undefined, "DELETE");
+}

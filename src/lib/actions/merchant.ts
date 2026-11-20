@@ -10,6 +10,7 @@ import {
   createDataSource,
   deleteDataSource,
   deleteProductInput,
+  deleteProductReview,
   fetchDataSourceNow,
   getDataSource,
   getProduct,
@@ -68,7 +69,7 @@ async function afterWrite(projectId: string) {
 const explain = async (err: unknown, project: { id: string; userId: string; merchantId: string | null }) => fail((await merchantProblem(err, project)).message);
 
 // Names come from the browser: they must belong to this project's account
-const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users" | "dataSources") =>
+const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users" | "dataSources" | "productReviews") =>
   new RegExp(`^accounts/${merchantId}/${kind}/${kind === "users" ? "[^/\\s]+@[^/\\s]+" : "[A-Za-z0-9_-]+"}$`).test(name);
 
 // ---- shipping ----
@@ -674,6 +675,22 @@ export async function endPromotion(projectId: string, name: string): Promise<Act
     // Send back only what was submitted: no name, status or source (output only)
     const promo = { ...p, name: undefined, promotionStatus: undefined, dataSource: undefined, attributes: { ...p.attributes, promotionEffectiveTimePeriod: period } };
     await insertPromotion(ctx.token, ctx.merchantId, p.dataSource, promo);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+// ---- reviews ----
+
+/** Removes a product review from Merchant Center (e.g. spam). It's gone from Google, not from where it was written. */
+export async function removeProductReview(projectId: string, reviewName: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(reviewName, ctx.merchantId, "productReviews")) return fail("That review isn't in this account.");
+  try {
+    await deleteProductReview(ctx.token, reviewName);
     await afterWrite(projectId);
     return ok(undefined);
   } catch (err) {

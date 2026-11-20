@@ -274,6 +274,7 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     children: [
       { segment: "products", label: "Products" },
       { segment: "shipping", label: "Shipping and returns" },
+      { segment: "reviews", label: "Reviews" },
     ],
   },
   {
