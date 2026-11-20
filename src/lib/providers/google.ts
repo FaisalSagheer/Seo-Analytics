@@ -1066,3 +1066,74 @@ export const listProductReviews = (token: string, accountId: string) =>
 export async function deleteProductReview(token: string, reviewName: string): Promise<void> {
   await fetchGoogle(token, `${MERCHANT_API}/reviews/v1/${reviewName}`, undefined, "DELETE");
 }
+
+// ---- automatic improvements
+
+export type AutomaticImprovementsDoc = {
+  itemUpdates?: {
+    accountItemUpdatesSettings?: { allowPriceUpdates?: boolean; allowAvailabilityUpdates?: boolean; allowStrictAvailabilityUpdates?: boolean; allowConditionUpdates?: boolean };
+    effectiveAllowPriceUpdates?: boolean;
+    effectiveAllowAvailabilityUpdates?: boolean;
+    effectiveAllowStrictAvailabilityUpdates?: boolean;
+    effectiveAllowConditionUpdates?: boolean;
+  };
+  imageImprovements?: { accountImageImprovementsSettings?: { allowAutomaticImageImprovements?: boolean }; effectiveAllowAutomaticImageImprovements?: boolean };
+  shippingImprovements?: { allowShippingImprovements?: boolean };
+};
+export const getAutomaticImprovements = (token: string, accountId: string) => orEmpty(fetchGoogle<AutomaticImprovementsDoc>(token, `${acct(accountId)}/automaticImprovements`));
+export const updateAutomaticImprovements = (token: string, accountId: string, doc: AutomaticImprovementsDoc, updateMask: string) =>
+  fetchGoogle<AutomaticImprovementsDoc>(token, `${acct(accountId)}/automaticImprovements?updateMask=${encodeURIComponent(updateMask)}`, doc, "PATCH");
+
+// ---- conversion sources
+
+export type AttributionModel =
+  | "CROSS_CHANNEL_LAST_CLICK"
+  | "ADS_PREFERRED_LAST_CLICK"
+  | "CROSS_CHANNEL_DATA_DRIVEN"
+  | "CROSS_CHANNEL_FIRST_CLICK"
+  | "CROSS_CHANNEL_LINEAR"
+  | "CROSS_CHANNEL_POSITION_BASED"
+  | "CROSS_CHANNEL_TIME_DECAY";
+export type AttributionDoc = { attributionModel?: AttributionModel; attributionLookbackWindowDays?: number; conversionType?: { name?: string; report?: boolean }[] };
+export type ConversionSourceDoc = {
+  name?: string;
+  state?: "ACTIVE" | "ARCHIVED" | "PENDING" | "STATE_UNSPECIFIED";
+  controller?: "MERCHANT" | "YOUTUBE_AFFILIATES" | "CONTROLLER_UNSPECIFIED";
+  expireTime?: string;
+  googleAnalyticsLink?: { propertyId?: string; property?: string; attributionSettings?: AttributionDoc };
+  merchantCenterDestination?: { displayName?: string; currencyCode?: string; destination?: string; attributionSettings?: AttributionDoc };
+};
+const CONV = (accountId: string) => `${MERCHANT_API}/conversions/v1/accounts/${accountId}/conversionSources`;
+export const listConversionSources = (token: string, accountId: string) => allPages<ConversionSourceDoc>(token, CONV(accountId), "conversionSources", 100);
+export const createConversionSource = (token: string, accountId: string, doc: ConversionSourceDoc) => fetchGoogle<ConversionSourceDoc>(token, CONV(accountId), doc);
+export const patchConversionSource = (token: string, sourceName: string, doc: ConversionSourceDoc, updateMask: string) =>
+  fetchGoogle<ConversionSourceDoc>(token, `${MERCHANT_API}/conversions/v1/${sourceName}?updateMask=${encodeURIComponent(updateMask)}`, doc, "PATCH");
+export async function deleteConversionSource(token: string, sourceName: string): Promise<void> {
+  await fetchGoogle(token, `${MERCHANT_API}/conversions/v1/${sourceName}`, undefined, "DELETE");
+}
+
+// ---- apps and services: Business Profile, linked services, relationships
+
+export type GbpAccountDoc = { name?: string; gbpAccountId?: string; gbpAccountName?: string; type?: "USER" | "BUSINESS_ACCOUNT" | "TYPE_UNSPECIFIED"; listingCount?: string };
+export type AccountServiceDoc = {
+  name?: string;
+  provider?: string;
+  providerDisplayName?: string;
+  externalAccountId?: string;
+  mutability?: "MUTABLE" | "IMMUTABLE" | "MUTABILITY_UNSPECIFIED";
+  handshake?: { approvalState?: "PENDING" | "WAITING" | "ESTABLISHED" | "REJECTED" | "APPROVAL_STATE_UNSPECIFIED"; actor?: "ACCOUNT" | "OTHER_PARTY" | "ACTOR_UNSPECIFIED" };
+  productsManagement?: object;
+  campaignsManagement?: object;
+  accountManagement?: object;
+  accountAggregation?: object;
+  localListingManagement?: object;
+  comparisonShopping?: object;
+};
+export type RelationshipDoc = { name?: string; provider?: string; providerDisplayName?: string; accountIdAlias?: string };
+
+export const listGbpAccounts = (token: string, accountId: string) => allPages<GbpAccountDoc>(token, `${acct(accountId)}/gbpAccounts`, "gbpAccounts", 100);
+export const linkGbpAccount = (token: string, accountId: string, gbpEmail: string) => fetchGoogle<object>(token, `${acct(accountId)}/gbpAccounts:linkGbpAccount`, { gbpEmail });
+export const listAccountServices = (token: string, accountId: string) => allPages<AccountServiceDoc>(token, `${acct(accountId)}/services`, "accountServices", 100);
+export const decideAccountService = (token: string, serviceName: string, approve: boolean) =>
+  fetchGoogle<AccountServiceDoc>(token, `${MERCHANT_API}/accounts/v1/${serviceName}:${approve ? "approve" : "reject"}`, {});
+export const listRelationships = (token: string, accountId: string) => allPages<RelationshipDoc>(token, `${acct(accountId)}/relationships`, "accountRelationships", 100);

@@ -7,6 +7,13 @@ import { propertyChoiceDenied } from "@/lib/google-access";
 import { getGoogleAccessToken } from "@/lib/providers";
 import {
   GoogleApiError,
+  createConversionSource,
+  decideAccountService,
+  deleteConversionSource,
+  linkGbpAccount,
+  patchConversionSource,
+  updateAutomaticImprovements,
+  type AttributionModel,
   createDataSource,
   deleteDataSource,
   deleteProductInput,
@@ -69,8 +76,8 @@ async function afterWrite(projectId: string) {
 const explain = async (err: unknown, project: { id: string; userId: string; merchantId: string | null }) => fail((await merchantProblem(err, project)).message);
 
 // Names come from the browser: they must belong to this project's account
-const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users" | "dataSources" | "productReviews") =>
-  new RegExp(`^accounts/${merchantId}/${kind}/${kind === "users" ? "[^/\\s]+@[^/\\s]+" : "[A-Za-z0-9_-]+"}$`).test(name);
+const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users" | "dataSources" | "productReviews" | "services") =>
+  new RegExp(`^accounts/${merchantId}/${kind}/${kind === "users" ? "[^/\\s]+@[^/\\s]+" : kind === "services" ? "[^/\\s]+" : "[A-Za-z0-9_-]+"}$`).test(name);
 
 // ---- shipping ----
 
@@ -691,6 +698,160 @@ export async function removeProductReview(projectId: string, reviewName: string)
   if (!ownedBy(reviewName, ctx.merchantId, "productReviews")) return fail("That review isn't in this account.");
   try {
     await deleteProductReview(ctx.token, reviewName);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+// ---- automatic improvements ----
+
+export type ImprovementSettings = { price: boolean; availability: boolean; strictAvailability: boolean; condition: boolean; images: boolean; shipping: boolean };
+
+/** Lets Google fix prices, availability, condition, images and shipping from the store's website. */
+export async function saveAutomaticImprovements(projectId: string, s: ImprovementSettings): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  try {
+    await updateAutomaticImprovements(
+      ctx.token,
+      ctx.merchantId,
+      {
+        itemUpdates: {
+          accountItemUpdatesSettings: {
+            allowPriceUpdates: s.price,
+            allowAvailabilityUpdates: s.availability,
+            // Strict availability only applies on top of availability updates
+            allowStrictAvailabilityUpdates: s.availability && s.strictAvailability,
+            allowConditionUpdates: s.condition,
+          },
+        },
+        imageImprovements: { accountImageImprovementsSettings: { allowAutomaticImageImprovements: s.images } },
+        shippingImprovements: { allowShippingImprovements: s.shipping },
+      },
+      "item_updates.account_level_settings,image_improvements.account_level_settings,shipping_improvements.allow_shipping_improvements",
+    );
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+// ---- conversion sources ----
+
+const MODELS: AttributionModel[] = [
+  "CROSS_CHANNEL_LAST_CLICK",
+  "ADS_PREFERRED_LAST_CLICK",
+  "CROSS_CHANNEL_DATA_DRIVEN",
+  "CROSS_CHANNEL_FIRST_CLICK",
+  "CROSS_CHANNEL_LINEAR",
+  "CROSS_CHANNEL_POSITION_BASED",
+  "CROSS_CHANNEL_TIME_DECAY",
+];
+const sourceOf = (name: string, merchantId: string) => new RegExp(`^accounts/${merchantId}/conversionSources/[A-Za-z0-9_-]+$`).test(name);
+
+export type NewConversionSource =
+  | { kind: "ga"; propertyId: string }
+  | { kind: "tag"; displayName: string; currencyCode: string; attributionModel: AttributionModel; lookbackDays: number };
+
+function checkAttribution(model: AttributionModel, days: number) {
+  if (!MODELS.includes(model)) return "Choose an attribution model.";
+  if (!Number.isInteger(days) || days < 1 || days > 90) return "The lookback window must be 1 to 90 days.";
+  return null;
+}
+
+/** Links a Google Analytics property, or adds a Merchant Center tag conversion source. */
+export async function addConversionSource(projectId: string, src: NewConversionSource): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  let doc;
+  if (src.kind === "ga") {
+    const id = src.propertyId.trim().replace(/^properties\//, "");
+    if (!/^\d+$/.test(id)) return fail("The Google Analytics property ID is a number, e.g. 123456789.");
+    doc = { googleAnalyticsLink: { propertyId: id } };
+  } else {
+    if (!src.displayName.trim()) return fail("Name the conversion source.");
+    if (!/^[A-Z]{3}$/.test(src.currencyCode)) return fail("The currency must be a 3-letter code, e.g. PKR.");
+    const bad = checkAttribution(src.attributionModel, src.lookbackDays);
+    if (bad) return fail(bad);
+    doc = {
+      merchantCenterDestination: {
+        displayName: src.displayName.trim(),
+        currencyCode: src.currencyCode,
+        attributionSettings: { attributionModel: src.attributionModel, attributionLookbackWindowDays: src.lookbackDays },
+      },
+    };
+  }
+  try {
+    await createConversionSource(ctx.token, ctx.merchantId, doc);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Changes the attribution of a Merchant Center tag source (Analytics links take theirs from Analytics). */
+export async function updateConversionAttribution(projectId: string, name: string, model: AttributionModel, lookbackDays: number): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!sourceOf(name, ctx.merchantId)) return fail("That conversion source isn't in this account.");
+  const bad = checkAttribution(model, lookbackDays);
+  if (bad) return fail(bad);
+  try {
+    await patchConversionSource(
+      ctx.token,
+      name,
+      { merchantCenterDestination: { attributionSettings: { attributionModel: model, attributionLookbackWindowDays: lookbackDays } } },
+      "merchant_center_destination.attribution_settings.attribution_model,merchant_center_destination.attribution_settings.attribution_lookback_window_days",
+    );
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Archives a tag source (restorable in Merchant Center for 30 days) or removes an Analytics link. */
+export async function removeConversionSource(projectId: string, name: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!sourceOf(name, ctx.merchantId)) return fail("That conversion source isn't in this account.");
+  try {
+    await deleteConversionSource(ctx.token, name);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+// ---- apps and services ----
+
+/** Asks to link the Business Profile managed by this email; its owner approves it in Business Profile. */
+export async function linkBusinessProfile(projectId: string, email: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  const e = email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return fail("Enter the email address that manages the Business Profile.");
+  try {
+    await linkGbpAccount(ctx.token, ctx.merchantId, e);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Approves or rejects a link another service (Google Ads, an agency, …) asked for. */
+export async function decideServiceLink(projectId: string, name: string, approve: boolean): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(name, ctx.merchantId, "services")) return fail("That service isn't linked to this account.");
+  try {
+    await decideAccountService(ctx.token, name, approve);
     await afterWrite(projectId);
     return ok(undefined);
   } catch (err) {

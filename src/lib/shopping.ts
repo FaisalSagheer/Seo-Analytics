@@ -11,6 +11,16 @@ import {
   latestFileUpload,
   listDataSources,
   listPromotions,
+  getAutomaticImprovements,
+  listAccountServices,
+  listConversionSources,
+  listGbpAccounts,
+  listRelationships,
+  type AccountServiceDoc,
+  type AutomaticImprovementsDoc,
+  type ConversionSourceDoc,
+  type GbpAccountDoc,
+  type RelationshipDoc,
   listProductReviews,
   type ProductReviewDoc,
   bestSellers,
@@ -372,6 +382,48 @@ export async function loadPeople(project: Project): Promise<{ data: UserDoc[] | 
     return { data: await listUsers(await getGoogleAccessToken(project), project.merchantId) };
   } catch (err) {
     if (err instanceof GoogleApiError && err.status === 403) return { data: null };
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** Settings → Automatic improvements. */
+export async function loadAutomaticImprovements(project: Project): Promise<{ data: AutomaticImprovementsDoc | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    return { data: await getAutomaticImprovements(await getGoogleAccessToken(project), project.merchantId) };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** Settings → Conversion settings: the account's conversion sources (Google Analytics links and the Merchant Center tag). */
+export async function loadConversionSources(project: Project): Promise<{ data: ConversionSourceDoc[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    return { data: await listConversionSources(await getGoogleAccessToken(project), project.merchantId) };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+export type AppsPage = { gbp: GbpAccountDoc[] | null; services: AccountServiceDoc[]; relationships: RelationshipDoc[] };
+
+/** Settings → Apps and services. Business Profile accounts need the right Google login, so a refusal there is shown as unavailable. */
+export async function loadAppsAndServices(project: Project): Promise<{ data: AppsPage | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const id = project.merchantId;
+    const [gbp, services, relationships] = await Promise.all([
+      listGbpAccounts(token, id).catch((err) => {
+        if (err instanceof GoogleApiError && (err.status === 403 || err.status === 404)) return null;
+        throw err;
+      }),
+      listAccountServices(token, id),
+      listRelationships(token, id),
+    ]);
+    return { data: { gbp, services, relationships } };
+  } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
 }

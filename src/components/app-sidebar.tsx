@@ -319,9 +319,9 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
       { segment: "settings", label: "Business info" },
       { segment: "feeds", label: "Data sources" },
       { segment: "people", label: "People and access" },
-      { segment: "mc/apps-and-services", label: "Apps and services", external: true },
-      { segment: "mc/conversion-settings", label: "Conversion settings", external: true },
-      { segment: "mc/automatic-improvements", label: "Automatic improvements", external: true },
+      { segment: "apps", label: "Apps and services" },
+      { segment: "conversions", label: "Conversion settings" },
+      { segment: "automatic-improvements", label: "Automatic improvements" },
     ],
   },
 ];
