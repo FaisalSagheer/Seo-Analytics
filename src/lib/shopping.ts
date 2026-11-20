@@ -10,6 +10,8 @@ import {
   getShippingSettings,
   latestFileUpload,
   listDataSources,
+  listPromotions,
+  type PromotionDoc,
   type DataSourceDoc,
   type FileUploadDoc,
   listPrograms,
@@ -284,6 +286,19 @@ export async function loadFeeds(project: Project): Promise<{ data: FeedRow[] | n
     const sources = await listDataSources(token, project.merchantId);
     const data = await Promise.all(sources.map(async (d) => ({ ...d, upload: d.input === "FILE" && d.name ? await latestFileUpload(token, d.name) : null })));
     return { data };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** The Promotions tab, with whether each promotion's source is one the app can write to. */
+export async function loadPromotions(project: Project): Promise<{ data: (PromotionDoc & { editable: boolean })[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const [promos, sources] = await Promise.all([listPromotions(token, project.merchantId), listDataSources(token, project.merchantId)]);
+    const api = new Set(sources.filter((d) => d.input === "API").map((d) => d.name));
+    return { data: promos.map((p) => ({ ...p, editable: api.has(p.dataSource) })) };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }

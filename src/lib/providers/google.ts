@@ -914,3 +914,39 @@ export async function latestFileUpload(token: string, dsName: string): Promise<F
     throw err;
   }
 }
+
+// ---- promotions
+
+export type PromotionDoc = {
+  name?: string;
+  promotionId?: string;
+  contentLanguage?: string;
+  targetCountry?: string;
+  redemptionChannel?: ("ONLINE" | "IN_STORE")[];
+  dataSource?: string;
+  attributes?: {
+    longTitle?: string;
+    couponValueType?: string;
+    percentOff?: string;
+    moneyOffAmount?: { amountMicros?: string; currencyCode?: string };
+    minimumPurchaseAmount?: { amountMicros?: string; currencyCode?: string };
+    offerType?: "NO_CODE" | "GENERIC_CODE";
+    genericRedemptionCode?: string;
+    productApplicability?: "ALL_PRODUCTS" | "SPECIFIC_PRODUCTS";
+    itemIdInclusion?: string[];
+    promotionDestinations?: string[];
+    promotionEffectiveTimePeriod?: { startTime?: string; endTime?: string };
+    promotionUrl?: string;
+    [k: string]: unknown;
+  };
+  promotionStatus?: {
+    destinationStatuses?: { reportingContext?: string; status?: "IN_REVIEW" | "REJECTED" | "LIVE" | "STOPPED" | "EXPIRED" | "PENDING" | "STATE_UNSPECIFIED" }[];
+    itemLevelIssues?: { description?: string; detail?: string; severity?: string; documentation?: string; attribute?: string }[];
+  };
+};
+
+export const listPromotions = (token: string, accountId: string) =>
+  allPages<PromotionDoc>(token, `${MERCHANT_API}/promotions/v1/accounts/${accountId}/promotions`, "promotions", 1000);
+/** Creates a promotion, or replaces the one with the same ID, country and language. */
+export const insertPromotion = (token: string, accountId: string, dataSource: string, promotion: PromotionDoc) =>
+  fetchGoogle<PromotionDoc>(token, `${MERCHANT_API}/promotions/v1/accounts/${accountId}/promotions:insert`, { promotion, dataSource });

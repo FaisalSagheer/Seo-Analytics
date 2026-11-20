@@ -14,6 +14,8 @@ import {
   getDataSource,
   getProduct,
   insertProductInput,
+  insertPromotion,
+  listPromotions,
   listDataSources,
   patchDataSource,
   patchProductInput,
@@ -42,6 +44,7 @@ import {
 } from "@/lib/providers/google";
 import { checkReturnPolicy, checkShipping, type Region, type ReturnPolicy, type ShippingSettings } from "@/lib/merchant-shipping";
 import { merchantProblem } from "@/lib/shopping";
+import { checkPromotion, toPromotion, type PromotionForm } from "@/lib/merchant-promotions";
 import { attributeValue, changedFields, checkProduct, inputSegment, toForm, validOfferId, type ProductForm } from "@/lib/merchant-products";
 import { fail, ok, type ActionResult } from "@/lib/actions/result";
 
@@ -619,6 +622,58 @@ export async function removeFeed(projectId: string, dsName: string): Promise<Act
   if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
   try {
     await deleteDataSource(ctx.token, dsName);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+// ---- promotions ----
+
+const PROMOTIONS_SOURCE = "Seo Engine promotions";
+
+/**
+ * Creates (or, with the same ID, country and language, replaces) a promotion. Promotions go through a
+ * promotion data source per country and language, which the app creates on first use.
+ */
+export async function savePromotion(projectId: string, form: PromotionForm): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  const problems = checkPromotion(form);
+  if (problems.length) return fail(problems.join(" "));
+  try {
+    const name = `${PROMOTIONS_SOURCE} ${form.targetCountry}/${form.contentLanguage}`;
+    const sources = await listDataSources(ctx.token, ctx.merchantId);
+    let src = sources.find(
+      (d) => d.input === "API" && d.promotionDataSource?.targetCountry === form.targetCountry && d.promotionDataSource?.contentLanguage === form.contentLanguage && d.displayName === name,
+    );
+    src ??= await createDataSource(ctx.token, ctx.merchantId, { displayName: name, promotionDataSource: { targetCountry: form.targetCountry, contentLanguage: form.contentLanguage } });
+    await insertPromotion(ctx.token, ctx.merchantId, src.name!, toPromotion(form));
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Google can't delete promotions; ending one sends it again with an end time of now. */
+export async function endPromotion(projectId: string, name: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!new RegExp(`^accounts/${ctx.merchantId}/promotions/[^/\\s]+$`).test(name)) return fail("That promotion isn't in this account.");
+  try {
+    const p = (await listPromotions(ctx.token, ctx.merchantId)).find((x) => x.name === name);
+    if (!p?.dataSource || !p.attributes) return fail("That promotion wasn't found.");
+    if (!(await listDataSources(ctx.token, ctx.merchantId)).some((d) => d.name === p.dataSource && d.input === "API")) {
+      return fail("This promotion comes from a file or Merchant Center itself; end it there.");
+    }
+    const now = new Date();
+    const start = p.attributes.promotionEffectiveTimePeriod?.startTime;
+    const period = { startTime: start && new Date(start) < now ? start : new Date(now.getTime() - 3_600_000).toISOString(), endTime: now.toISOString() };
+    // Send back only what was submitted: no name, status or source (output only)
+    const promo = { ...p, name: undefined, promotionStatus: undefined, dataSource: undefined, attributes: { ...p.attributes, promotionEffectiveTimePeriod: period } };
+    await insertPromotion(ctx.token, ctx.merchantId, p.dataSource, promo);
     await afterWrite(projectId);
     return ok(undefined);
   } catch (err) {

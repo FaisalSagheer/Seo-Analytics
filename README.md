@@ -136,6 +136,8 @@ Up to 5,000 products are read for Product health, and answers are reused for 5 m
 
 **Feeds.** The **Feeds** tab lists every data source (primary and supplemental product feeds, promotions, inventory, reviews) with its input (API, file upload, scheduled URL fetch, Google Sheets, Merchant Center, autofeed), schedule, and the latest upload of file feeds: processing state, items processed, created and updated, and issues. Scheduled URL feeds can be fetched now, paused and resumed; **Add scheduled feed** creates one (daily, weekly or monthly, with an optional username and password); any data source can be deleted after a confirmation that says what goes with it.
 
+**Promotions.** The **Promotions** tab lists promotions with their offer, dates, code, issues and status per destination (in review, scheduled, live, rejected, ended). **New promotion** creates a percent-off, amount-off or free-shipping promotion for all products or chosen product IDs, with optional code and minimum purchase, through a promotion data source per country and language ("Seo Engine promotions PK/en") created on first use; reusing an ID replaces that promotion. Google can't delete promotions, so **End now** ends one by setting its end time to now; promotions from files or Merchant Center itself are ended there.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.
