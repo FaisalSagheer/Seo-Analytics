@@ -316,8 +316,9 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     label: "Settings",
     icon: StoreIcon,
     children: [
+      { segment: "settings", label: "Business info" },
       { segment: "feeds", label: "Data sources" },
-      { segment: "settings", label: "Business info & access" },
+      { segment: "people", label: "People and access" },
     ],
   },
 ];

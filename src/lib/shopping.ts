@@ -244,24 +244,16 @@ export async function loadShippingPage(project: Project): Promise<{ data: Shippi
   }
 }
 
-export type SettingsPage = { accountName: string; info: BusinessInfoDoc; homepage: HomepageDoc; users: UserDoc[] | null };
+export type SettingsPage = { accountName: string; info: BusinessInfoDoc; homepage: HomepageDoc };
 
-/** The Settings tab. People and access needs Admin rights in Merchant Center; without them it's `null`. */
+/** Settings → Business info: the business name, address, customer service and homepage. */
 export async function loadSettingsPage(project: Project): Promise<{ data: SettingsPage | null; problem?: ShoppingProblem }> {
   if (!project.merchantId) return { data: null };
   try {
     const token = await getGoogleAccessToken(project);
     const id = project.merchantId;
-    const [account, info, homepage, users] = await Promise.all([
-      getAccount(token, id),
-      getBusinessInfo(token, id),
-      getHomepage(token, id),
-      listUsers(token, id).catch((err) => {
-        if (err instanceof GoogleApiError && err.status === 403) return null;
-        throw err;
-      }),
-    ]);
-    return { data: { accountName: account.accountName ?? "", info, homepage, users } };
+    const [account, info, homepage] = await Promise.all([getAccount(token, id), getBusinessInfo(token, id), getHomepage(token, id)]);
+    return { data: { accountName: account.accountName ?? "", info, homepage } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
@@ -369,6 +361,17 @@ export async function loadReviews(project: Project): Promise<{ data: ProductRevi
   try {
     return { data: await listProductReviews(await getGoogleAccessToken(project), project.merchantId) };
   } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** Settings → People and access. Listing people needs Admin rights in Merchant Center; without them it's `null`. */
+export async function loadPeople(project: Project): Promise<{ data: UserDoc[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    return { data: await listUsers(await getGoogleAccessToken(project), project.merchantId) };
+  } catch (err) {
+    if (err instanceof GoogleApiError && err.status === 403) return { data: null };
     return { data: null, problem: await merchantProblem(err, project) };
   }
 }
