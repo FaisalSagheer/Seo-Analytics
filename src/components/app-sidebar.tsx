@@ -5,6 +5,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArchiveIcon,
+  BellIcon,
   ChartColumnIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -266,6 +267,7 @@ export function AppSidebar({
 // Shopping, laid out like Merchant Center's own menu
 const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { segment: string; label: string }[]; segment?: string }[] = [
   { label: "Overview", icon: ShoppingBagIcon, segment: "" },
+  { label: "Notifications", icon: BellIcon, segment: "notifications" },
   {
     label: "Products & store",
     icon: ArchiveIcon,
@@ -274,8 +276,22 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
       { segment: "shipping", label: "Shipping and returns" },
     ],
   },
-  { label: "Marketing", icon: MegaphoneIcon, children: [{ segment: "promotions", label: "Promotions" }] },
-  { label: "Analytics", icon: ChartColumnIcon, children: [{ segment: "insights", label: "Market insights" }] },
+  {
+    label: "Marketing",
+    icon: MegaphoneIcon,
+    children: [
+      { segment: "promotions", label: "Promotions" },
+      { segment: "marketing-methods", label: "Marketing methods" },
+    ],
+  },
+  {
+    label: "Analytics",
+    icon: ChartColumnIcon,
+    children: [
+      { segment: "pricing", label: "Pricing" },
+      { segment: "best-sellers", label: "Best sellers" },
+    ],
+  },
   {
     label: "Settings",
     icon: StoreIcon,

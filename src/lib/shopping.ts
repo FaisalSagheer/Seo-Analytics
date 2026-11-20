@@ -241,7 +241,7 @@ export async function loadShippingPage(project: Project): Promise<{ data: Shippi
   }
 }
 
-export type SettingsPage = { accountName: string; info: BusinessInfoDoc; homepage: HomepageDoc; programs: ProgramDoc[]; users: UserDoc[] | null };
+export type SettingsPage = { accountName: string; info: BusinessInfoDoc; homepage: HomepageDoc; users: UserDoc[] | null };
 
 /** The Settings tab. People and access needs Admin rights in Merchant Center; without them it's `null`. */
 export async function loadSettingsPage(project: Project): Promise<{ data: SettingsPage | null; problem?: ShoppingProblem }> {
@@ -249,17 +249,16 @@ export async function loadSettingsPage(project: Project): Promise<{ data: Settin
   try {
     const token = await getGoogleAccessToken(project);
     const id = project.merchantId;
-    const [account, info, homepage, programs, users] = await Promise.all([
+    const [account, info, homepage, users] = await Promise.all([
       getAccount(token, id),
       getBusinessInfo(token, id),
       getHomepage(token, id),
-      listPrograms(token, id),
       listUsers(token, id).catch((err) => {
         if (err instanceof GoogleApiError && err.status === 403) return null;
         throw err;
       }),
     ]);
-    return { data: { accountName: account.accountName ?? "", info, homepage, programs, users } };
+    return { data: { accountName: account.accountName ?? "", info, homepage, users } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
@@ -337,14 +336,25 @@ async function insight<T>(project: Project, run: () => Promise<T[]>): Promise<In
 export async function loadInsights(
   project: Project,
   country: string,
-): Promise<{ data: { prices: Insight<PriceCompetitivenessRow>; sellers: Insight<BestSellerRow> } | null; problem?: ShoppingProblem }> {
+  report: "prices" | "sellers",
+): Promise<{ data: { prices?: Insight<PriceCompetitivenessRow>; sellers?: Insight<BestSellerRow> } | null; problem?: ShoppingProblem }> {
   if (!project.merchantId) return { data: null };
   if (!/^[A-Z]{2}$/.test(country)) return { data: null };
   const id = project.merchantId;
   try {
     const token = await getGoogleAccessToken(project);
-    const [prices, sellers] = await Promise.all([insight(project, () => priceCompetitiveness(token, id, country)), insight(project, () => bestSellers(token, id, country))]);
-    return { data: { prices, sellers } };
+    if (report === "prices") return { data: { prices: await insight(project, () => priceCompetitiveness(token, id, country)) } };
+    return { data: { sellers: await insight(project, () => bestSellers(token, id, country)) } };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+/** Marketing methods: the programs (free listings, Shopping ads, …) and what each still needs. */
+export async function loadPrograms(project: Project): Promise<{ data: ProgramDoc[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    return { data: await listPrograms(await getGoogleAccessToken(project), project.merchantId) };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }

@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
 import { PagedTable } from "@/components/performance/table-pager";
@@ -9,8 +8,6 @@ import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { LOCATIONS, countryCode } from "@/lib/markets";
 import { requireProject } from "@/lib/session";
 import { loadInsights } from "@/lib/shopping";
-
-export const metadata: Metadata = { title: "Insights" };
 
 const money = (n: number, cur: string) => `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${cur}`;
 const words = (s: string | null) => (s ? s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ") : "—");
@@ -24,16 +21,17 @@ function Note({ text }: { text: string }) {
   return <p className="text-muted-foreground text-sm">Couldn&apos;t load this report: {text.replace(/^Merchant Center: /, "")}</p>;
 }
 
-export default async function InsightsPage({ params, searchParams }: PageProps<"/projects/[projectId]/shopping/insights">) {
-  const { projectId } = await params;
+export type InsightReport = "prices" | "sellers";
+
+/** One market-insights report (Analytics → Pricing or Best sellers), for a chosen country. */
+export async function InsightsView({ projectId, sp, report }: { projectId: string; sp: Record<string, string | string[] | undefined>; report: InsightReport }) {
   const { project } = await requireProject(projectId);
-  const sp = await searchParams;
   const fallback = (countryCode(project.locationCode) ?? "us").toUpperCase();
   const country = typeof sp.country === "string" && LOCATIONS.some((l) => l.gl.toUpperCase() === sp.country) ? sp.country : fallback;
 
   const header = (
     <PageHeader
-      title="Insights"
+      title={report === "prices" ? "Pricing" : "Best sellers"}
       actions={
         project.merchantId && !project.isDemo ? (
           <SearchParamSelect param="country" label="Country" value={country} items={LOCATIONS.map((l) => ({ value: l.gl.toUpperCase(), label: l.label }))} />
@@ -49,20 +47,21 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       </>
     );
   }
-  const { data, problem } = await loadInsights(project, country);
+  const { data, problem } = await loadInsights(project, country, report);
   return (
     <>
       {header}
       {problem && <ProblemAlert problem={problem} projectId={project.id} />}
       {data && (
         <>
+          {data.prices && (
           <Card>
             <CardHeader>
               <CardTitle>Price competitiveness</CardTitle>
               <CardDescription>Your price next to the average price other stores show on Google for the same product.</CardDescription>
             </CardHeader>
             <CardContent>
-              {"note" in data.prices ? (
+              {"note" in data.prices! ? (
                 <Note text={data.prices.note} />
               ) : (
                 <PagedTable
@@ -102,7 +101,9 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
               )}
             </CardContent>
           </Card>
+          )}
 
+          {data.sellers && (
           <Card>
             <CardHeader>
               <CardTitle>Best sellers</CardTitle>
@@ -112,7 +113,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {"note" in data.sellers ? (
+              {"note" in data.sellers! ? (
                 <Note text={data.sellers.note} />
               ) : (
                 <PagedTable
@@ -150,6 +151,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
               )}
             </CardContent>
           </Card>
+          )}
         </>
       )}
     </>

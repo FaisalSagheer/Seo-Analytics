@@ -14,7 +14,8 @@ import { compareWindow, resolveRange } from "@/lib/date-range";
 import { formatNumber, formatPercent } from "@/lib/format";
 import type { MarketingMethod, ProductHealthStatus } from "@/lib/providers/google";
 import { requireProject } from "@/lib/session";
-import { loadProductHealth, loadShoppingPerformance, type MethodFilter } from "@/lib/shopping";
+import { loadAccountIssues, loadProductHealth, loadShoppingPerformance, type MethodFilter } from "@/lib/shopping";
+import { AccountIssues } from "@/components/shopping/account-issues";
 
 export const metadata: Metadata = { title: "Shopping" };
 
@@ -60,9 +61,10 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
     );
   }
 
-  const [perf, health] = await Promise.all([
+  const [perf, health, issues] = await Promise.all([
     loadShoppingPerformance(project, { window: range, previous: compareWindow({ kind: "previous" }, range), method }),
     loadProductHealth(project),
+    loadAccountIssues(project),
   ]);
   // Both calls usually fail for the same reason; say it once
   const problem = perf.problem ?? health.problem;
@@ -73,6 +75,7 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
   return (
     <>
       {header}
+      <AccountIssues issues={issues} projectId={project.id} />
       {problem && <ProblemAlert problem={problem} projectId={project.id} />}
       {health.problem && perf.problem && !sameProblem && <ProblemAlert problem={health.problem} projectId={project.id} />}
 
