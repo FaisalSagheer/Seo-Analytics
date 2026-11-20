@@ -8,7 +8,9 @@ import { getGoogleAccessToken } from "@/lib/providers";
 import {
   GoogleApiError,
   createDataSource,
+  deleteDataSource,
   deleteProductInput,
+  fetchDataSourceNow,
   getDataSource,
   getProduct,
   insertProductInput,
@@ -63,7 +65,7 @@ async function afterWrite(projectId: string) {
 const explain = async (err: unknown, project: { id: string; userId: string; merchantId: string | null }) => fail((await merchantProblem(err, project)).message);
 
 // Names come from the browser: they must belong to this project's account
-const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users") =>
+const ownedBy = (name: string, merchantId: string, kind: "regions" | "onlineReturnPolicies" | "programs" | "users" | "dataSources") =>
   new RegExp(`^accounts/${merchantId}/${kind}/${kind === "users" ? "[^/\\s]+@[^/\\s]+" : "[A-Za-z0-9_-]+"}$`).test(name);
 
 // ---- shipping ----
@@ -510,6 +512,113 @@ export async function deleteProduct(projectId: string, name: string): Promise<Ac
     const mine = (await listDataSources(ctx.token, ctx.merchantId)).find((d) => d.displayName === PRODUCTS_SOURCE && d.input === "API" && d.primaryProductDataSource);
     if (!mine || p.dataSource !== mine.name || !p.offerId || !p.contentLanguage || !p.feedLabel) return fail("Only products added in Seo Engine can be deleted here. Remove others from their feed.");
     await deleteProductInput(ctx.token, `accounts/${ctx.merchantId}/productInputs/${inputSegment(p.contentLanguage, p.feedLabel, p.offerId)}`, mine.name!);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+// ---- feeds (data sources) ----
+
+/** Asks Google to fetch a scheduled file feed now, instead of waiting for its schedule. */
+export async function fetchFeedNow(projectId: string, dsName: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
+  try {
+    await fetchDataSourceNow(ctx.token, dsName);
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Pauses or resumes a scheduled fetch. */
+export async function setFeedSchedule(projectId: string, dsName: string, enabled: boolean): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
+  try {
+    const ds = await getDataSource(ctx.token, dsName);
+    if (ds.fileInput?.fileInputType !== "FETCH") return fail("Only scheduled URL feeds can be paused.");
+    // Only the flag: sending the whole fetch settings would clear the stored password, which Google doesn't return
+    await patchDataSource(ctx.token, dsName, { fileInput: { fetchSettings: { enabled } } }, "fileInput.fetchSettings.enabled");
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+export type NewFeed = {
+  displayName: string;
+  fetchUri: string;
+  fileName: string;
+  contentLanguage: string;
+  feedLabel: string;
+  countries: string[];
+  frequency: "FREQUENCY_DAILY" | "FREQUENCY_WEEKLY" | "FREQUENCY_MONTHLY";
+  hour: number;
+  timeZone: string;
+  dayOfWeek?: string;
+  dayOfMonth?: number;
+  username?: string;
+  password?: string;
+};
+
+const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+
+/** Adds a primary product feed that Google fetches from a URL on a schedule. */
+export async function addScheduledFeed(projectId: string, f: NewFeed): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  const lang = f.contentLanguage.trim().toLowerCase();
+  const label = f.feedLabel.trim().toUpperCase();
+  const countries = [...new Set(f.countries.map((c) => c.trim().toUpperCase()).filter(Boolean))];
+  if (!f.displayName.trim()) return fail("Name the feed.");
+  if (!/^(https?|sftp):\/\/[^\s]+$/i.test(f.fetchUri.trim())) return fail("The file URL must start with http://, https:// or sftp://.");
+  if (!/^[a-z]{2}$/.test(lang)) return fail("The language must be a 2-letter code, e.g. en.");
+  if (!/^[A-Z0-9-]{1,20}$/.test(label)) return fail("The feed label must be up to 20 letters, numbers or dashes, e.g. PK.");
+  if (countries.some((c) => !/^[A-Z]{2}$/.test(c))) return fail("Countries must be 2-letter codes, e.g. PK.");
+  if (!Number.isInteger(f.hour) || f.hour < 0 || f.hour > 23) return fail("The hour must be 0–23.");
+  if (!["FREQUENCY_DAILY", "FREQUENCY_WEEKLY", "FREQUENCY_MONTHLY"].includes(f.frequency)) return fail("Choose how often to fetch.");
+  if (f.frequency === "FREQUENCY_WEEKLY" && !DAYS.includes(f.dayOfWeek ?? "")) return fail("Choose the day of the week.");
+  if (f.frequency === "FREQUENCY_MONTHLY" && !(Number.isInteger(f.dayOfMonth) && f.dayOfMonth! >= 1 && f.dayOfMonth! <= 31)) return fail("The day of the month must be 1–31.");
+  try {
+    await createDataSource(ctx.token, ctx.merchantId, {
+      displayName: f.displayName.trim(),
+      primaryProductDataSource: { contentLanguage: lang, feedLabel: label, countries: countries.length ? countries : undefined },
+      fileInput: {
+        fileName: f.fileName.trim() || undefined,
+        fetchSettings: {
+          enabled: true,
+          fetchUri: f.fetchUri.trim(),
+          frequency: f.frequency,
+          timeOfDay: { hours: f.hour },
+          timeZone: f.timeZone.trim() || undefined,
+          dayOfWeek: f.frequency === "FREQUENCY_WEEKLY" ? f.dayOfWeek : undefined,
+          dayOfMonth: f.frequency === "FREQUENCY_MONTHLY" ? f.dayOfMonth : undefined,
+          username: f.username?.trim() || undefined,
+          password: f.password || undefined,
+        },
+      },
+    });
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Deletes a data source, and with a primary one every product in it. */
+export async function removeFeed(projectId: string, dsName: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
+  try {
+    await deleteDataSource(ctx.token, dsName);
     await afterWrite(projectId);
     return ok(undefined);
   } catch (err) {

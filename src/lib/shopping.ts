@@ -8,6 +8,10 @@ import {
   getBusinessInfo,
   getHomepage,
   getShippingSettings,
+  latestFileUpload,
+  listDataSources,
+  type DataSourceDoc,
+  type FileUploadDoc,
   listPrograms,
   listUsers,
   type BusinessInfoDoc,
@@ -265,6 +269,21 @@ export async function loadCatalogue(project: Project): Promise<{ data: { rows: C
     const { products, truncated } = await listMerchantProducts(token, project.merchantId);
     const rows = products.map((p) => ({ name: p.name, offerId: p.offerId, title: p.title, imageLink: p.imageLink, availability: p.availability, status: p.status, issues: p.issues.length }));
     return { data: { rows, truncated } };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+export type FeedRow = DataSourceDoc & { upload: FileUploadDoc | null };
+
+/** The Feeds tab: every data source, with the latest upload of file feeds. */
+export async function loadFeeds(project: Project): Promise<{ data: FeedRow[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const sources = await listDataSources(token, project.merchantId);
+    const data = await Promise.all(sources.map(async (d) => ({ ...d, upload: d.input === "FILE" && d.name ? await latestFileUpload(token, d.name) : null })));
+    return { data };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
