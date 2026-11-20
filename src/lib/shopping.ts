@@ -427,3 +427,72 @@ export async function loadAppsAndServices(project: Project): Promise<{ data: App
     return { data: null, problem: await merchantProblem(err, project) };
   }
 }
+
+export type QualityCheck = { id: string; label: string; ok: boolean; detail: string; fix: string };
+
+/**
+ * Settings that feed Google's store quality ratings, checked from Merchant Center data. Google's own
+ * ratings (shipping, returns, customer service) aren't in its API, so this is a checklist, not that score.
+ */
+export async function loadStoreQuality(project: Project): Promise<{ data: QualityCheck[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const id = project.merchantId;
+    const [homepage, info, shipping, policies, issues, products, improvements] = await Promise.all([
+      getHomepage(token, id),
+      getBusinessInfo(token, id),
+      getShippingSettings(token, id),
+      listReturnPolicies(token, id),
+      listAccountIssues(token, id),
+      listMerchantProducts(token, id),
+      getAutomaticImprovements(token, id).catch(() => ({}) as AutomaticImprovementsDoc),
+    ]);
+    const services = (shipping.services ?? []).filter((s) => s.active !== false);
+    const shipCountries = [...new Set(services.flatMap((s) => s.deliveryCountries ?? []))];
+    const returnCountries = new Set(policies.flatMap((p) => p.countries ?? []));
+    const noReturns = shipCountries.filter((c) => !returnCountries.has(c));
+    const timed = services.filter((s) => s.deliveryTime?.maxTransitDays != null || s.deliveryTime?.transitTimeTable || s.deliveryTime?.warehouseBasedDeliveryTimes?.length);
+    const cs = info.customerService ?? {};
+    const total = products.products.length;
+    const approved = products.products.filter((p) => p.status === "APPROVED").length;
+    const rate = total ? approved / total : 1;
+    const serious = issues.filter((i) => i.severity === "CRITICAL" || i.severity === "ERROR");
+    const items = improvements.itemUpdates;
+    const autoOn = Boolean(items?.accountItemUpdatesSettings?.allowPriceUpdates ?? items?.effectiveAllowPriceUpdates) && Boolean(items?.accountItemUpdatesSettings?.allowAvailabilityUpdates ?? items?.effectiveAllowAvailabilityUpdates);
+    const fix = (segment: string) => `/projects/${project.id}/shopping/${segment}`;
+    return {
+      data: [
+        { id: "homepage", label: "Website claimed", ok: Boolean(homepage.claimed), detail: homepage.claimed ? `${homepage.uri} is claimed.` : homepage.uri ? `${homepage.uri} isn't claimed yet.` : "No website set.", fix: fix("settings") },
+        {
+          id: "phone",
+          label: "Business phone verified",
+          ok: info.phoneVerificationState === "PHONE_VERIFICATION_STATE_VERIFIED",
+          detail: info.phone?.e164Number ? (info.phoneVerificationState === "PHONE_VERIFICATION_STATE_VERIFIED" ? "Verified." : "Set but not verified; verify it in Merchant Center.") : "No business phone.",
+          fix: fix("settings"),
+        },
+        {
+          id: "contact",
+          label: "Customer service contact",
+          ok: Boolean(cs.email || cs.uri || cs.phone?.e164Number),
+          detail: [cs.email && "email", cs.phone?.e164Number && "phone", cs.uri && "page"].filter(Boolean).join(", ") || "No email, phone or page for customers.",
+          fix: fix("settings"),
+        },
+        { id: "shipping", label: "Shipping set up", ok: services.length > 0, detail: services.length ? `${services.length} service${services.length === 1 ? "" : "s"} to ${shipCountries.join(", ") || "no countries"}.` : "No active shipping services.", fix: fix("shipping") },
+        { id: "delivery", label: "Delivery times given", ok: services.length > 0 && timed.length === services.length, detail: services.length ? `${timed.length} of ${services.length} services state delivery times.` : "No shipping services.", fix: fix("shipping") },
+        {
+          id: "returns",
+          label: "Return policy for every country you ship to",
+          ok: policies.length > 0 && noReturns.length === 0,
+          detail: policies.length === 0 ? "No return policy." : noReturns.length ? `Missing for ${noReturns.join(", ")}.` : `Covers ${[...returnCountries].join(", ")}.`,
+          fix: fix("shipping"),
+        },
+        { id: "products", label: "Most products approved (90%+)", ok: rate >= 0.9, detail: total ? `${approved.toLocaleString()} of ${total.toLocaleString()} approved (${Math.round(rate * 100)}%).` : "No products yet.", fix: fix("products") },
+        { id: "issues", label: "No serious account issues", ok: serious.length === 0, detail: serious.length ? serious.map((i) => i.title).slice(0, 3).join("; ") : "None reported.", fix: fix("notifications") },
+        { id: "auto", label: "Automatic price and availability updates", ok: autoOn, detail: autoOn ? "On: Google keeps them matched to the website." : "Off: mismatches with the website can get products disapproved.", fix: fix("automatic-improvements") },
+      ],
+    };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
