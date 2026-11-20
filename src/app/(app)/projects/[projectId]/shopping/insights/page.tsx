@@ -21,7 +21,7 @@ const STOCK: Record<string, { label: string; variant: "secondary" | "outline" | 
 };
 
 function Note({ text }: { text: string }) {
-  return <p className="text-muted-foreground text-sm">Not available for this account: {text.replace(/^Merchant Center: /, "")}</p>;
+  return <p className="text-muted-foreground text-sm">Couldn&apos;t load this report: {text.replace(/^Merchant Center: /, "")}</p>;
 }
 
 export default async function InsightsPage({ params, searchParams }: PageProps<"/projects/[projectId]/shopping/insights">) {
