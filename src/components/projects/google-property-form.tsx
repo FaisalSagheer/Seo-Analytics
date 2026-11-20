@@ -3,7 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { listGoogleProperties } from "@/lib/actions/settings";
+import { listGoogleProperties, registerMerchantCenter } from "@/lib/actions/settings";
+import { useCan } from "@/components/permissions-provider";
+import { Input } from "@/components/ui/input";
 import { updateProjectGoogle } from "@/lib/actions/projects";
 import type { ProjectGoogleInput } from "@/lib/validations";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
-type Options = { sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[]; merchantError?: string };
+type Options = { sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[]; merchantError?: string; merchantErrorKind?: string };
 
 export function GooglePropertyForm({
   connected,
@@ -27,6 +29,10 @@ export function GooglePropertyForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const canRegister = useCan("providers.manage");
+  const [registering, startRegister] = useTransition();
+  const [reloads, setReloads] = useState(0);
+
   useEffect(() => {
     // Property lists live in the project owner's Google account, so this one fetch is client-driven
     if (!connected) return;
@@ -39,7 +45,17 @@ export function GooglePropertyForm({
     return () => {
       cancelled = true;
     };
-  }, [connected, initial.projectId]);
+  }, [connected, initial.projectId, reloads]);
+
+  function register() {
+    startRegister(async () => {
+      const res = await registerMerchantCenter(initial.projectId, draft.merchantId ?? undefined);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(res.data.saved ? "Registered with Merchant Center and saved the account." : "Registered with Merchant Center.");
+      // Google can take a minute to recognise the registration; ask for the account list again
+      setReloads((n) => n + 1);
+    });
+  }
 
   function save(e: React.FormEvent) {
     e.preventDefault();
@@ -122,23 +138,44 @@ export function GooglePropertyForm({
               </Field>
               <Field>
                 <FieldLabel>Merchant Center account</FieldLabel>
-                <Select items={merchantItems} value={draft.merchantId ?? ""} onValueChange={(v) => setDraft({ ...draft, merchantId: v || null })}>
-                  <SelectTrigger className="w-full" aria-label="Merchant Center account">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {merchantItems.map((i) => (
-                        <SelectItem key={i.value} value={i.value}>
-                          {i.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                {options.merchants.length > 0 ? (
+                  <Select items={merchantItems} value={draft.merchantId ?? ""} onValueChange={(v) => setDraft({ ...draft, merchantId: v || null })}>
+                    <SelectTrigger className="w-full" aria-label="Merchant Center account">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {merchantItems.map((i) => (
+                          <SelectItem key={i.value} value={i.value}>
+                            {i.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  // Google can't list the accounts yet (often until the app is registered), so take the ID directly
+                  <div className="flex gap-2">
+                    <Input
+                      aria-label="Merchant Center ID"
+                      inputMode="numeric"
+                      placeholder="Merchant Center ID, e.g. 123456789"
+                      value={draft.merchantId ?? ""}
+                      onChange={(e) => setDraft({ ...draft, merchantId: e.target.value.replace(/\D/g, "") || null })}
+                    />
+                    {options.merchantErrorKind === "registration" && canRegister && (
+                      <Button type="button" variant="outline" disabled={registering || !draft.merchantId} onClick={register}>
+                        {registering && <Spinner data-icon="inline-start" />}
+                        Register
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {options.merchantError ? (
                   <p role="alert" className="text-destructive text-sm">
-                    {options.merchantError}
+                    {options.merchantErrorKind === "registration"
+                      ? "Google asks for this app to be registered with the Merchant Center account once. Enter the account's ID (shown at the top of Merchant Center) and click Register. It needs Admin access to that account."
+                      : options.merchantError}
                   </p>
                 ) : options.merchants.length === 0 ? (
                   <FieldDescription>
