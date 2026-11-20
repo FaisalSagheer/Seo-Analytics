@@ -32,6 +32,7 @@ import {
   merchantDaily,
   merchantProductPerformance,
   type MarketingMethod,
+  type StoreType,
   type MerchantProduct,
   type ProductHealthStatus,
   type ProductIssue,
@@ -100,7 +101,7 @@ export type ShoppingPerformance = {
 /** Clicks, impressions and conversions from Merchant Center for the range and, if given, the comparison range. */
 export async function loadShoppingPerformance(
   project: Project,
-  opts: { window: Window; previous: Window | null; method: MethodFilter },
+  opts: { window: Window; previous: Window | null; method: MethodFilter; store?: StoreType },
 ): Promise<{ data: ShoppingPerformance | null; problem?: ShoppingProblem }> {
   if (!project.merchantId) return { data: null };
   const id = project.merchantId;
@@ -109,9 +110,9 @@ export async function loadShoppingPerformance(
   try {
     const token = await getGoogleAccessToken(project);
     const [days, prevDays, productRows] = await Promise.all([
-      merchantDaily(token, id, start, end),
-      opts.previous ? merchantDaily(token, id, toDateKey(opts.previous.start), toDateKey(opts.previous.end)) : Promise.resolve(null),
-      merchantProductPerformance(token, id, start, end),
+      merchantDaily(token, id, start, end, opts.store),
+      opts.previous ? merchantDaily(token, id, toDateKey(opts.previous.start), toDateKey(opts.previous.end), opts.store) : Promise.resolve(null),
+      merchantProductPerformance(token, id, start, end, opts.store),
     ]);
     const wanted = keep(opts.method);
     const shown = days.filter((d) => wanted(d.method));

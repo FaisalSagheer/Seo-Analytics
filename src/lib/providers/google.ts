@@ -546,14 +546,17 @@ export type ShoppingDay = { date: string; method: MarketingMethod; clicks: numbe
 export type ShoppingProductRow = { offerId: string; title: string; method: MarketingMethod; clicks: number; impressions: number; conversions: number };
 
 /** Dates are YYYY-MM-DD and already validated (src/lib/date-range.ts), so they are safe inside the query. */
-export const shoppingDailyQuery = (start: string, end: string) =>
-  `SELECT date, marketing_method, clicks, impressions, conversions FROM product_performance_view WHERE date BETWEEN '${start}' AND '${end}'`;
-export const shoppingProductsQuery = (start: string, end: string) =>
-  `SELECT offer_id, title, marketing_method, clicks, impressions, conversions FROM product_performance_view WHERE date BETWEEN '${start}' AND '${end}'`;
+/** Online store or physical (local) stores; unset means both. */
+export type StoreType = "ONLINE_STORE" | "LOCAL_STORES";
+const storeFilter = (store?: StoreType) => (store ? ` AND store_type = '${store}'` : "");
+export const shoppingDailyQuery = (start: string, end: string, store?: StoreType) =>
+  `SELECT date, marketing_method, clicks, impressions, conversions FROM product_performance_view WHERE date BETWEEN '${start}' AND '${end}'${storeFilter(store)}`;
+export const shoppingProductsQuery = (start: string, end: string, store?: StoreType) =>
+  `SELECT offer_id, title, marketing_method, clicks, impressions, conversions FROM product_performance_view WHERE date BETWEEN '${start}' AND '${end}'${storeFilter(store)}`;
 
 /** Clicks, impressions and conversions per day and marketing method (free listings, ads, affiliate). */
-export async function merchantDaily(token: string, accountId: string, start: string, end: string): Promise<ShoppingDay[]> {
-  const rows = await merchantReport(token, accountId, shoppingDailyQuery(start, end));
+export async function merchantDaily(token: string, accountId: string, start: string, end: string, store?: StoreType): Promise<ShoppingDay[]> {
+  const rows = await merchantReport(token, accountId, shoppingDailyQuery(start, end, store));
   return rows
     .map((r) => r.productPerformanceView)
     .filter((v): v is NonNullable<typeof v> => Boolean(v?.date))
@@ -567,8 +570,8 @@ export async function merchantDaily(token: string, accountId: string, start: str
 }
 
 /** The same metrics per product for the range. */
-export async function merchantProductPerformance(token: string, accountId: string, start: string, end: string): Promise<ShoppingProductRow[]> {
-  const rows = await merchantReport(token, accountId, shoppingProductsQuery(start, end), 5);
+export async function merchantProductPerformance(token: string, accountId: string, start: string, end: string, store?: StoreType): Promise<ShoppingProductRow[]> {
+  const rows = await merchantReport(token, accountId, shoppingProductsQuery(start, end, store), 5);
   return rows
     .map((r) => r.productPerformanceView)
     .filter((v): v is NonNullable<typeof v> => Boolean(v))
