@@ -32,7 +32,9 @@ function ProblemAlert({ problem, projectId }: { problem: ShoppingProblem; projec
     <Alert variant={problem.kind === "other" ? "destructive" : "default"}>
       <PlugIcon />
       <AlertTitle>
-        {problem.kind === "registration"
+        {problem.kind === "api"
+          ? "Enable the Merchant API"
+          : problem.kind === "registration"
           ? "Register this app with Merchant Center"
           : problem.kind === "scope"
             ? "Reconnect Google"

@@ -15,7 +15,7 @@ import {
 
 export type MethodFilter = "all" | "ORGANIC" | "ADS";
 export type ShoppingTotals = { clicks: number; impressions: number; ctr: number; conversions: number };
-export type ShoppingProblem = { kind: "scope" | "registration" | "access" | "other"; message: string };
+export type ShoppingProblem = { kind: "api" | "scope" | "registration" | "access" | "other"; message: string };
 
 type Project = { id: string; userId: string; merchantId: string | null };
 
@@ -23,6 +23,13 @@ type Project = { id: string; userId: string; merchantId: string | null };
 export async function merchantProblem(err: unknown, project: Project): Promise<ShoppingProblem> {
   const message = err instanceof Error ? err.message : String(err);
   const status = err instanceof GoogleApiError ? err.status : 0;
+  // Checked before the 403 handling below: a disabled API is also a 403, but the fix is in Google Cloud
+  if (/SERVICE_DISABLED|has not been used in project|it is disabled|accessNotConfigured|API has not been enabled/i.test(message)) {
+    return {
+      kind: "api",
+      message: "The Merchant API isn't enabled in this app's Google Cloud project. In the Google Cloud console, open APIs & Services → Library, enable \"Merchant API\", wait a few minutes, then try again.",
+    };
+  }
   if (/insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(message)) {
     return { kind: "scope", message: "This project's Google connection doesn't include Merchant Center yet. Reconnect Google in Settings → Google & API." };
   }

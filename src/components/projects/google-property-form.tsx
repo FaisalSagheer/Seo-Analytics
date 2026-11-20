@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
-type Options = { sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[] };
+type Options = { sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[]; merchantError?: string };
 
 export function GooglePropertyForm({
   connected,
@@ -136,9 +136,17 @@ export function GooglePropertyForm({
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <FieldDescription>
-                  For the Shopping page. If the list is empty, add this project&apos;s Google access as a user in Merchant Center, or reconnect Google in Settings.
-                </FieldDescription>
+                {options.merchantError ? (
+                  <p role="alert" className="text-destructive text-sm">
+                    {options.merchantError}
+                  </p>
+                ) : options.merchants.length === 0 ? (
+                  <FieldDescription>
+                    Google lists no Merchant Center accounts for this project&apos;s Google access. Add it as a user in Merchant Center (Settings → People and access).
+                  </FieldDescription>
+                ) : (
+                  <FieldDescription>For the Shopping page.</FieldDescription>
+                )}
               </Field>
             </FieldGroup>
           )}

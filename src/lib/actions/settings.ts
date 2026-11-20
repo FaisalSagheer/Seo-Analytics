@@ -13,7 +13,7 @@ import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
 
 // The property picker lists what this project's Google access can see: its own service account, else the owner's connection
 export async function listGoogleProperties(projectId: string): Promise<
-  ActionResult<{ sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[] }>
+  ActionResult<{ sites: string[]; properties: { id: string; name: string }[]; merchants: { id: string; name: string }[]; merchantError?: string }>
 > {
   const blocked = await denied("projects.edit");
   if (blocked) return blocked;
@@ -26,10 +26,13 @@ export async function listGoogleProperties(projectId: string): Promise<
       listGscSites(token),
       // GA4 Admin API may be disabled on the Cloud project; don't lose GSC over it
       listGa4Properties(token).catch(() => []),
-      // Likewise Merchant Center: optional, and older connections don't carry its scope
-      listMerchantAccounts(token).catch(() => []),
+      // Likewise Merchant Center: optional, so its failure is reported next to its picker, not as a failure of the form
+      listMerchantAccounts(token).then(
+        (list) => ({ list, error: undefined as string | undefined }),
+        async (err) => ({ list: [], error: (await merchantProblem(err, project)).message }),
+      ),
     ]);
-    return ok({ sites, properties, merchants });
+    return ok({ sites, properties, merchants: merchants.list, merchantError: merchants.error });
   } catch (err) {
     return fail(err);
   }
