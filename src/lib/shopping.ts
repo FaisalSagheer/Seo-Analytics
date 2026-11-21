@@ -519,3 +519,101 @@ export async function loadBrand(project: Project): Promise<{ data: BrandPage | n
     return { data: null, problem: await merchantProblem(err, project) };
   }
 }
+
+export type NoticeKind = "account" | "products" | "feeds" | "programs" | "promotions";
+export type Notice = {
+  kind: NoticeKind;
+  severity: "critical" | "error" | "warning" | "info";
+  title: string;
+  detail: string | null;
+  /** Where in the app it's fixed */
+  href: string;
+  documentation: string | null;
+};
+
+const SEV_RANK: Record<Notice["severity"], number> = { critical: 0, error: 1, warning: 2, info: 3 };
+const httpsOnly = (u?: string | null) => (u && /^https:\/\//.test(u) ? u : null);
+
+/**
+ * Notifications: everything Merchant Center reports that needs attention, gathered from the account,
+ * product, data source, program and promotion APIs. A source that can't be read is skipped.
+ */
+export async function loadNotifications(project: Project): Promise<{ data: Notice[] | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  const id = project.merchantId;
+  const base = `/projects/${project.id}/shopping`;
+  try {
+    const token = await getGoogleAccessToken(project);
+    const soft = <T,>(p: Promise<T>) => p.catch(() => null);
+    const [account, health, feeds, programs, promos] = await Promise.all([
+      listAccountIssues(token, id),
+      loadProductHealth(project),
+      soft(listDataSources(token, id).then((ds) => Promise.all(ds.filter((d) => d.input === "FILE" && d.name).map(async (d) => ({ d, u: await latestFileUpload(token, d.name!) }))))),
+      soft(listPrograms(token, id)),
+      soft(listPromotions(token, id)),
+    ]);
+    const out: Notice[] = [];
+    for (const i of account) {
+      out.push({
+        kind: "account",
+        severity: i.severity === "CRITICAL" ? "critical" : i.severity === "ERROR" ? "error" : i.severity === "SUGGESTION" ? "info" : "warning",
+        title: i.title,
+        detail: [i.detail, i.destinations.length ? `Affects ${i.destinations.map((d) => d.toLowerCase().replace(/_/g, " ")).join(", ")}.` : null].filter(Boolean).join(" ") || null,
+        href: `${base}/settings`,
+        documentation: i.documentation,
+      });
+    }
+    for (const i of health.data?.issues ?? []) {
+      out.push({
+        kind: "products",
+        severity: i.severity === "DISAPPROVED" ? "error" : i.severity === "DEMOTED" ? "warning" : "info",
+        title: i.description,
+        detail: `${i.products.toLocaleString()} product${i.products === 1 ? "" : "s"} ${i.severity === "DISAPPROVED" ? "disapproved" : i.severity === "DEMOTED" ? "limited" : "affected"}.`,
+        href: `${base}/products`,
+        documentation: i.documentation,
+      });
+    }
+    for (const { d, u } of feeds ?? []) {
+      const name = d.displayName || d.dataSourceId || "Data source";
+      if (u?.processingState === "FAILED") out.push({ kind: "feeds", severity: "error", title: `${name}: last upload failed`, detail: u.issues?.[0]?.title ?? null, href: `${base}/feeds`, documentation: null });
+      for (const i of (u?.issues ?? []).filter((i) => u?.processingState !== "FAILED" || i !== u.issues![0])) {
+        out.push({
+          kind: "feeds",
+          severity: i.severity === "ERROR" ? "error" : "warning",
+          title: `${name}: ${i.title ?? i.code ?? "upload issue"}`,
+          detail: [i.description, i.count ? `${Number(i.count).toLocaleString()} items.` : null].filter(Boolean).join(" ") || null,
+          href: `${base}/feeds`,
+          documentation: httpsOnly(i.documentationUri),
+        });
+      }
+    }
+    for (const p of programs ?? []) {
+      const label = (p.name?.split("/").pop() ?? "program").replace(/-/g, " ");
+      for (const r of p.unmetRequirements ?? []) {
+        out.push({
+          kind: "programs",
+          severity: p.state === "ENABLED" ? "warning" : "info",
+          title: `${label.charAt(0).toUpperCase() + label.slice(1)}: ${r.title ?? "requirement not met"}`,
+          detail: r.affectedRegionCodes?.length ? `In ${r.affectedRegionCodes.join(", ")}.` : null,
+          href: `${base}/marketing-methods`,
+          documentation: httpsOnly(r.documentationUri),
+        });
+      }
+    }
+    for (const p of promos ?? []) {
+      const rejected = (p.promotionStatus?.destinationStatuses ?? []).filter((d) => d.status === "REJECTED");
+      if (!rejected.length) continue;
+      out.push({
+        kind: "promotions",
+        severity: "error",
+        title: `Promotion rejected: ${p.attributes?.longTitle || p.promotionId}`,
+        detail: p.promotionStatus?.itemLevelIssues?.[0]?.description ?? null,
+        href: `${base}/promotions`,
+        documentation: httpsOnly(p.promotionStatus?.itemLevelIssues?.[0]?.documentation),
+      });
+    }
+    return { data: out.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]) };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
