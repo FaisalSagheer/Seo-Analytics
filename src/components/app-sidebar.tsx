@@ -296,7 +296,7 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     children: [
       { segment: "promotions", label: "Promotions" },
       { segment: "ad-campaigns", label: "Ad campaigns" },
-      { segment: "mc/brand", label: "Brand", external: true },
+      { segment: "brand", label: "Brand" },
       { segment: "marketing-methods", label: "Marketing methods" },
     ],
   },

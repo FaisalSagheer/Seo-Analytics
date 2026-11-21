@@ -604,6 +604,7 @@ export type MerchantProduct = {
   link: string | null;
   imageLink: string | null;
   availability: string | null;
+  brand: string | null;
   videoLinks: string[];
   status: ProductHealthStatus;
   issues: ProductIssue[];
@@ -680,6 +681,7 @@ export async function listMerchantProducts(token: string, accountId: string, max
         link: link && /^https?:\/\//i.test(link) ? link : null,
         imageLink: image && /^https:\/\//i.test(image) ? image : null,
         availability: p.productAttributes?.availability ?? null,
+        brand: typeof p.productAttributes?.brand === "string" && p.productAttributes.brand.trim() ? p.productAttributes.brand.trim() : null,
         videoLinks: Array.isArray(p.productAttributes?.videoLinks) ? (p.productAttributes.videoLinks as string[]).filter((v) => /^https?:\/\//i.test(v)) : [],
         status,
         issues,
@@ -1169,3 +1171,13 @@ export async function editProductImage(
   });
   return r.generatedImage ?? {};
 }
+
+// ---- business identity (labels like "small business" shown with the store)
+
+export type IdentityKey = "smallBusiness" | "womenOwned" | "blackOwned" | "latinoOwned" | "veteranOwned";
+export type BusinessIdentityDoc = Partial<Record<IdentityKey, { identityDeclaration?: "SELF_IDENTIFIES_AS" | "DOES_NOT_SELF_IDENTIFY_AS" | "IDENTITY_DECLARATION_UNSPECIFIED" }>> & {
+  promotionsConsent?: "PROMOTIONS_CONSENT_GIVEN" | "PROMOTIONS_CONSENT_DENIED" | "PROMOTIONS_CONSENT_UNSPECIFIED";
+};
+export const getBusinessIdentity = (token: string, accountId: string) => orEmpty(fetchGoogle<BusinessIdentityDoc>(token, `${acct(accountId)}/businessIdentity`));
+export const updateBusinessIdentity = (token: string, accountId: string, doc: BusinessIdentityDoc, updateMask: string) =>
+  fetchGoogle<BusinessIdentityDoc>(token, `${acct(accountId)}/businessIdentity?updateMask=${encodeURIComponent(updateMask)}`, doc, "PATCH");

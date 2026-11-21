@@ -8,7 +8,6 @@ import { requireProject } from "@/lib/session";
 const PAGES: Record<string, { title: string; path: string }> = {
   notifications: { title: "Notifications", path: "notifications" },
   "store-quality": { title: "Store quality", path: "storequality" },
-  brand: { title: "Brand", path: "brand" },
 };
 
 export async function generateMetadata({ params }: PageProps<"/projects/[projectId]/shopping/mc/[page]">): Promise<Metadata> {

@@ -7,6 +7,8 @@ import { propertyChoiceDenied } from "@/lib/google-access";
 import { getGoogleAccessToken } from "@/lib/providers";
 import {
   GoogleApiError,
+  updateBusinessIdentity,
+  type IdentityKey,
   editProductImage,
   suggestProductText,
   createConversionSource,
@@ -946,5 +948,25 @@ export async function studioEditImage(
     return fail("Google didn't return an image.");
   } catch (err) {
     return studioProblem(err, ctx.project);
+  }
+}
+
+// ---- brand: business identity ----
+
+const IDENTITY_KEYS: IdentityKey[] = ["smallBusiness", "womenOwned", "blackOwned", "latinoOwned", "veteranOwned"];
+const snake = (k: string) => k.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase());
+
+/** Sets which identity labels the store claims, and whether Google may use them in promotions. */
+export async function saveBusinessIdentity(projectId: string, labels: Partial<Record<IdentityKey, boolean>>, promotionsConsent: boolean): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  const doc: Record<string, unknown> = { promotionsConsent: promotionsConsent ? "PROMOTIONS_CONSENT_GIVEN" : "PROMOTIONS_CONSENT_DENIED" };
+  for (const k of IDENTITY_KEYS) doc[k] = { identityDeclaration: labels[k] ? "SELF_IDENTIFIES_AS" : "DOES_NOT_SELF_IDENTIFY_AS" };
+  try {
+    await updateBusinessIdentity(ctx.token, ctx.merchantId, doc, ["promotions_consent", ...IDENTITY_KEYS.map(snake)].join(","));
+    await afterWrite(projectId);
+    return ok(undefined);
+  } catch (err) {
+    return explain(err, ctx.project);
   }
 }

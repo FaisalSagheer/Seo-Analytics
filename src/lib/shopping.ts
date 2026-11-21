@@ -8,6 +8,8 @@ import {
   getBusinessInfo,
   getHomepage,
   getShippingSettings,
+  getBusinessIdentity,
+  type BusinessIdentityDoc,
   latestFileUpload,
   listDataSources,
   listPromotions,
@@ -492,6 +494,27 @@ export async function loadStoreQuality(project: Project): Promise<{ data: Qualit
         { id: "auto", label: "Automatic price and availability updates", ok: autoOn, detail: autoOn ? "On: Google keeps them matched to the website." : "Off: mismatches with the website can get products disapproved.", fix: fix("automatic-improvements") },
       ],
     };
+  } catch (err) {
+    return { data: null, problem: await merchantProblem(err, project) };
+  }
+}
+
+export type BrandPage = { identity: BusinessIdentityDoc; brands: { brand: string; products: number }[]; noBrand: number; total: number };
+
+/** Marketing → Brand: identity labels and the brands across the catalogue. */
+export async function loadBrand(project: Project): Promise<{ data: BrandPage | null; problem?: ShoppingProblem }> {
+  if (!project.merchantId) return { data: null };
+  try {
+    const token = await getGoogleAccessToken(project);
+    const [identity, { products }] = await Promise.all([getBusinessIdentity(token, project.merchantId), listMerchantProducts(token, project.merchantId)]);
+    const counts = new Map<string, number>();
+    let noBrand = 0;
+    for (const p of products) {
+      if (!p.brand) noBrand++;
+      else counts.set(p.brand, (counts.get(p.brand) ?? 0) + 1);
+    }
+    const brands = [...counts].map(([brand, n]) => ({ brand, products: n })).sort((a, b) => b.products - a.products);
+    return { data: { identity, brands, noBrand, total: products.length } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }
