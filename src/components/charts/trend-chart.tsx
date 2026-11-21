@@ -46,6 +46,7 @@ export function TrendChart({
   className,
   hourly = false,
   hourZone = "UTC",
+  bucket,
 }: {
   /** Charts sharing a syncId move their hover crosshair together */
   syncId?: string;
@@ -61,7 +62,14 @@ export function TrendChart({
   hourly?: boolean;
   /** Shown after the hour in the tooltip; empty when the zone is named elsewhere */
   hourZone?: string;
+  /** Each point is a week (dated by its first day) or a month, not a day */
+  bucket?: "week" | "month";
 }) {
+  const monthFmt = (d: string, style: "short" | "long") =>
+    new Date(`${d}T00:00:00Z`).toLocaleDateString("en", { month: style === "short" ? "short" : "long", year: "numeric", timeZone: "UTC" });
+  const tick = (v: string) => (hourly ? formatHour(v) : bucket === "month" ? monthFmt(v, "short") : formatDate(v));
+  const tip = (d: string) =>
+    hourly ? `${formatHour(d)}${hourZone ? ` ${hourZone}` : ""}` : bucket === "month" ? monthFmt(d, "long") : bucket === "week" ? `Week of ${formatDate(d, "long")}` : formatDate(d, "long");
   // An all-null or all-zero series draws as a flat line on the axis, which
   // reads as broken. Treat it as empty.
   const hasData = data.some((row) => series.some((s) => typeof row[s.key] === "number" && row[s.key] !== 0));
@@ -88,7 +96,7 @@ export function TrendChart({
           axisLine={false}
           tickMargin={8}
           minTickGap={32}
-          tickFormatter={(v: string) => (hourly ? formatHour(v) : formatDate(v))}
+          tickFormatter={tick}
         />
         <YAxis
           tickLine={false}
@@ -110,7 +118,7 @@ export function TrendChart({
             <ChartTooltipContent
               labelFormatter={(_, payload) => {
                 const d = payload?.[0]?.payload?.date;
-                return typeof d === "string" ? (hourly ? `${formatHour(d)}${hourZone ? ` ${hourZone}` : ""}` : formatDate(d, "long")) : "";
+                return typeof d === "string" ? tip(d) : "";
               }}
               formatter={(value, name) => (
                 <div className="flex w-full items-center justify-between gap-4">

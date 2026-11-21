@@ -5,6 +5,7 @@ import { TrendChart } from "@/components/charts/trend-chart";
 import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
+import { SearchParamSelect } from "@/components/dashboard/search-param-select";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Ga4Report, type Ga4Row } from "@/components/performance/ga4-report";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -37,10 +38,9 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
   // A 24 hour range covers yesterday and today
   const shown = days === 1 ? { start: addDays(range.end, -1), end: range.end } : range;
   const cmpWindow = compareWindow(compareSpec, shown);
-  // Hourly data is short-lived, so the 24 hour range is the hourly one
+  // Hourly needs the 24 hour or 7 day preset, and a 24 hour range defaults to it
   const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.ga4PropertyId) && !project.isDemo;
-  // Hourly is automatic: the 24 hour range shows hours, everything longer shows days
-  const hourly = canHourly && days === 1;
+  const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
 
   const report = project.isDemo
     ? { data: null, hourly: null, note: "Demo projects have no live Google Analytics data." }
@@ -70,6 +70,15 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                 from: compareSpec.custom ? toDateKey(compareSpec.custom.start) : undefined,
                 to: compareSpec.custom ? toDateKey(compareSpec.custom.end) : undefined,
               }}
+            />
+            <SearchParamSelect
+              param="by"
+              label="Granularity"
+              value={hourly ? "hour" : "day"}
+              items={[
+                { value: "hour", label: "Hourly", disabled: !canHourly },
+                { value: "day", label: "Daily" },
+              ]}
             />
           </>
         }

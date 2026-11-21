@@ -6,6 +6,7 @@ import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { ProjectCountrySelect } from "@/components/projects/project-country-select";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
+import { SearchParamSelect } from "@/components/dashboard/search-param-select";
 import { resolveCompare, resolveRange, spanDays } from "@/lib/date-range";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
@@ -15,7 +16,7 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/u
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
-import { daysAgo, toDateKey } from "@/lib/dates";
+import { daysAgo, groupSeries, toDateKey } from "@/lib/dates";
 import { formatNumber, formatPercent, formatPosition, formatRelative } from "@/lib/format";
 import { MAX_HOURLY_DAYS, loadLiveReport } from "@/lib/search-console-live";
 import { getGscQueries, getProjectReport, getRankingRows } from "@/lib/queries";
@@ -72,10 +73,12 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const range = resolveRange(sp, 90);
   const { days } = range;
   const compareSpec = resolveCompare(sp, range);
-  // Search Console keeps hourly data only briefly, so the 24 hour range is the hourly one
+  // Search Console keeps hourly data only briefly, so only the 24 hour and 7 day presets offer hourly
   const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
-  // Hourly is automatic: the 24 hour range shows hours, everything longer shows days
-  const hourly = canHourly && days === 1;
+  // 24 hours defaults to hourly; otherwise the Granularity choice (hourly only where Google keeps hourly data)
+  const by = sp.by === "hour" || sp.by === "week" || sp.by === "month" ? sp.by : sp.by === "day" ? "day" : days === 1 ? "hour" : "day";
+  const hourly = canHourly && by === "hour";
+  const bucket = by === "week" || by === "month" ? by : undefined;
   // Synced data covers about 90 days; longer or older ranges are read live
   const wantDaily = !project.isDemo && Boolean(project.gscSiteUrl) && (range.custom ? range.start < daysAgo(89) : days > 90);
   const live = project.isDemo ? null : await loadLiveReport(project, { window: range, days, hourly, compare: compareSpec, wantDaily });
@@ -98,12 +101,13 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   ]);
   const searchReport = project.isDemo ? { data: null, note: "Demo projects have no live Search Console data." } : await loadSearchReport(project, range);
   const liveDay = new Map((live?.daily ?? []).map((d) => [d.date, d]));
-  const series = report!.series.map((p) => {
+  const daily = report!.series.map((p) => {
     const d = liveDay.get(p.date);
-    const clicks = d ? d.clicks : p.clicks;
-    const impressions = d ? d.impressions : p.impressions;
-    return { ...p, clicks, impressions, ctr: clicks != null && impressions ? clicks / impressions : null };
+    return { ...p, clicks: d ? d.clicks : p.clicks, impressions: d ? d.impressions : p.impressions };
   });
+  // Weekly / monthly: counts add up, position and visibility average; CTR is worked out after grouping
+  const grouped = bucket ? groupSeries(daily, bucket, ["clicks", "impressions", "sessions", "conversions"], ["avgPosition", "visibility"]) : daily;
+  const series = grouped.map((p) => ({ ...p, ctr: p.clicks != null && p.impressions ? p.clicks / p.impressions : null }));
   const totals = report!.totals;
 
   // Live Search Console totals win when the page is hourly or comparing, so both periods come from the same source
@@ -150,6 +154,17 @@ export default async function PerformancePage({ params, searchParams }: PageProp
                 from: compareSpec.custom ? toDateKey(compareSpec.custom.start) : undefined,
                 to: compareSpec.custom ? toDateKey(compareSpec.custom.end) : undefined,
               }}
+            />
+            <SearchParamSelect
+              param="by"
+              label="Granularity"
+              value={hourly ? "hour" : by === "hour" ? "day" : by}
+              items={[
+                { value: "hour", label: "Hourly", disabled: !canHourly },
+                { value: "day", label: "Daily" },
+                { value: "week", label: "Weekly" },
+                { value: "month", label: "Monthly" },
+              ]}
             />
             <SyncButton projectId={project.id} parts={["google"]} label="Sync Google" />
           </>
@@ -247,7 +262,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
             <>
               <TrendChart
                 syncId="perf"
-                data={series}
+                data={series} bucket={bucket}
                 series={[
                   {
                     key: "clicks",
@@ -265,13 +280,13 @@ export default async function PerformancePage({ params, searchParams }: PageProp
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <h3 className="text-sm font-medium">Click-through rate</h3>
-                  <TrendChart syncId="perf" data={series} series={[{ key: "ctr", label: "CTR", color: "var(--chart-3)" }]} format="percent" height={180} />
+                  <TrendChart syncId="perf" data={series} bucket={bucket} series={[{ key: "ctr", label: "CTR", color: "var(--chart-3)" }]} format="percent" height={180} />
                 </div>
                 <div className="flex flex-col gap-2">
                   <h3 className="text-sm font-medium">Tracked keywords, avg. position</h3>
                   <TrendChart
                     syncId="perf"
-                    data={series}
+                    data={series} bucket={bucket}
                     series={[
                       {
                         key: "avgPosition",
