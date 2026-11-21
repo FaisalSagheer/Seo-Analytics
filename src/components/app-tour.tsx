@@ -23,7 +23,8 @@ function buildSteps(present: (selector: string) => boolean, can: { admin: boolea
     },
     {
       selector: '[data-tour="project"]',
-      side: "right",
+      // At the top-left corner: below and left-aligned keeps the card on screen
+      side: "bottom-left",
       title: "Your websites",
       content: "Switch between your projects here. Everything below belongs to the project you pick.",
     },
@@ -59,7 +60,8 @@ function buildSteps(present: (selector: string) => boolean, can: { admin: boolea
       : []),
     {
       selector: '[data-tour="user"]',
-      side: "top",
+      // The menu sits at the screen's left edge: line the card up with it instead of centring over it
+      side: "top-left",
       title: "Take the tour again",
       content: "Open your name here and choose Take the tour whenever you want a reminder.",
     },
@@ -137,10 +139,20 @@ export function AppTour({ tourSeen, children }: { tourSeen: boolean; children: R
 
   const steps = useMemo(() => buildSteps((sel) => present?.[sel] ?? false, { admin, merchantEdit }), [present, admin, merchantEdit]);
   const finish = () => void markTourSeen();
+  // The sidebar scrolls: bring each step's target into view so the card lands next to it
+  const reveal = (step: number) => {
+    const selector = steps[step]?.selector;
+    if (!selector) return;
+    setTimeout(() => {
+      document.querySelector(selector)?.scrollIntoView({ block: "center", behavior: "instant" });
+      // The tour measured the target before the scroll; a resize event makes it measure again
+      window.dispatchEvent(new Event("resize"));
+    }, 50);
+  };
 
   return (
     <NextStepProvider>
-      <NextStep steps={[{ tour: TOUR, steps }]} cardComponent={TourCard} onComplete={finish} onSkip={finish} shadowOpacity="0.45" cardTransition={{ duration: 0.25 }} disableConsoleLogs>
+      <NextStep steps={[{ tour: TOUR, steps }]} cardComponent={TourCard} onStepChange={reveal} onComplete={finish} onSkip={finish} shadowOpacity="0.45" cardTransition={{ duration: 0.25 }} arrowStyle={{ color: "var(--popover)" }} disableConsoleLogs>
         <TourStarter tourSeen={tourSeen} ready={present != null} />
         {children}
       </NextStep>

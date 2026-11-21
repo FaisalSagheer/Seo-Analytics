@@ -168,8 +168,8 @@ export function AppSidebar({
             if (!items.length) return merchant;
             return [
               ...merchant,
-              <SidebarGroup key={group.label ?? "top"} data-tour={group.label === "Search & traffic" ? "search" : undefined}>
-                <SidebarGroupLabel>{group.label ?? current.domain}</SidebarGroupLabel>
+              <SidebarGroup key={group.label ?? "top"}>
+                <SidebarGroupLabel data-tour={group.label === "Search & traffic" ? "search" : undefined}>{group.label ?? current.domain}</SidebarGroupLabel>
                 <SidebarMenu>
                   {items.map((item) => {
                     const href = `/projects/${current.id}${item.segment ? `/${item.segment}` : ""}`;
@@ -337,8 +337,8 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
   const hrefOf = (segment: string) => (segment ? `${base}/${segment}` : base);
   const isActive = (segment: string) => (segment ? pathname.startsWith(hrefOf(segment)) : pathname === base);
   return (
-    <SidebarGroup data-tour="merchant">
-      <SidebarGroupLabel>Merchant Center</SidebarGroupLabel>
+    <SidebarGroup>
+      <SidebarGroupLabel data-tour="merchant">Merchant Center</SidebarGroupLabel>
       <SidebarMenu>
         {MERCHANT_NAV.map((item) => {
           if (!item.children) {
