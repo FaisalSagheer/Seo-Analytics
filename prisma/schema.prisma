@@ -30,6 +30,8 @@ model User {
   invitationsSent Invitation[] @relation("InvitedBy")
   /// Sessions issued before this moment are refused (set when the password is reset)
   sessionsValidFrom DateTime?
+  /// When the user finished or skipped the first-login tour; null shows it once
+  tourSeenAt        DateTime?
   passwordResets    PasswordReset[]
 
   projects            Project[]

@@ -34,6 +34,7 @@ import { signOut as authSignOut } from "next-auth/react";
 import { toast } from "sonner";
 import type { Permission } from "@/lib/permissions";
 import { AppLogo } from "@/components/app-logo";
+import { useRestartTour } from "@/components/app-tour";
 import { useViewerRole } from "@/components/permissions-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -101,6 +102,7 @@ export function AppSidebar({
   const current = projects.find((p) => p.id === params.projectId);
   const role = useViewerRole();
   const allowed = (permission?: Permission) => !permission || Boolean(role?.permissions.includes(permission));
+  const restartTour = useRestartTour();
 
   async function signOut() {
     await authSignOut({ redirect: false });
@@ -118,7 +120,7 @@ export function AppSidebar({
               <AppLogo />
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
+          <SidebarMenuItem data-tour="project">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<SidebarMenuButton size="lg" className="border" tooltip="Switch project" />}
@@ -166,7 +168,7 @@ export function AppSidebar({
             if (!items.length) return merchant;
             return [
               ...merchant,
-              <SidebarGroup key={group.label ?? "top"}>
+              <SidebarGroup key={group.label ?? "top"} data-tour={group.label === "Search & traffic" ? "search" : undefined}>
                 <SidebarGroupLabel>{group.label ?? current.domain}</SidebarGroupLabel>
                 <SidebarMenu>
                   {items.map((item) => {
@@ -200,7 +202,7 @@ export function AppSidebar({
         <SidebarGroup className="mt-auto">
           <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem data-tour="google">
               <SidebarMenuButton
                 isActive={pathname === "/settings" && !current}
                 tooltip="Google & API"
@@ -211,7 +213,7 @@ export function AppSidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
             {role?.isAdmin && (
-              <SidebarMenuItem>
+              <SidebarMenuItem data-tour="team">
                 <SidebarMenuButton isActive={pathname === "/team"} tooltip="Team & roles" render={<Link href="/team" />}>
                   <UsersIcon />
                   <span>Team & roles</span>
@@ -230,7 +232,7 @@ export function AppSidebar({
 
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
+          <SidebarMenuItem data-tour="user">
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
                 <Avatar className="size-8 rounded-lg">
@@ -253,6 +255,10 @@ export function AppSidebar({
                   </>
                 )}
                 <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={restartTour}>
+                    <CompassIcon />
+                    Take the tour
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut}>
                     <LogOutIcon />
                     Sign out
@@ -331,7 +337,7 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
   const hrefOf = (segment: string) => (segment ? `${base}/${segment}` : base);
   const isActive = (segment: string) => (segment ? pathname.startsWith(hrefOf(segment)) : pathname === base);
   return (
-    <SidebarGroup>
+    <SidebarGroup data-tour="merchant">
       <SidebarGroupLabel>Merchant Center</SidebarGroupLabel>
       <SidebarMenu>
         {MERCHANT_NAV.map((item) => {

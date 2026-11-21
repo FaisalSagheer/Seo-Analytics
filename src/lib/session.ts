@@ -19,11 +19,11 @@ export const getSession = cache(async () => {
   const session = await auth();
   const id = session?.user?.id;
   if (!id) return null;
-  const user = await db.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, image: true, isActive: true, sessionsValidFrom: true } });
+  const user = await db.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, image: true, isActive: true, sessionsValidFrom: true, tourSeenAt: true } });
   if (!user?.isActive) return null;
   // A password reset signs everyone out: sessions issued before it are refused
   if (user.sessionsValidFrom && (session?.issuedAt ?? 0) * 1000 < user.sessionsValidFrom.getTime()) return null;
-  return { user: { id: user.id, name: user.name, email: user.email, image: user.image } };
+  return { user: { id: user.id, name: user.name, email: user.email, image: user.image, tourSeen: user.tourSeenAt != null } };
 });
 
 /** Gate for every signed-in page and action. */

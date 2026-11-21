@@ -7,6 +7,7 @@ import { listProjectsFor } from "@/lib/roles";
 import { getViewerRole, requireUser } from "@/lib/session";
 import { PermissionsProvider } from "@/components/permissions-provider";
 import { FilterPendingArea } from "@/components/dashboard/filter-pending";
+import { AppTour } from "@/components/app-tour";
 
 /**
  * The signed-in shell is per-user (session + project list). SidebarProvider and
@@ -21,6 +22,7 @@ async function AppShell({ children }: { children: React.ReactNode }) {
   const projects = await listProjectsFor(role, user.id);
   return (
     <PermissionsProvider role={role}>
+    <AppTour tourSeen={user.tourSeen}>
     <SidebarProvider>
       <AppSidebar
         projects={projects.map((p) => ({ id: p.id, name: p.name, domain: p.domain, isDemo: p.isDemo }))}
@@ -38,6 +40,7 @@ async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </AppTour>
     </PermissionsProvider>
   );
 }

@@ -146,6 +146,10 @@ Up to 5,000 products are read for Product health, and answers are reused for 5 m
 
 **Analytics.** **Pricing** and **Best sellers** show, for the chosen country (the project's country by default), **price competitiveness** (your price next to the average price other stores show for the same product, most overpriced first) and **best sellers** (last week's most popular products on Google by category, with rank changes, demand, and whether you sell them). Google only offers these reports to eligible accounts; when one isn't available it says so instead of failing the page.
 
+## First-login tour
+
+A new user sees a short guided tour of the sidebar the first time they sign in (built with NextStepjs). It adapts to the user's role (Team and roles only for admins, a read-only note on Merchant Center for roles that can't edit it) and leaves out steps whose target isn't on screen. Finishing or skipping saves `tourSeenAt` on the user, so it isn't shown again; **Take the tour** in the user menu replays it. Existing users see it once after this update.
+
 ## Site audit
 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.
