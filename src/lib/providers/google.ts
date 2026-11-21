@@ -605,6 +605,7 @@ export type MerchantProduct = {
   imageLink: string | null;
   availability: string | null;
   brand: string | null;
+  paused: boolean;
   videoLinks: string[];
   status: ProductHealthStatus;
   issues: ProductIssue[];
@@ -682,6 +683,7 @@ export async function listMerchantProducts(token: string, accountId: string, max
         imageLink: image && /^https:\/\//i.test(image) ? image : null,
         availability: p.productAttributes?.availability ?? null,
         brand: typeof p.productAttributes?.brand === "string" && p.productAttributes.brand.trim() ? p.productAttributes.brand.trim() : null,
+        paused: p.productAttributes?.pause === "ALL" || p.productAttributes?.pause === "ADS",
         videoLinks: Array.isArray(p.productAttributes?.videoLinks) ? (p.productAttributes.videoLinks as string[]).filter((v) => /^https?:\/\//i.test(v)) : [],
         status,
         issues,

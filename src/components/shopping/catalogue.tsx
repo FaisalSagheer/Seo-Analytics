@@ -1,10 +1,30 @@
 "use client";
 
-import { ExternalLinkIcon, PlusIcon, SearchIcon } from "lucide-react";
+import {
+  ExternalLinkIcon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { addProduct, deleteProduct, getProductDetail, revertProductEdits, saveProductEdits } from "@/lib/actions/merchant";
-import { AVAILABILITY, CONDITION, changedFields, checkProduct, toForm, type ProductForm } from "@/lib/merchant-products";
+import {
+  addProduct,
+  deleteProduct,
+  getProductDetail,
+  resumeProduct,
+  revertProductEdits,
+  saveProductEdits,
+} from "@/lib/actions/merchant";
+import {
+  AVAILABILITY,
+  CONDITION,
+  changedFields,
+  checkProduct,
+  toForm,
+  type ProductForm,
+} from "@/lib/merchant-products";
 import type { ProductDoc, ProductHealthStatus } from "@/lib/providers/google";
 import type { CatalogueRow } from "@/lib/shopping";
 import { STATUS_LABEL } from "@/lib/shopping-labels";
@@ -16,21 +36,66 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-const STATUS_BADGE: Record<ProductHealthStatus, "secondary" | "outline" | "destructive"> = { APPROVED: "secondary", LIMITED: "outline", PENDING: "outline", DISAPPROVED: "destructive" };
-const words = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
-const httpsOnly = (u?: string | null) => (u && /^https:\/\//i.test(u) ? u : undefined);
+const STATUS_BADGE: Record<
+  ProductHealthStatus,
+  "secondary" | "outline" | "destructive"
+> = {
+  APPROVED: "secondary",
+  LIMITED: "outline",
+  PENDING: "outline",
+  DISAPPROVED: "destructive",
+};
+const words = (s: string) =>
+  s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
+const httpsOnly = (u?: string | null) =>
+  u && /^https:\/\//i.test(u) ? u : undefined;
 
 type Filter = "all" | ProductHealthStatus;
 
+const DELETE_TEXT =
+  "Products added through the API (like those added here) are deleted. Products from a feed or file can't be deleted from here, so they're paused on Google instead; remove them from the feed to delete them for good, or resume them here.";
+const deleted = (paused: boolean) =>
+  paused
+    ? "Product paused on Google. It stays in your feed; resume it any time."
+    : "Product deleted.";
+
 /** The whole catalogue: search, filter by status, open a product to see and edit it. */
-export function Catalogue({ projectId, rows, truncated }: { projectId: string; rows: CatalogueRow[]; truncated: boolean }) {
+export function Catalogue({
+  projectId,
+  rows,
+  truncated,
+}: {
+  projectId: string;
+  rows: CatalogueRow[];
+  truncated: boolean;
+}) {
   const canEdit = useCan("merchant.manage");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -38,10 +103,29 @@ export function Catalogue({ projectId, rows, truncated }: { projectId: string; r
   const [adding, setAdding] = useState(false);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return rows.filter((r) => (filter === "all" || r.status === filter) && (!t || r.title.toLowerCase().includes(t) || r.offerId.toLowerCase().includes(t)));
+    return rows.filter(
+      (r) =>
+        (filter === "all" || r.status === filter) &&
+        (!t ||
+          r.title.toLowerCase().includes(t) ||
+          r.offerId.toLowerCase().includes(t)),
+    );
   }, [rows, q, filter]);
   const pages = usePaged(shown);
-  const count = (s: ProductHealthStatus) => rows.filter((r) => r.status === s).length;
+  const count = (s: ProductHealthStatus) =>
+    rows.filter((r) => r.status === s).length;
+  const [pending, startTransition] = useTransition();
+  const act = (
+    fn: () => Promise<
+      { ok: true; data?: { paused: boolean } } | { ok: false; error: string }
+    >,
+    success: (paused: boolean) => string,
+  ) =>
+    startTransition(async () => {
+      const res = await fn();
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(success(Boolean(res.data?.paused)));
+    });
 
   return (
     <Card>
@@ -49,28 +133,54 @@ export function Catalogue({ projectId, rows, truncated }: { projectId: string; r
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <SearchIcon className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-            <Input aria-label="Search products" placeholder="Search title or ID" className="pl-8" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input
+              aria-label="Search products"
+              placeholder="Search title or ID"
+              className="pl-8"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
           </div>
           <Pick
             label="Status"
             className="sm:w-48"
             value={filter}
             options={[
-              { value: "all" as Filter, label: `All statuses (${rows.length})` },
-              ...(["APPROVED", "LIMITED", "PENDING", "DISAPPROVED"] as const).map((s) => ({ value: s as Filter, label: `${STATUS_LABEL[s]} (${count(s)})` })),
+              {
+                value: "all" as Filter,
+                label: `All statuses (${rows.length})`,
+              },
+              ...(
+                ["APPROVED", "LIMITED", "PENDING", "DISAPPROVED"] as const
+              ).map((s) => ({
+                value: s as Filter,
+                label: `${STATUS_LABEL[s]} (${count(s)})`,
+              })),
             ]}
             onChange={setFilter}
           />
           {canEdit && (
-            <Button variant="outline" className="sm:ml-auto" onClick={() => setAdding(true)}>
+            <Button
+              variant="outline"
+              className="sm:ml-auto"
+              onClick={() => setAdding(true)}
+            >
               <PlusIcon data-icon="inline-start" />
               Add product
             </Button>
           )}
         </div>
-        {truncated && <p className="text-muted-foreground text-xs">Showing the first {rows.length.toLocaleString()} products.</p>}
+        {truncated && (
+          <p className="text-muted-foreground text-xs">
+            Showing the first {rows.length.toLocaleString()} products.
+          </p>
+        )}
         {shown.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{rows.length ? "No products match." : "No products in this account yet."}</p>
+          <p className="text-muted-foreground text-sm">
+            {rows.length
+              ? "No products match."
+              : "No products in this account yet."}
+          </p>
         ) : (
           <>
             <Table>
@@ -80,79 +190,255 @@ export function Catalogue({ projectId, rows, truncated }: { projectId: string; r
                   <TableHead>Availability</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Issues</TableHead>
+                  {canEdit && <TableHead className="w-28" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pages.shown.map((r) => (
                   <TableRow key={r.name}>
                     <TableCell className="max-w-md">
-                      <button type="button" className="flex items-center gap-3 text-left" onClick={() => setOpen(r.name)}>
-                        {/* eslint-disable-next-line @next/next/no-img-element -- product images are on the store's own hosts */}
-                        {r.imageLink ? <img src={r.imageLink} alt="" className="size-9 shrink-0 rounded object-cover" loading="lazy" /> : <span className="bg-muted size-9 shrink-0 rounded" />}
+                      <button
+                        type="button"
+                        className="flex items-center gap-3 text-left"
+                        onClick={() => setOpen(r.name)}
+                      >
+                        {r.imageLink ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- product images are on the store's own hosts
+                          <img
+                            src={r.imageLink}
+                            alt=""
+                            className="size-9 shrink-0 rounded object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="bg-muted size-9 shrink-0 rounded" />
+                        )}
                         <span className="min-w-0">
-                          <span className="block truncate font-medium hover:underline">{r.title}</span>
-                          <span className="text-muted-foreground block text-xs">{r.offerId}</span>
+                          <span className="block truncate font-medium hover:underline">
+                            {r.title}
+                          </span>
+                          <span className="text-muted-foreground block text-xs">
+                            {r.offerId}
+                          </span>
                         </span>
                       </button>
                     </TableCell>
-                    <TableCell>{r.availability ? words(r.availability) : "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={STATUS_BADGE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
+                      {r.availability ? words(r.availability) : "—"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{r.issues}</TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_BADGE[r.status]}>
+                        {STATUS_LABEL[r.status]}
+                      </Badge>
+                      {r.paused && (
+                        <Badge variant="outline" className="ml-1">
+                          Paused
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.issues}
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell className="text-right whitespace-nowrap">
+                        {r.paused && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={pending}
+                            onClick={() =>
+                              act(
+                                () => resumeProduct(projectId, r.name),
+                                () =>
+                                  "Product resumed. Google may take a few minutes to show it.",
+                              )
+                            }
+                          >
+                            Resume
+                          </Button>
+                        )}
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Edit ${r.title}`}
+                          onClick={() => setOpen(r.name)}
+                        >
+                          <PencilIcon />
+                        </Button>
+                        {!r.paused && (
+                          <ConfirmDelete
+                            triggerRender={
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`Delete ${r.title}`}
+                                disabled={pending}
+                              />
+                            }
+                            title={`Delete "${r.title}"?`}
+                            description={DELETE_TEXT}
+                            details={[
+                              { label: "Product ID", value: r.offerId },
+                              {
+                                label: "Status",
+                                value: STATUS_LABEL[r.status],
+                              },
+                            ]}
+                            onConfirm={() =>
+                              act(
+                                () => deleteProduct(projectId, r.name),
+                                deleted,
+                              )
+                            }
+                          >
+                            <Trash2Icon />
+                          </ConfirmDelete>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            <TablePager page={pages.page} total={shown.length} onPage={pages.setPage} />
+            <TablePager
+              page={pages.page}
+              total={shown.length}
+              onPage={pages.setPage}
+            />
           </>
         )}
       </CardContent>
 
       <Sheet open={open != null} onOpenChange={(o) => !o && setOpen(null)}>
-        <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-xl">{open && <ProductPanel key={open} projectId={projectId} name={open} onGone={() => setOpen(null)} />}</SheetContent>
+        <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-xl">
+          {open && (
+            <ProductPanel
+              key={open}
+              projectId={projectId}
+              name={open}
+              onGone={() => setOpen(null)}
+            />
+          )}
+        </SheetContent>
       </Sheet>
-      {adding && <AddProductDialog projectId={projectId} onClose={() => setAdding(false)} />}
+      {adding && (
+        <AddProductDialog
+          projectId={projectId}
+          onClose={() => setAdding(false)}
+        />
+      )}
     </Card>
   );
 }
 
-function ProductFields({ value, onChange }: { value: ProductForm; onChange: (f: ProductForm) => void }) {
+function ProductFields({
+  value,
+  onChange,
+}: {
+  value: ProductForm;
+  onChange: (f: ProductForm) => void;
+}) {
   const set = (p: Partial<ProductForm>) => onChange({ ...value, ...p });
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <F label="Title" className="sm:col-span-2">
-        <Input aria-label="Title" value={value.title} onChange={(e) => set({ title: e.target.value })} />
+        <Input
+          aria-label="Title"
+          value={value.title}
+          onChange={(e) => set({ title: e.target.value })}
+        />
       </F>
       <F label="Description" className="sm:col-span-2">
-        <Textarea aria-label="Description" rows={4} value={value.description} onChange={(e) => set({ description: e.target.value })} />
+        <Textarea
+          aria-label="Description"
+          rows={4}
+          value={value.description}
+          onChange={(e) => set({ description: e.target.value })}
+        />
       </F>
       <F label="Product page link" className="sm:col-span-2">
-        <Input aria-label="Product link" placeholder="https://…" value={value.link} onChange={(e) => set({ link: e.target.value })} />
+        <Input
+          aria-label="Product link"
+          placeholder="https://…"
+          value={value.link}
+          onChange={(e) => set({ link: e.target.value })}
+        />
       </F>
       <F label="Image link" className="sm:col-span-2">
-        <Input aria-label="Image link" placeholder="https://…" value={value.imageLink} onChange={(e) => set({ imageLink: e.target.value })} />
+        <Input
+          aria-label="Image link"
+          placeholder="https://…"
+          value={value.imageLink}
+          onChange={(e) => set({ imageLink: e.target.value })}
+        />
       </F>
       <F label="Price">
-        <Input aria-label="Price" inputMode="decimal" value={value.price} onChange={(e) => set({ price: e.target.value.replace(/[^\d.]/g, "") })} />
+        <Input
+          aria-label="Price"
+          inputMode="decimal"
+          value={value.price}
+          onChange={(e) =>
+            set({ price: e.target.value.replace(/[^\d.]/g, "") })
+          }
+        />
       </F>
       <F label="Sale price (optional)">
-        <Input aria-label="Sale price" inputMode="decimal" value={value.salePrice} onChange={(e) => set({ salePrice: e.target.value.replace(/[^\d.]/g, "") })} />
+        <Input
+          aria-label="Sale price"
+          inputMode="decimal"
+          value={value.salePrice}
+          onChange={(e) =>
+            set({ salePrice: e.target.value.replace(/[^\d.]/g, "") })
+          }
+        />
       </F>
       <F label="Currency (3 letters)">
-        <Input aria-label="Currency" maxLength={3} value={value.currency} onChange={(e) => set({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, "") })} />
+        <Input
+          aria-label="Currency"
+          maxLength={3}
+          value={value.currency}
+          onChange={(e) =>
+            set({
+              currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, ""),
+            })
+          }
+        />
       </F>
       <F label="Availability">
-        <Pick label="Availability" value={value.availability} options={AVAILABILITY.map((a) => ({ value: a as string, label: words(a) }))} onChange={(availability) => set({ availability })} />
+        <Pick
+          label="Availability"
+          value={value.availability}
+          options={AVAILABILITY.map((a) => ({
+            value: a as string,
+            label: words(a),
+          }))}
+          onChange={(availability) => set({ availability })}
+        />
       </F>
       <F label="Condition">
-        <Pick label="Condition" value={value.condition} options={CONDITION.map((c) => ({ value: c as string, label: words(c) }))} onChange={(condition) => set({ condition })} />
+        <Pick
+          label="Condition"
+          value={value.condition}
+          options={CONDITION.map((c) => ({
+            value: c as string,
+            label: words(c),
+          }))}
+          onChange={(condition) => set({ condition })}
+        />
       </F>
       <F label="Brand">
-        <Input aria-label="Brand" value={value.brand} onChange={(e) => set({ brand: e.target.value })} />
+        <Input
+          aria-label="Brand"
+          value={value.brand}
+          onChange={(e) => set({ brand: e.target.value })}
+        />
       </F>
       <F label="GTINs, comma separated" className="sm:col-span-2">
-        <Input aria-label="GTINs" value={value.gtins} onChange={(e) => set({ gtins: e.target.value })} />
+        <Input
+          aria-label="GTINs"
+          value={value.gtins}
+          onChange={(e) => set({ gtins: e.target.value })}
+        />
       </F>
     </div>
   );
@@ -176,7 +462,15 @@ function Problems({ list }: { list: string[] }) {
 type Detail = ProductDoc & { ours: boolean };
 
 /** One product: its status per destination, its issues, and (with the permission) an editor. */
-function ProductPanel({ projectId, name, onGone }: { projectId: string; name: string; onGone: () => void }) {
+function ProductPanel({
+  projectId,
+  name,
+  onGone,
+}: {
+  projectId: string;
+  name: string;
+  onGone: () => void;
+}) {
   const canEdit = useCan("merchant.manage");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +495,11 @@ function ProductPanel({ projectId, name, onGone }: { projectId: string; name: st
   const attrs = detail?.productAttributes ?? {};
   const title = (attrs.title as string) || detail?.offerId || "Product";
 
-  function write(fn: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string, reload = true) {
+  function write(
+    fn: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    success: string,
+    reload = true,
+  ) {
     startTransition(async () => {
       const res = await fn();
       if (!res.ok) return void toast.error(res.error);
@@ -214,7 +512,11 @@ function ProductPanel({ projectId, name, onGone }: { projectId: string; name: st
     <>
       <SheetHeader>
         <SheetTitle>{title}</SheetTitle>
-        <SheetDescription>{detail ? `${detail.offerId} · ${detail.contentLanguage}/${detail.feedLabel}` : "Loading…"}</SheetDescription>
+        <SheetDescription>
+          {detail
+            ? `${detail.offerId} · ${detail.contentLanguage}/${detail.feedLabel}`
+            : "Loading…"}
+        </SheetDescription>
       </SheetHeader>
       <div className="flex flex-col gap-5 px-4 pb-6">
         {error && <p className="text-destructive text-sm">{error}</p>}
@@ -223,13 +525,35 @@ function ProductPanel({ projectId, name, onGone }: { projectId: string; name: st
           <>
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-medium">Where it shows</h3>
-              {(detail.productStatus?.destinationStatuses ?? []).length === 0 && <p className="text-muted-foreground text-sm">No destinations reported yet.</p>}
+              {(detail.productStatus?.destinationStatuses ?? []).length ===
+                0 && (
+                <p className="text-muted-foreground text-sm">
+                  No destinations reported yet.
+                </p>
+              )}
               {(detail.productStatus?.destinationStatuses ?? []).map((d) => (
-                <div key={d.reportingContext} className="flex flex-wrap items-center gap-1.5 text-sm">
-                  <span className="w-40 shrink-0">{words(d.reportingContext ?? "")}</span>
-                  {(d.approvedCountries ?? []).length > 0 && <Badge variant="secondary">Approved {d.approvedCountries!.join(", ")}</Badge>}
-                  {(d.pendingCountries ?? []).length > 0 && <Badge variant="outline">Pending {d.pendingCountries!.join(", ")}</Badge>}
-                  {(d.disapprovedCountries ?? []).length > 0 && <Badge variant="destructive">Disapproved {d.disapprovedCountries!.join(", ")}</Badge>}
+                <div
+                  key={d.reportingContext}
+                  className="flex flex-wrap items-center gap-1.5 text-sm"
+                >
+                  <span className="w-40 shrink-0">
+                    {words(d.reportingContext ?? "")}
+                  </span>
+                  {(d.approvedCountries ?? []).length > 0 && (
+                    <Badge variant="secondary">
+                      Approved {d.approvedCountries!.join(", ")}
+                    </Badge>
+                  )}
+                  {(d.pendingCountries ?? []).length > 0 && (
+                    <Badge variant="outline">
+                      Pending {d.pendingCountries!.join(", ")}
+                    </Badge>
+                  )}
+                  {(d.disapprovedCountries ?? []).length > 0 && (
+                    <Badge variant="destructive">
+                      Disapproved {d.disapprovedCountries!.join(", ")}
+                    </Badge>
+                  )}
                 </div>
               ))}
             </div>
@@ -241,11 +565,27 @@ function ProductPanel({ projectId, name, onGone }: { projectId: string; name: st
                 <ul className="flex flex-col gap-2 text-sm">
                   {detail.productStatus!.itemLevelIssues!.map((i, k) => (
                     <li key={k}>
-                      <span className="font-medium">{i.description ?? i.code}</span>
-                      {i.attribute && <span className="text-muted-foreground"> · {i.attribute}</span>}
-                      {i.detail && <span className="text-muted-foreground block text-xs">{i.detail}</span>}
+                      <span className="font-medium">
+                        {i.description ?? i.code}
+                      </span>
+                      {i.attribute && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {i.attribute}
+                        </span>
+                      )}
+                      {i.detail && (
+                        <span className="text-muted-foreground block text-xs">
+                          {i.detail}
+                        </span>
+                      )}
                       {httpsOnly(i.documentation) && (
-                        <a href={httpsOnly(i.documentation)} target="_blank" rel="noreferrer" className="flex w-fit items-center gap-1 text-xs underline underline-offset-2">
+                        <a
+                          href={httpsOnly(i.documentation)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex w-fit items-center gap-1 text-xs underline underline-offset-2"
+                        >
                           How to fix <ExternalLinkIcon className="size-3" />
                         </a>
                       )}
@@ -257,55 +597,90 @@ function ProductPanel({ projectId, name, onGone }: { projectId: string; name: st
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-medium">Details</h3>
               {canEdit && !detail.ours && (
-                <p className="text-muted-foreground text-xs">This product comes from a feed. Changes saved here override the feed&apos;s values for the fields you change, until you revert them. They can take a few minutes to show.</p>
+                <p className="text-muted-foreground text-xs">
+                  This product comes from a feed. Changes saved here override
+                  the feed&apos;s values for the fields you change, until you
+                  revert them. They can take a few minutes to show.
+                </p>
               )}
-              <fieldset disabled={!canEdit || pending} className="flex flex-col gap-3">
+              <fieldset
+                disabled={!canEdit || pending}
+                className="flex flex-col gap-3"
+              >
                 <ProductFields value={form} onChange={setForm} />
               </fieldset>
               {canEdit && (
                 <>
                   <Problems list={problems} />
                   <div className="flex flex-wrap gap-2">
-                    <Button disabled={pending || !dirty || problems.length > 0} onClick={() => write(() => saveProductEdits(projectId, name, before, form), "Product saved. Google may take a few minutes to update it.")}>
+                    <Button
+                      disabled={pending || !dirty || problems.length > 0}
+                      onClick={() =>
+                        write(
+                          () => saveProductEdits(projectId, name, before, form),
+                          "Product saved. Google may take a few minutes to update it.",
+                        )
+                      }
+                    >
                       {pending && <Spinner data-icon="inline-start" />}
                       Save changes
                     </Button>
-                    <Button variant="ghost" disabled={pending || !dirty} onClick={() => setForm(before)}>
+                    <Button
+                      variant="ghost"
+                      disabled={pending || !dirty}
+                      onClick={() => setForm(before)}
+                    >
                       Discard
                     </Button>
                     {!detail.ours && (
                       <ConfirmDelete
-                        triggerRender={<Button variant="outline" disabled={pending} />}
+                        triggerRender={
+                          <Button variant="outline" disabled={pending} />
+                        }
                         title="Revert edits made in Seo Engine?"
                         description="Every value changed here is removed, and the product shows its feed's values again."
                         details={[{ label: "Product", value: detail.offerId }]}
                         confirmLabel="Revert"
-                        onConfirm={() => write(() => revertProductEdits(projectId, name), "Edits reverted. Google may take a few minutes to update it.")}
+                        onConfirm={() =>
+                          write(
+                            () => revertProductEdits(projectId, name),
+                            "Edits reverted. Google may take a few minutes to update it.",
+                          )
+                        }
                       >
                         Revert my edits
                       </ConfirmDelete>
                     )}
-                    {detail.ours && (
+                    {
                       <ConfirmDelete
-                        triggerRender={<Button variant="outline" disabled={pending} />}
+                        triggerRender={
+                          <Button variant="outline" disabled={pending} />
+                        }
                         title={`Delete "${title}"?`}
-                        description="It's removed from Merchant Center and stops showing on Google."
+                        description={
+                          detail.ours
+                            ? "It's removed from Merchant Center and stops showing on Google."
+                            : DELETE_TEXT
+                        }
                         details={[
                           { label: "Product ID", value: detail.offerId },
-                          { label: "Language / label", value: `${detail.contentLanguage}/${detail.feedLabel}` },
+                          {
+                            label: "Language / label",
+                            value: `${detail.contentLanguage}/${detail.feedLabel}`,
+                          },
                         ]}
                         onConfirm={() =>
                           startTransition(async () => {
                             const res = await deleteProduct(projectId, name);
                             if (!res.ok) return void toast.error(res.error);
-                            toast.success("Product deleted.");
+                            toast.success(deleted(res.data.paused));
                             onGone();
                           })
                         }
                       >
                         Delete product
                       </ConfirmDelete>
-                    )}
+                    }
                   </div>
                 </>
               )}
@@ -317,11 +692,21 @@ function ProductPanel({ projectId, name, onGone }: { projectId: string; name: st
   );
 }
 
-function AddProductDialog({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AddProductDialog({
+  projectId,
+  onClose,
+}: {
+  projectId: string;
+  onClose: () => void;
+}) {
   const [offerId, setOfferId] = useState("");
   const [lang, setLang] = useState("en");
   const [label, setLabel] = useState("");
-  const [form, setForm] = useState<ProductForm>({ ...toForm(undefined), availability: "IN_STOCK", condition: "NEW" });
+  const [form, setForm] = useState<ProductForm>({
+    ...toForm(undefined),
+    availability: "IN_STOCK",
+    condition: "NEW",
+  });
   const [pending, startTransition] = useTransition();
   const [tried, setTried] = useState(false);
   const problems = checkProduct(form, { isNew: true });
@@ -330,7 +715,12 @@ function AddProductDialog({ projectId, onClose }: { projectId: string; onClose: 
     setTried(true);
     if (problems.length) return;
     startTransition(async () => {
-      const res = await addProduct(projectId, { offerId, contentLanguage: lang, feedLabel: label, form });
+      const res = await addProduct(projectId, {
+        offerId,
+        contentLanguage: lang,
+        feedLabel: label,
+        form,
+      });
       if (!res.ok) return void toast.error(res.error);
       toast.success("Product added. Google reviews it before it shows.");
       onClose();
@@ -342,18 +732,42 @@ function AddProductDialog({ projectId, onClose }: { projectId: string; onClose: 
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add product</DialogTitle>
-          <DialogDescription>Added to the &quot;Seo Engine products&quot; data source in Merchant Center. Google reviews it before it shows.</DialogDescription>
+          <DialogDescription>
+            Added to the &quot;Seo Engine products&quot; data source in Merchant
+            Center. Google reviews it before it shows.
+          </DialogDescription>
         </DialogHeader>
         <fieldset disabled={pending} className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <F label="Product ID (your SKU)">
-              <Input aria-label="Product ID" value={offerId} onChange={(e) => setOfferId(e.target.value)} />
+              <Input
+                aria-label="Product ID"
+                value={offerId}
+                onChange={(e) => setOfferId(e.target.value)}
+              />
             </F>
             <F label="Language (2 letters)">
-              <Input aria-label="Language" maxLength={2} value={lang} onChange={(e) => setLang(e.target.value.toLowerCase().replace(/[^a-z]/g, ""))} />
+              <Input
+                aria-label="Language"
+                maxLength={2}
+                value={lang}
+                onChange={(e) =>
+                  setLang(e.target.value.toLowerCase().replace(/[^a-z]/g, ""))
+                }
+              />
             </F>
             <F label="Feed label (usually the country)">
-              <Input aria-label="Feed label" placeholder="e.g. PK" maxLength={20} value={label} onChange={(e) => setLabel(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))} />
+              <Input
+                aria-label="Feed label"
+                placeholder="e.g. PK"
+                maxLength={20}
+                value={label}
+                onChange={(e) =>
+                  setLabel(
+                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""),
+                  )
+                }
+              />
             </F>
           </div>
           <ProductFields value={form} onChange={setForm} />
@@ -363,7 +777,10 @@ function AddProductDialog({ projectId, onClose }: { projectId: string; onClose: 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={pending || !offerId.trim() || !label}>
+          <Button
+            onClick={save}
+            disabled={pending || !offerId.trim() || !label}
+          >
             {pending && <Spinner data-icon="inline-start" />}
             Add product
           </Button>

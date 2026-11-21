@@ -546,16 +546,40 @@ export async function addProduct(projectId: string, np: NewProduct): Promise<Act
   }
 }
 
-/** Deletes a product the app added. Products from feeds are removed from their feed instead. */
-export async function deleteProduct(projectId: string, name: string): Promise<ActionResult> {
+/**
+ * Deletes a product. One in an API data source is deleted from it; one from a feed or file can't be
+ * deleted through the API (the feed would add it back), so it's paused on Google until resumed.
+ */
+export async function deleteProduct(projectId: string, name: string): Promise<ActionResult<{ paused: boolean }>> {
   const ctx = await writeContext(projectId);
   if ("error" in ctx) return ctx.error!;
   if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
   try {
     const p = await getProduct(ctx.token, name);
-    const mine = (await listDataSources(ctx.token, ctx.merchantId)).find((d) => d.displayName === PRODUCTS_SOURCE && d.input === "API" && d.primaryProductDataSource);
-    if (!mine || p.dataSource !== mine.name || !p.offerId || !p.contentLanguage || !p.feedLabel) return fail("Only products added in Seo Engine can be deleted here. Remove others from their feed.");
-    await deleteProductInput(ctx.token, `accounts/${ctx.merchantId}/productInputs/${inputSegment(p.contentLanguage, p.feedLabel, p.offerId)}`, mine.name!);
+    if (!p.dataSource || !p.offerId || !p.contentLanguage || !p.feedLabel) return fail("Google didn't return this product's source, so it can't be deleted here.");
+    const source = (await listDataSources(ctx.token, ctx.merchantId)).find((d) => d.name === p.dataSource);
+    if (source?.input === "API") {
+      await deleteProductInput(ctx.token, `accounts/${ctx.merchantId}/productInputs/${inputSegment(p.contentLanguage, p.feedLabel, p.offerId)}`, p.dataSource);
+      await afterWrite(projectId);
+      return ok({ paused: false });
+    }
+    const missing = await overrideAttributes(ctx.token, ctx.merchantId, name, { pause: "ALL" }, ["pause"]);
+    if (missing) return fail(missing);
+    await afterWrite(projectId);
+    return ok({ paused: true });
+  } catch (err) {
+    return explain(err, ctx.project);
+  }
+}
+
+/** Shows a paused product on Google again (falls back to the feed's pause setting). */
+export async function resumeProduct(projectId: string, name: string): Promise<ActionResult> {
+  const ctx = await writeContext(projectId);
+  if ("error" in ctx) return ctx.error!;
+  if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
+  try {
+    const missing = await overrideAttributes(ctx.token, ctx.merchantId, name, {}, ["pause"]);
+    if (missing) return fail(missing);
     await afterWrite(projectId);
     return ok(undefined);
   } catch (err) {
