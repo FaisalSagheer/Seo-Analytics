@@ -70,7 +70,7 @@ const readable = (t?: string) =>
     : (t ?? "Requirement");
 /** "learn more about free listings", but "learn more about YouTube …" keeps its capitals. */
 const lowerFirst = (t: string) =>
-  /^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t;
+  /^[A-Z][a-z]*(\s|$)/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t;
 
 const BADGE: Record<string, { label: string; className: string }> = {
   ENABLED: {
