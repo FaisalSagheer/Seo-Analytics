@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -10,10 +10,9 @@ import {
   saveBusinessInfo,
   saveHomepage,
   setHomepageClaim,
-  toggleProgram,
   type BusinessInfoInput,
 } from "@/lib/actions/merchant";
-import type { AccessRight, BusinessInfoDoc, HomepageDoc, ProgramDoc, UserDoc } from "@/lib/providers/google";
+import type { AccessRight, BusinessInfoDoc, HomepageDoc, UserDoc } from "@/lib/providers/google";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { useCan } from "@/components/permissions-provider";
 import { F } from "@/components/shopping/fields";
@@ -217,89 +216,6 @@ export function HomepageCard({ projectId, homepage }: { projectId: string; homep
               </Alert>
             )}
           </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---- programs
-
-const PROGRAM_LABEL: Record<string, string> = {
-  "free-listings": "Free listings",
-  "shopping-ads": "Shopping ads",
-  "free-local-listings": "Free local listings",
-  "local-inventory-ads": "Local inventory ads",
-  "youtube-shopping-checkout": "YouTube Shopping checkout",
-  checkout: "Checkout on Google",
-};
-const programLabel = (p: ProgramDoc) => {
-  const id = p.name?.split("/").pop() ?? "";
-  return PROGRAM_LABEL[id] ?? id.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
-};
-const STATE: Record<string, { label: string; variant: "secondary" | "outline" | "destructive" }> = {
-  ENABLED: { label: "On", variant: "secondary" },
-  ELIGIBLE: { label: "Off · eligible", variant: "outline" },
-  NOT_ELIGIBLE: { label: "Not eligible", variant: "destructive" },
-};
-
-export function ProgramsCard({ projectId, programs }: { projectId: string; programs: ProgramDoc[] }) {
-  const canEdit = useCan("merchant.manage");
-  const [pending, run] = useWrite();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Programs</CardTitle>
-        <CardDescription>Where the products can show on Google, and what each program still needs.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {programs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No programs reported for this account.</p>
-        ) : (
-          <ul className="divide-y">
-            {programs.map((p) => {
-              const st = STATE[p.state ?? ""] ?? { label: "Unknown", variant: "outline" as const };
-              return (
-                <li key={p.name} className="flex flex-wrap items-start justify-between gap-3 py-3">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{programLabel(p)}</span>
-                      <Badge variant={st.variant}>{st.label}</Badge>
-                      {httpsOnly(p.documentationUri) && (
-                        <a href={httpsOnly(p.documentationUri)} target="_blank" rel="noreferrer" aria-label={`About ${programLabel(p)}`} className="text-muted-foreground hover:text-foreground">
-                          <ExternalLinkIcon className="size-3.5" />
-                        </a>
-                      )}
-                    </div>
-                    {(p.activeRegionCodes ?? []).length > 0 && <span className="text-muted-foreground text-xs">Active in {p.activeRegionCodes!.join(", ")}</span>}
-                    {(p.unmetRequirements ?? []).map((r, i) => (
-                      <span key={i} className="text-muted-foreground text-xs">
-                        Needs: {httpsOnly(r.documentationUri) ? <a href={httpsOnly(r.documentationUri)} target="_blank" rel="noreferrer" className="underline underline-offset-2">{r.title}</a> : r.title}
-                        {(r.affectedRegionCodes ?? []).length > 0 && ` (${r.affectedRegionCodes!.join(", ")})`}
-                      </span>
-                    ))}
-                  </div>
-                  {canEdit && p.state === "ELIGIBLE" && (
-                    <Button size="sm" disabled={pending} onClick={() => run(() => toggleProgram(projectId, p.name!, true), `${programLabel(p)} turned on.`)}>
-                      Turn on
-                    </Button>
-                  )}
-                  {canEdit && p.state === "ENABLED" && (
-                    <ConfirmDelete
-                      triggerRender={<Button size="sm" variant="outline" disabled={pending} />}
-                      title={`Turn off ${programLabel(p)}?`}
-                      description="Products stop showing on Google through this program until it's turned on again."
-                      details={[{ label: "Program", value: programLabel(p) }]}
-                      confirmLabel="Turn off"
-                      onConfirm={() => run(() => toggleProgram(projectId, p.name!, false), `${programLabel(p)} turned off.`)}
-                    >
-                      Turn off
-                    </ConfirmDelete>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
         )}
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { ProgramsCard } from "@/components/shopping/account-settings";
+import { MarketingMethods } from "@/components/shopping/marketing-methods";
 import { NoMerchant, ProblemAlert } from "@/components/shopping/merchant-states";
 import { requireProject } from "@/lib/session";
 import { loadPrograms } from "@/lib/shopping";
@@ -24,7 +24,7 @@ export default async function MarketingMethodsPage({ params }: PageProps<"/proje
     <>
       {header}
       {problem && <ProblemAlert problem={problem} projectId={project.id} />}
-      {data && <ProgramsCard projectId={project.id} programs={data} />}
+      {data && <MarketingMethods projectId={project.id} programs={data} />}
     </>
   );
 }
