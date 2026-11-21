@@ -9,7 +9,6 @@ import {
   ChartColumnIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ExternalLinkIcon,
   MegaphoneIcon,
   StoreIcon,
   ChartLineIcon,
@@ -18,8 +17,6 @@ import {
   FolderIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
-  Link2Icon,
-  LinkIcon,
   LogOutIcon,
   PlusIcon,
   ScanSearchIcon,
@@ -27,7 +24,6 @@ import {
   SparklesIcon,
   Settings2Icon,
   SettingsIcon,
-  TrendingUpIcon,
   UsersIcon,
 } from "lucide-react";
 import { signOut as authSignOut } from "next-auth/react";
@@ -64,30 +60,6 @@ import {
 } from "@/components/ui/sidebar";
 
 type ProjectLink = { id: string; name: string; domain: string; isDemo: boolean };
-
-type NavItem = { segment: string; label: string; icon: typeof ChartLineIcon; permission?: Permission };
-
-// Grouped like the Account section; a group with nothing the viewer may open isn't shown
-const PROJECT_NAV: { label: string | null; items: NavItem[] }[] = [
-  { label: null, items: [{ segment: "", label: "Overview", icon: LayoutDashboardIcon }] },
-  {
-    label: "Search & traffic",
-    items: [
-      { segment: "performance", label: "Performance", icon: ChartLineIcon },
-      { segment: "rankings", label: "Rankings", icon: TrendingUpIcon },
-      { segment: "audit", label: "Site audit", icon: ScanSearchIcon },
-      { segment: "reports", label: "Reports", icon: ChartColumnIcon },
-    ],
-  },
-  {
-    label: "Links",
-    items: [
-      { segment: "referrals", label: "Referrals", icon: Link2Icon },
-      { segment: "backlinks", label: "Backlinks", icon: LinkIcon },
-    ],
-  },
-  { label: "Project", items: [{ segment: "settings", label: "Project settings", icon: Settings2Icon, permission: "projects.edit" }] },
-];
 
 export function AppSidebar({
   projects,
@@ -161,32 +133,10 @@ export function AppSidebar({
 
       <SidebarContent>
         {current ? (
-          PROJECT_NAV.flatMap((group) => {
-            const items = group.items.filter((item) => allowed(item.permission));
-            // Merchant Center sits just above Project, even for viewers who can't open Project settings
-            const merchant = group.label === "Project" ? [<MerchantNav key="merchant" base={`/projects/${current.id}/shopping`} pathname={pathname} />] : [];
-            if (!items.length) return merchant;
-            return [
-              ...merchant,
-              <SidebarGroup key={group.label ?? "top"}>
-                <SidebarGroupLabel data-tour={group.label === "Search & traffic" ? "search" : undefined}>{group.label ?? current.domain}</SidebarGroupLabel>
-                <SidebarMenu>
-                  {items.map((item) => {
-                    const href = `/projects/${current.id}${item.segment ? `/${item.segment}` : ""}`;
-                    const active = item.segment ? pathname.startsWith(href) : pathname === href;
-                    return (
-                      <SidebarMenuItem key={item.label}>
-                        <SidebarMenuButton isActive={active} tooltip={item.label} render={<Link href={href} />}>
-                          <item.icon />
-                          <span>{item.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroup>,
-            ];
-          })
+          <>
+            <GroupedNav title={current.domain} base={`/projects/${current.id}`} items={PROJECT_NAV} pathname={pathname} allowed={allowed} />
+            <GroupedNav title="Merchant Center" titleTourId="merchant" base={`/projects/${current.id}/shopping`} items={MERCHANT_NAV} pathname={pathname} allowed={allowed} />
+          </>
         ) : (
           <SidebarGroup>
             <SidebarMenu>
@@ -279,10 +229,53 @@ export function AppSidebar({
   );
 }
 
-// Shopping, laid out like Merchant Center's own menu
-const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { segment: string; label: string; external?: boolean }[]; segment?: string }[] = [
+type NavLeaf = { segment: string; label: string; permission?: Permission };
+type NavEntry = {
+  label: string;
+  icon: typeof ChartLineIcon;
+  /** A tour step can point at this entry */
+  tourId?: string;
+  /** A line under this entry, as Merchant Center draws one under Notifications */
+  divider?: boolean;
+  /** A single page... */
+  segment?: string;
+  permission?: Permission;
+  /** ...or a group of pages; its heading opens the first one and the arrow folds it */
+  children?: NavLeaf[];
+};
+
+// Each product area is split into groups, like Merchant Center's own menu. Pages that do the same kind of
+// job sit in one group: traffic reports (Performance, Reports, Referrals) together, the SEO tools
+// (Rankings, Site audit, Backlinks) together.
+const PROJECT_NAV: NavEntry[] = [
+  { label: "Overview", icon: LayoutDashboardIcon, segment: "" },
+  {
+    label: "Analytics",
+    icon: ChartLineIcon,
+    tourId: "search",
+    children: [
+      { segment: "performance", label: "Performance" },
+      { segment: "reports", label: "Reports" },
+      { segment: "referrals", label: "Referrals" },
+    ],
+  },
+  {
+    label: "SEO tools",
+    icon: ScanSearchIcon,
+    children: [
+      { segment: "rankings", label: "Rankings" },
+      { segment: "audit", label: "Site audit" },
+      { segment: "backlinks", label: "Backlinks" },
+    ],
+  },
+  { label: "Project settings", icon: Settings2Icon, segment: "settings", permission: "projects.edit" },
+];
+
+// Shopping, laid out like Merchant Center's menu. Summary, Online store and Physical stores are one page
+// now: the overview, with a Store filter.
+const MERCHANT_NAV: NavEntry[] = [
   { label: "Overview", icon: ShoppingBagIcon, segment: "" },
-  { label: "Notifications", icon: BellIcon, segment: "notifications" },
+  { label: "Notifications", icon: BellIcon, segment: "notifications", divider: true },
   {
     label: "Products & store",
     icon: ArchiveIcon,
@@ -304,7 +297,6 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
   {
     label: "Marketing",
     icon: MegaphoneIcon,
-    // Merchant Center's order; the heading opens Promotions (a page here) rather than an external link
     children: [
       { segment: "promotions", label: "Promotions" },
       { segment: "ad-campaigns", label: "Ad campaigns" },
@@ -316,12 +308,9 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
     label: "Analytics",
     icon: ChartColumnIcon,
     children: [
-      { segment: "summary", label: "Summary" },
-      { segment: "product-performance", label: "Products" },
+      { segment: "product-performance", label: "Product performance" },
       { segment: "pricing", label: "Pricing" },
       { segment: "best-sellers", label: "Best sellers" },
-      { segment: "online-store", label: "Online store" },
-      { segment: "physical-stores", label: "Physical stores" },
     ],
   },
   {
@@ -338,26 +327,42 @@ const MERCHANT_NAV: { label: string; icon: typeof ChartLineIcon; children?: { se
   },
 ];
 
-function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
+/** A sidebar section: single pages and folding groups of pages under one heading. */
+function GroupedNav({
+  title,
+  titleTourId,
+  base,
+  items,
+  pathname,
+  allowed,
+}: {
+  title: string;
+  titleTourId?: string;
+  base: string;
+  items: NavEntry[];
+  pathname: string;
+  allowed: (permission?: Permission) => boolean;
+}) {
   const [closed, setClosed] = useState<string[]>([]);
   const hrefOf = (segment: string) => (segment ? `${base}/${segment}` : base);
   const isActive = (segment: string) => (segment ? pathname.startsWith(hrefOf(segment)) : pathname === base);
+  const shown = items.filter((i) => allowed(i.permission));
+  if (!shown.length) return null;
   return (
     <SidebarGroup>
-      <SidebarGroupLabel data-tour="merchant">Merchant Center</SidebarGroupLabel>
+      <SidebarGroupLabel data-tour={titleTourId}>{title}</SidebarGroupLabel>
       <SidebarMenu>
-        {MERCHANT_NAV.map((item) => {
+        {shown.map((item) => {
           if (!item.children) {
             return (
               <Fragment key={item.label}>
-                <SidebarMenuItem>
+                <SidebarMenuItem data-tour={item.tourId}>
                   <SidebarMenuButton isActive={isActive(item.segment!)} tooltip={item.label} render={<Link href={hrefOf(item.segment!)} />}>
                     <item.icon />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {/* A line under Notifications, as in Merchant Center */}
-                {item.segment === "notifications" && (
+                {item.divider && (
                   <li role="none">
                     <SidebarSeparator className="mx-0 my-1" />
                   </li>
@@ -365,11 +370,13 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
               </Fragment>
             );
           }
+          const children = item.children.filter((c) => allowed(c.permission));
+          if (!children.length) return null;
           const open = !closed.includes(item.label);
           return (
-            <SidebarMenuItem key={item.label}>
+            <SidebarMenuItem key={item.label} data-tour={item.tourId}>
               {/* The heading opens its first page (also when the sidebar is collapsed to icons); the arrow folds it */}
-              <SidebarMenuButton tooltip={item.label} render={<Link href={hrefOf(item.children[0].segment)} {...(item.children[0].external ? { target: "_blank", rel: "noreferrer" } : {})} />}>
+              <SidebarMenuButton tooltip={item.label} render={<Link href={hrefOf(children[0].segment)} />}>
                 <item.icon />
                 <span>{item.label}</span>
               </SidebarMenuButton>
@@ -382,12 +389,10 @@ function MerchantNav({ base, pathname }: { base: string; pathname: string }) {
               </SidebarMenuAction>
               {open && (
                 <SidebarMenuSub>
-                  {item.children.map((c) => (
+                  {children.map((c) => (
                     <SidebarMenuSubItem key={c.segment}>
-                      {/* External ones open Merchant Center in a new tab */}
-                      <SidebarMenuSubButton isActive={isActive(c.segment)} render={<Link href={hrefOf(c.segment)} {...(c.external ? { target: "_blank", rel: "noreferrer" } : {})} />}>
+                      <SidebarMenuSubButton isActive={isActive(c.segment)} render={<Link href={hrefOf(c.segment)} />}>
                         <span>{c.label}</span>
-                        {c.external && <ExternalLinkIcon className="ml-auto" />}
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   ))}

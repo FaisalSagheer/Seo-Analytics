@@ -31,22 +31,18 @@ const METHOD_LABEL: Record<MarketingMethod, string> = {
 const pct = (cur: number, before: number | undefined) =>
   before ? ((cur - before) / before) * 100 : undefined;
 
-type View = "summary" | "products" | "online" | "local" | "ads";
+type View = "products" | "ads";
 const TITLE: Record<View, string> = {
-  summary: "Summary",
   products: "Product performance",
-  online: "Online store",
-  local: "Physical stores",
   ads: "Ad campaigns",
 };
-const STORE: Partial<Record<View, StoreType>> = {
-  online: "ONLINE_STORE",
-  local: "LOCAL_STORES",
-};
+
+/** The Store filter's value in the URL, and the Google store type it means (none = both). */
+const STORE_PARAM: Record<string, StoreType> = { online: "ONLINE_STORE", local: "LOCAL_STORES" };
 
 /**
- * Shopping performance for Analytics: Summary (totals and daily clicks), Products (per product), and
- * Online store / Physical stores (both, for one store type).
+ * Shopping performance for Analytics: Product performance (per product, for all stores or the online or
+ * physical ones) and Ad campaigns (Shopping ads only).
  */
 export async function ShoppingAnalytics({
   projectId,
@@ -62,6 +58,7 @@ export async function ShoppingAnalytics({
 }) {
   const { project } = await requireProject(projectId);
   const range = resolveRange(sp, 28);
+  const storeValue = typeof sp.store === "string" && sp.store in STORE_PARAM ? sp.store : "all";
   // Ad campaigns always shows Shopping ads only
   const method: MethodFilter =
     view === "ads"
@@ -88,6 +85,18 @@ export async function ShoppingAnalytics({
                 ]}
               />
             )}
+            {view === "products" && (
+              <SearchParamSelect
+                param="store"
+                label="Store"
+                value={storeValue}
+                items={[
+                  { value: "all", label: "All stores" },
+                  { value: "online", label: "Online store" },
+                  { value: "local", label: "Physical stores" },
+                ]}
+              />
+            )}
             <RangePicker value={range.days} />
           </>
         ) : undefined
@@ -108,7 +117,7 @@ export async function ShoppingAnalytics({
     window: range,
     previous: compareWindow({ kind: "previous" }, range),
     method,
-    store: STORE[view],
+    store: view === "products" ? STORE_PARAM[storeValue] : undefined,
   });
   const problem = perf.problem;
   const t = perf.data?.totals;
@@ -177,7 +186,7 @@ export async function ShoppingAnalytics({
               </Card>
             </>
           )}
-          {view !== "summary" && (
+          {(view === "products" || view === "ads") && (
             <Card>
               <CardHeader>
                 <CardTitle>Products</CardTitle>

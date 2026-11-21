@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
-import { ShoppingAnalytics } from "@/components/shopping/analytics-view";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Summary" };
-
+/** Merged into the Shopping overview: old links and bookmarks land there. */
 export default async function Page({ params, searchParams }: PageProps<"/projects/[projectId]/shopping/summary">) {
-  return <ShoppingAnalytics projectId={(await params).projectId} sp={await searchParams} view="summary" />;
+  const { projectId } = await params;
+  const qs = new URLSearchParams(Object.entries(await searchParams).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])));
+  
+  redirect(`/projects/${projectId}/shopping${qs.size ? `?${qs}` : ""}`);
 }

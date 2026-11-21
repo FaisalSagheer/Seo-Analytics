@@ -33,8 +33,8 @@ function buildSteps(present: (selector: string) => boolean, can: { admin: boolea
     {
       selector: '[data-tour="search"]',
       side: "right",
-      title: "Search and traffic",
-      content: "Performance shows clicks and visitors, Rankings tracks your keywords, Site audit finds problems on your pages, and Reports breaks traffic down.",
+      title: "Analytics and SEO tools",
+      content: "Analytics shows your clicks, visitors and referrals. SEO tools has Rankings for your keywords, Site audit for problems on your pages, and Backlinks.",
     },
     {
       selector: '[data-tour="merchant"]',

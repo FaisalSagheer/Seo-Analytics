@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TrendChart } from "@/components/charts/trend-chart";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
 import { SearchParamSelect } from "@/components/dashboard/search-param-select";
@@ -9,13 +10,15 @@ import { NoMerchant, ProblemAlert } from "@/components/shopping/merchant-states"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { compareWindow, resolveRange } from "@/lib/date-range";
 import { formatNumber, formatPercent } from "@/lib/format";
-import type { ProductHealthStatus } from "@/lib/providers/google";
+import type { MarketingMethod, ProductHealthStatus, StoreType } from "@/lib/providers/google";
 import { requireProject } from "@/lib/session";
 import { loadAccountIssues, loadProductHealth, loadShoppingPerformance, type MethodFilter } from "@/lib/shopping";
 import { AccountIssues } from "@/components/shopping/account-issues";
 
 export const metadata: Metadata = { title: "Shopping" };
 
+const METHOD_LABEL: Record<MarketingMethod, string> = { ORGANIC: "Free listings", ADS: "Shopping ads", AFFILIATE: "Affiliate", OTHER: "Other" };
+const STORE_PARAM: Record<string, StoreType> = { online: "ONLINE_STORE", local: "LOCAL_STORES" };
 const pct = (cur: number, before: number | undefined) => (before ? ((cur - before) / before) * 100 : undefined);
 
 export default async function ShoppingPage({ params, searchParams }: PageProps<"/projects/[projectId]/shopping">) {
@@ -24,6 +27,7 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
   const sp = await searchParams;
   const range = resolveRange(sp, 28);
   const method: MethodFilter = sp.method === "ORGANIC" || sp.method === "ADS" ? sp.method : "all";
+  const storeValue = typeof sp.store === "string" && sp.store in STORE_PARAM ? sp.store : "all";
 
   const header = (
     <PageHeader
@@ -39,6 +43,16 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
                 { value: "all", label: "All listings" },
                 { value: "ORGANIC", label: "Free listings" },
                 { value: "ADS", label: "Shopping ads" },
+              ]}
+            />
+            <SearchParamSelect
+              param="store"
+              label="Store"
+              value={storeValue}
+              items={[
+                { value: "all", label: "All stores" },
+                { value: "online", label: "Online store" },
+                { value: "local", label: "Physical stores" },
               ]}
             />
             <RangePicker value={range.days} />
@@ -58,7 +72,7 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
   }
 
   const [perf, health, issues] = await Promise.all([
-    loadShoppingPerformance(project, { window: range, previous: compareWindow({ kind: "previous" }, range), method }),
+    loadShoppingPerformance(project, { window: range, previous: compareWindow({ kind: "previous" }, range), method, store: STORE_PARAM[storeValue] }),
     loadProductHealth(project),
     loadAccountIssues(project),
   ]);
@@ -83,6 +97,20 @@ export default async function ShoppingPage({ params, searchParams }: PageProps<"
             <StatCard label="CTR" value={formatPercent(t.ctr)} />
             <StatCard label="Conversions" value={formatNumber(Math.round(t.conversions))} hint="Free listings only" />
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Clicks per day</CardTitle>
+              <CardDescription>
+                {perf.data.byMethod.length
+                  ? perf.data.byMethod.map((m) => `${METHOD_LABEL[m.method]}: ${formatNumber(m.clicks)} clicks, ${formatNumber(m.impressions)} impressions`).join(" · ")
+                  : "No Shopping clicks in this range."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TrendChart data={perf.data.series} series={[{ key: "clicks", label: "Clicks", color: "var(--chart-1)" }]} height={220} />
+            </CardContent>
+          </Card>
 
         </>
       )}

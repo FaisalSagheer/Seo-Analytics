@@ -63,8 +63,8 @@ export const PAGE_TOURS: Record<string, PageTour> = {
   },
   shopping: {
     intro: "Your Google Shopping results and product health at a glance.",
-    filters: "Pick the period, and whether to show free listings, Shopping ads or both.",
-    tip: "Product health lists approved, limited and disapproved products. Notifications in the sidebar lists everything that needs attention.",
+    filters: "Pick the period, whether to show free listings or Shopping ads, and all stores, the online store or physical stores.",
+    tip: "The chart shows clicks per day. Product health lists approved, limited and disapproved products. Notifications in the sidebar lists everything that needs attention.",
   },
   "shopping/notifications": {
     intro: "Everything in your store that needs attention, most serious first.",
@@ -111,13 +111,9 @@ export const PAGE_TOURS: Record<string, PageTour> = {
     intro: "Where your products can show on Google.",
     tip: "Switch a program on or off. A program marked Setup required needs something finished first, and says what.",
   },
-  "shopping/summary": {
-    intro: "Your Shopping totals and daily clicks.",
-    filters: "Pick the period and whether to show free listings, Shopping ads or both.",
-  },
   "shopping/product-performance": {
     intro: "Clicks, impressions and conversions for each product.",
-    filters: "Pick the period and whether to show free listings, Shopping ads or both.",
+    filters: "Pick the period, free listings or Shopping ads, and all stores, the online store or physical stores.",
   },
   "shopping/pricing": {
     intro: "Your price next to the average price other stores show for the same product.",
@@ -126,14 +122,6 @@ export const PAGE_TOURS: Record<string, PageTour> = {
   "shopping/best-sellers": {
     intro: "The most popular products on Google last week, and whether you sell them.",
     filters: "Pick the country. Google only has data for some countries.",
-  },
-  "shopping/online-store": {
-    intro: "Shopping results for your online store only.",
-    filters: "Pick the period and whether to show free listings, Shopping ads or both.",
-  },
-  "shopping/physical-stores": {
-    intro: "Shopping results for your physical stores. This stays at zero unless you use local listings.",
-    filters: "Pick the period and whether to show free listings, Shopping ads or both.",
   },
   "shopping/settings": {
     intro: "Your business name, address, customer service details and homepage.",
