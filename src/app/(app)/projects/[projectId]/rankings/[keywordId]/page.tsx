@@ -67,13 +67,14 @@ export default async function KeywordPage({ params, searchParams }: PageProps<"/
 
   return (
     <>
-      <div>
-        <Link href={`/projects/${project.id}/rankings`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+      {/* Back link and header are one block: it stays visible while a filter loads */}
+      <div className="flex flex-col gap-2">
+        <Link href={`/projects/${project.id}/rankings`} className={buttonVariants({ variant: "ghost", size: "sm", className: "self-start" })}>
           <ArrowLeftIcon data-icon="inline-start" />
           Rankings
         </Link>
+        <PageHeader title={keyword.phrase} actions={<RangePicker value={days} />} />
       </div>
-      <PageHeader title={keyword.phrase} actions={<RangePicker value={days} />} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="Current" value={formatPosition(last)} delta={rankChange(first, last)} hint={`vs ${days} days ago`} />

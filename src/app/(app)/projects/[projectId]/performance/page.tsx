@@ -6,7 +6,6 @@ import { DemoAlert } from "@/components/dashboard/demo-alert";
 import { ProjectCountrySelect } from "@/components/projects/project-country-select";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RangePicker } from "@/components/dashboard/range-picker";
-import { SearchParamSelect } from "@/components/dashboard/search-param-select";
 import { resolveCompare, resolveRange, spanDays } from "@/lib/date-range";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
@@ -73,9 +72,10 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const range = resolveRange(sp, 90);
   const { days } = range;
   const compareSpec = resolveCompare(sp, range);
-  // Hourly needs Search Console's short-lived hourly data, so only the 24 hour and 7 day presets offer it
+  // Search Console keeps hourly data only briefly, so the 24 hour range is the hourly one
   const canHourly = !range.custom && days <= MAX_HOURLY_DAYS && Boolean(project.gscSiteUrl) && !project.isDemo;
-  const hourly = canHourly && (sp.by === "hour" || (sp.by !== "day" && days === 1));
+  // Hourly is automatic: the 24 hour range shows hours, everything longer shows days
+  const hourly = canHourly && days === 1;
   // Synced data covers about 90 days; longer or older ranges are read live
   const wantDaily = !project.isDemo && Boolean(project.gscSiteUrl) && (range.custom ? range.start < daysAgo(89) : days > 90);
   const live = project.isDemo ? null : await loadLiveReport(project, { window: range, days, hourly, compare: compareSpec, wantDaily });
@@ -150,18 +150,6 @@ export default async function PerformancePage({ params, searchParams }: PageProp
                 from: compareSpec.custom ? toDateKey(compareSpec.custom.start) : undefined,
                 to: compareSpec.custom ? toDateKey(compareSpec.custom.end) : undefined,
               }}
-            />
-            <SearchParamSelect
-              param="by"
-              label="Granularity"
-              value={hourly ? "hour" : "day"}
-              items={[
-                // Google keeps hourly data for about a week: on a longer range, Hourly switches to the last 7 days
-                canHourly
-                  ? { value: "hour", label: "Hourly" }
-                  : { value: "hour", label: "Hourly (last 7 days)", disabled: !project.gscSiteUrl || project.isDemo, set: { days: "7" }, clear: ["from", "to"] },
-                { value: "day", label: "Daily" },
-              ]}
             />
             <SyncButton projectId={project.id} parts={["google"]} label="Sync Google" />
           </>

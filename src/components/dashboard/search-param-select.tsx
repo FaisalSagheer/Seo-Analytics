@@ -13,8 +13,7 @@ export function SearchParamSelect({
 }: {
   param: string;
   value: string;
-  /** `set` / `clear` change other params along with this one, e.g. Hourly also narrowing the date range */
-  items: { value: string; label: string; disabled?: boolean; set?: Record<string, string>; clear?: string[] }[];
+  items: { value: string; label: string; disabled?: boolean }[];
   label: string;
 }) {
   const router = useRouter();
@@ -29,9 +28,6 @@ export function SearchParamSelect({
       onValueChange={(next) => {
         if (!next) return;
         const sp = new URLSearchParams(params);
-        const item = items.find((i) => i.value === next);
-        for (const k of item?.clear ?? []) sp.delete(k);
-        for (const [k, v] of Object.entries(item?.set ?? {})) sp.set(k, v);
         sp.set(param, next);
         startTransition(() => router.replace(`${pathname}?${sp}`, { scroll: false }));
       }}
