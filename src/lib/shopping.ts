@@ -368,11 +368,13 @@ export async function loadPrograms(project: Project): Promise<{ data: ProgramDoc
 }
 
 /** Reviews: product reviews sent to Merchant Center (from a review aggregator or the store's own source). */
-export async function loadReviews(project: Project): Promise<{ data: ProductReviewDoc[] | null; problem?: ShoppingProblem }> {
+export async function loadReviews(project: Project): Promise<{ data: ProductReviewDoc[] | null; problem?: ShoppingProblem; unavailable?: boolean }> {
   if (!project.merchantId) return { data: null };
   try {
     return { data: await listProductReviews(await getGoogleAccessToken(project), project.merchantId) };
   } catch (err) {
+    // Google refuses the list until the store joins product ratings; that's a setup step, not an error
+    if (err instanceof Error && /PRODUCT_RATINGS|not eligible/i.test(err.message)) return { data: null, unavailable: true };
     return { data: null, problem: await merchantProblem(err, project) };
   }
 }

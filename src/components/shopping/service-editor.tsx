@@ -255,7 +255,7 @@ export function ServiceEditor({
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
         <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <ChevronDownIcon className={`size-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-          <span className="truncate font-medium">{value.serviceName || "New service"}</span>
+          <span className="truncate font-medium">{value.serviceName || "Unnamed service"}</span>
           {value.active === false && <Badge variant="outline">Inactive</Badge>}
           <span className="text-muted-foreground truncate text-sm">{summary(value)}</span>
         </button>
