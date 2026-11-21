@@ -156,7 +156,10 @@ export default async function PerformancePage({ params, searchParams }: PageProp
               label="Granularity"
               value={hourly ? "hour" : "day"}
               items={[
-                { value: "hour", label: "Hourly", disabled: !canHourly },
+                // Google keeps hourly data for about a week: on a longer range, Hourly switches to the last 7 days
+                canHourly
+                  ? { value: "hour", label: "Hourly" }
+                  : { value: "hour", label: "Hourly (last 7 days)", disabled: !project.gscSiteUrl || project.isDemo, set: { days: "7" }, clear: ["from", "to"] },
                 { value: "day", label: "Daily" },
               ]}
             />
