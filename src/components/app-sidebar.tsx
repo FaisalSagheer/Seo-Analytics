@@ -34,7 +34,7 @@ import { signOut as authSignOut } from "next-auth/react";
 import { toast } from "sonner";
 import type { Permission } from "@/lib/permissions";
 import { AppLogo } from "@/components/app-logo";
-import { useRestartTour } from "@/components/app-tour";
+import { useTours } from "@/components/app-tour";
 import { useViewerRole } from "@/components/permissions-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -102,7 +102,7 @@ export function AppSidebar({
   const current = projects.find((p) => p.id === params.projectId);
   const role = useViewerRole();
   const allowed = (permission?: Permission) => !permission || Boolean(role?.permissions.includes(permission));
-  const restartTour = useRestartTour();
+  const { restartWelcome, startPageTour, hasPageTour } = useTours();
 
   async function signOut() {
     await authSignOut({ redirect: false });
@@ -255,7 +255,13 @@ export function AppSidebar({
                   </>
                 )}
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={restartTour}>
+                  {hasPageTour && (
+                    <DropdownMenuItem onClick={startPageTour}>
+                      <CompassIcon />
+                      Tour of this page
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={restartWelcome}>
                     <CompassIcon />
                     Take the tour
                   </DropdownMenuItem>

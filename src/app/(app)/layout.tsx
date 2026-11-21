@@ -22,7 +22,7 @@ async function AppShell({ children }: { children: React.ReactNode }) {
   const projects = await listProjectsFor(role, user.id);
   return (
     <PermissionsProvider role={role}>
-    <AppTour tourSeen={user.tourSeen}>
+    <AppTour tourSeen={user.tourSeen} pageToursSeen={user.pageToursSeen}>
     <SidebarProvider>
       <AppSidebar
         projects={projects.map((p) => ({ id: p.id, name: p.name, domain: p.domain, isDemo: p.isDemo }))}

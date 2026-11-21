@@ -32,6 +32,8 @@ model User {
   sessionsValidFrom DateTime?
   /// When the user finished or skipped the first-login tour; null shows it once
   tourSeenAt        DateTime?
+  /// Comma-separated page tours (see lib/tour-pages.ts) the user has finished or skipped
+  pageToursSeen     String?   @db.Text
   passwordResets    PasswordReset[]
 
   projects            Project[]

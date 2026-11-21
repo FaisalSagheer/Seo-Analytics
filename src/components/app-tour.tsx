@@ -1,13 +1,15 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { NextStep, NextStepProvider, useNextStep, type CardComponentProps, type Step } from "nextstepjs";
-import { markTourSeen } from "@/lib/actions/tour";
+import { markPageTourSeen, markTourSeen } from "@/lib/actions/tour";
+import { PAGE_TOURS, pageKey } from "@/lib/tour-pages";
 import { useViewerRole } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 
 const TOUR = "welcome";
+const PAGE_TOUR = "page";
 
 type TourStep = Omit<Step, "showControls" | "showSkip"> & { selector?: string };
 
@@ -101,47 +103,150 @@ function TourCard({ step, currentStep, totalSteps, nextStep, prevStep, skipTour,
   );
 }
 
-/** Starts the tour once for a user who hasn't seen it, and offers a restart. */
-function TourStarter({ tourSeen, ready }: { tourSeen: boolean; ready: boolean }) {
-  const { startNextStep } = useNextStep();
-  const started = useRef(false);
+const visible = (selector: string) => {
+  const el = document.querySelector(selector);
+  // A hidden element (closed phone sidebar) has no layout box
+  return Boolean(el && (el as HTMLElement).getClientRects().length > 0);
+};
+
+/** A page's tour from its text in tour-pages.ts, keeping only the steps that have something on screen to point at. */
+function buildPageSteps(key: string): TourStep[] {
+  const tour = PAGE_TOURS[key];
+  if (!tour) return [];
+  const title = document.querySelector('[data-tour="page-header"] h1')?.textContent?.trim() || "This page";
+  const snug = { pointerPadding: 6, pointerRadius: 10 };
+  const steps: TourStep[] = [];
+  steps.push(visible('[data-tour="page-header"]') ? { selector: '[data-tour="page-header"]', side: "bottom-left", title, content: tour.intro, ...snug } : { title, content: tour.intro });
+  if (tour.filters && visible('[data-tour="page-actions"]')) {
+    steps.push({ selector: '[data-tour="page-actions"]', side: "bottom-right", title: "Filters", content: tour.filters, ...snug });
+  }
+  // No target: shown in the middle of the screen
+  if (tour.tip) steps.push({ title: "Good to know", content: tour.tip });
+  return steps;
+}
+
+type TourControls = { restartWelcome: () => void; startPageTour: () => void; hasPageTour: boolean };
+const Controls = createContext<TourControls>({ restartWelcome: () => {}, startPageTour: () => {}, hasPageTour: false });
+
+/** For the user menu: replay the welcome tour, or tour the page that's open. */
+export function useTours() {
+  return useContext(Controls);
+}
+
+/** Runs inside the NextStep provider: starts tours at the right moment and exposes the menu controls. */
+function TourController({
+  tourSeen,
+  ready,
+  seenPages,
+  welcomePath,
+  setActiveKey,
+  pageSteps,
+  setPageSteps,
+  children,
+}: {
+  tourSeen: boolean;
+  ready: boolean;
+  seenPages: string[];
+  /** The page the welcome tour was finished on, if it was finished this visit */
+  welcomePath: string | null;
+  setActiveKey: (key: string) => void;
+  pageSteps: TourStep[];
+  setPageSteps: (steps: TourStep[]) => void;
+  children: React.ReactNode;
+}) {
+  const { startNextStep, isNextStepVisible } = useNextStep();
+  const pathname = usePathname();
+  const key = pageKey(pathname);
+  const runningRef = useRef(false);
+  const wantStartRef = useRef(false);
   useEffect(() => {
-    if (tourSeen || !ready || started.current) return;
-    started.current = true;
+    runningRef.current = isNextStepVisible;
+  }, [isNextStepVisible]);
+
+  // The welcome tour: once, for a user who hasn't seen it
+  const welcomeStartedRef = useRef(false);
+  useEffect(() => {
+    if (tourSeen || !ready || welcomeStartedRef.current) return;
+    welcomeStartedRef.current = true;
     // Let the sidebar finish laying out so the first target can be measured
     const t = setTimeout(() => startNextStep(TOUR), 800);
     return () => clearTimeout(t);
   }, [tourSeen, ready, startNextStep]);
-  return null;
+
+  const beginPage = () => {
+    if (!key) return;
+    const steps = buildPageSteps(key);
+    if (!steps.length) return;
+    setActiveKey(key);
+    wantStartRef.current = true;
+    setPageSteps(steps);
+  };
+  // The steps are state, so start once they've been applied
+  useEffect(() => {
+    if (wantStartRef.current && pageSteps.length) {
+      wantStartRef.current = false;
+      startNextStep(PAGE_TOUR);
+    }
+  }, [pageSteps, startNextStep]);
+
+  // A page's tour: the first time it's opened, once it has loaded, and never over another tour.
+  // After the welcome tour it waits for the next page, so the two don't run back to back.
+  const canAuto = tourSeen || (welcomePath != null && welcomePath !== pathname);
+  const seen = key != null && seenPages.includes(key);
+  useEffect(() => {
+    if (!key || seen || !canAuto) return;
+    let tries = 0;
+    const id = setInterval(() => {
+      tries++;
+      if (document.querySelector('[data-tour="page-header"]') && !document.querySelector("[data-skeleton]")) {
+        clearInterval(id);
+        if (!runningRef.current) beginPage();
+      } else if (tries > 25) clearInterval(id);
+    }, 400);
+    return () => clearInterval(id);
+    // beginPage only reads the path; the effect re-arms on navigation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, canAuto, seen]);
+
+  return <Controls.Provider value={{ restartWelcome: () => startNextStep(TOUR), startPageTour: beginPage, hasPageTour: key != null }}>{children}</Controls.Provider>;
 }
 
-/** Wraps the signed-in shell. `tourSeen` is false until the user finishes or skips the tour once. */
-export function AppTour({ tourSeen, children }: { tourSeen: boolean; children: React.ReactNode }) {
+/** Wraps the signed-in shell. `tourSeen` is false until the user finishes or skips the welcome tour once. */
+export function AppTour({ tourSeen, pageToursSeen, children }: { tourSeen: boolean; pageToursSeen: string[]; children: React.ReactNode }) {
   const role = useViewerRole();
   const pathname = usePathname();
   const [present, setPresent] = useState<Record<string, boolean> | null>(null);
+  const [pageSteps, setPageSteps] = useState<TourStep[]>([]);
+  const [seenPages, setSeenPages] = useState(pageToursSeen);
+  const [welcomePath, setWelcomePath] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const admin = Boolean(role?.isAdmin);
   const merchantEdit = Boolean(role?.permissions.includes("merchant.manage"));
 
-  // Which targets exist on this page: measured after each navigation, so the tour matches what's on screen
+  // Which sidebar targets exist: measured after each navigation, so the welcome tour matches what's on screen
   useEffect(() => {
     const t = setTimeout(() => {
       const found: Record<string, boolean> = {};
-      for (const sel of ['[data-tour="project"]', '[data-tour="search"]', '[data-tour="merchant"]', '[data-tour="google"]', '[data-tour="team"]', '[data-tour="user"]']) {
-        const el = document.querySelector(sel);
-        // A hidden sidebar (phone) has no layout box
-        found[sel] = Boolean(el && (el as HTMLElement).getClientRects().length > 0);
-      }
+      for (const sel of ['[data-tour="project"]', '[data-tour="search"]', '[data-tour="merchant"]', '[data-tour="google"]', '[data-tour="team"]', '[data-tour="user"]']) found[sel] = visible(sel);
       setPresent(found);
     }, 400);
     return () => clearTimeout(t);
   }, [pathname]);
 
   const steps = useMemo(() => buildSteps((sel) => present?.[sel] ?? false, { admin, merchantEdit }), [present, admin, merchantEdit]);
-  const finish = () => void markTourSeen();
+  const finish = (tour: string | null) => {
+    if (tour === PAGE_TOUR) {
+      if (!activeKey) return;
+      setSeenPages((seen) => (seen.includes(activeKey) ? seen : [...seen, activeKey]));
+      void markPageTourSeen(activeKey);
+    } else {
+      setWelcomePath(pathname);
+      void markTourSeen();
+    }
+  };
   // The sidebar scrolls: bring each step's target into view so the card lands next to it
-  const reveal = (step: number) => {
-    const selector = steps[step]?.selector;
+  const reveal = (step: number, tour: string | null) => {
+    const selector = (tour === PAGE_TOUR ? pageSteps : steps)[step]?.selector;
     if (!selector) return;
     setTimeout(() => {
       document.querySelector(selector)?.scrollIntoView({ block: "center", behavior: "instant" });
@@ -152,16 +257,24 @@ export function AppTour({ tourSeen, children }: { tourSeen: boolean; children: R
 
   return (
     <NextStepProvider>
-      <NextStep steps={[{ tour: TOUR, steps }]} cardComponent={TourCard} onStepChange={reveal} onComplete={finish} onSkip={finish} shadowOpacity="0.45" cardTransition={{ duration: 0.25 }} arrowStyle={{ color: "var(--popover)" }} disableConsoleLogs>
-        <TourStarter tourSeen={tourSeen} ready={present != null} />
-        {children}
+      <NextStep
+        steps={[
+          { tour: TOUR, steps },
+          { tour: PAGE_TOUR, steps: pageSteps },
+        ]}
+        cardComponent={TourCard}
+        onStepChange={reveal}
+        onComplete={finish}
+        onSkip={(_, tour) => finish(tour)}
+        shadowOpacity="0.45"
+        cardTransition={{ duration: 0.25 }}
+        arrowStyle={{ color: "var(--popover)" }}
+        disableConsoleLogs
+      >
+        <TourController tourSeen={tourSeen} ready={present != null} seenPages={seenPages} welcomePath={welcomePath} setActiveKey={setActiveKey} pageSteps={pageSteps} setPageSteps={setPageSteps}>
+          {children}
+        </TourController>
       </NextStep>
     </NextStepProvider>
   );
-}
-
-/** For the "Take the tour" menu item. */
-export function useRestartTour() {
-  const { startNextStep } = useNextStep();
-  return () => startNextStep(TOUR);
 }
