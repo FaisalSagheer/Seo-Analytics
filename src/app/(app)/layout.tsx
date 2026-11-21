@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { listProjectsFor } from "@/lib/roles";
 import { getViewerRole, requireUser } from "@/lib/session";
 import { PermissionsProvider } from "@/components/permissions-provider";
+import { FilterPendingArea } from "@/components/dashboard/filter-pending";
 
 /**
  * The signed-in shell is per-user (session + project list). SidebarProvider and
@@ -32,7 +33,9 @@ async function AppShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">{children}</div>
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 [&_[data-filter-pending]>*:not(:first-child):not([data-skeleton])]:hidden">
+          <FilterPendingArea>{children}</FilterPendingArea>
+        </div>
       </SidebarInset>
     </SidebarProvider>
     </PermissionsProvider>

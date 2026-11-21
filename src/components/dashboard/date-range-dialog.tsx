@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useFilterTransition } from "@/components/dashboard/filter-pending";
+import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,7 +63,7 @@ export function DateRangeDialog({ days, from, to, compare, presets, allowCustom,
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFilterTransition();
   const [open, setOpen] = useState(false);
 
   const isCustom = Boolean(from && to);

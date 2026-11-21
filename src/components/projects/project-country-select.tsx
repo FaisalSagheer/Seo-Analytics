@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useFilterTransition } from "@/components/dashboard/filter-pending";
 import { toast } from "sonner";
 import { setProjectCountry } from "@/lib/actions/projects";
 import { useCan } from "@/components/permissions-provider";
@@ -15,7 +15,7 @@ const items = LOCATIONS.map((l) => ({ value: String(l.code), label: l.label }));
  */
 export function ProjectCountrySelect({ projectId, locationCode }: { projectId: string; locationCode: number }) {
   const canEdit = useCan("projects.edit");
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFilterTransition();
 
   return (
     <Select

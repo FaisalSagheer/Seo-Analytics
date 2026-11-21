@@ -1,7 +1,7 @@
 "use client";
 
+import { useFilterTransition } from "@/components/dashboard/filter-pending";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** A dropdown bound to one URL search param, so the server component re-renders with the new value. */
@@ -19,7 +19,7 @@ export function SearchParamSelect({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFilterTransition();
 
   return (
     <Select

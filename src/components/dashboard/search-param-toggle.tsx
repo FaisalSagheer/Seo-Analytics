@@ -1,7 +1,7 @@
 "use client";
 
+import { useFilterTransition } from "@/components/dashboard/filter-pending";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /**
@@ -25,7 +25,7 @@ export function SearchParamToggle({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  const [pending, startTransition] = useFilterTransition();
 
   return (
     <ToggleGroup
