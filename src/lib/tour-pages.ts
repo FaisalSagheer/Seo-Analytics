@@ -71,8 +71,9 @@ export const PAGE_TOURS: Record<string, PageTour> = {
     tip: "Use the filter to focus on one kind of issue, then Open to go and fix it.",
   },
   "shopping/products": {
-    intro: "Your whole product catalogue.",
-    tip: "Click a product to edit it. Changes are saved to Google and can take a few minutes to show. Revert my edits undoes them, and the bin pauses or deletes a product.",
+    intro: "Your whole product catalogue, with how each product performed.",
+    filters: "Pick the period, free listings or Shopping ads, and all stores, the online store or physical stores. The columns show clicks, impressions, CTR and conversions.",
+    tip: "Sort by most clicks to see your best sellers. Click a product to edit it; changes are saved to Google and can take a few minutes to show. Revert my edits undoes them, and the bin pauses or deletes a product.",
   },
   "shopping/shipping": {
     intro: "Shipping services, return policies and regions.",
@@ -110,10 +111,6 @@ export const PAGE_TOURS: Record<string, PageTour> = {
   "shopping/marketing-methods": {
     intro: "Where your products can show on Google.",
     tip: "Switch a program on or off. A program marked Setup required needs something finished first, and says what.",
-  },
-  "shopping/product-performance": {
-    intro: "Clicks, impressions and conversions for each product.",
-    filters: "Pick the period, free listings or Shopping ads, and all stores, the online store or physical stores.",
   },
   "shopping/pricing": {
     intro: "Your price next to the average price other stores show for the same product.",

@@ -272,7 +272,7 @@ const PROJECT_NAV: NavEntry[] = [
 ];
 
 // Shopping, laid out like Merchant Center's menu. Summary, Online store and Physical stores are one page
-// now: the overview, with a Store filter.
+// now (the overview, with a Store filter), and each product's clicks are columns on Products.
 const MERCHANT_NAV: NavEntry[] = [
   { label: "Overview", icon: ShoppingBagIcon, segment: "" },
   { label: "Notifications", icon: BellIcon, segment: "notifications", divider: true },
@@ -308,7 +308,6 @@ const MERCHANT_NAV: NavEntry[] = [
     label: "Analytics",
     icon: ChartColumnIcon,
     children: [
-      { segment: "product-performance", label: "Product performance" },
       { segment: "pricing", label: "Pricing" },
       { segment: "best-sellers", label: "Best sellers" },
     ],

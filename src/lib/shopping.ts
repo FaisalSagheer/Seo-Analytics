@@ -271,16 +271,59 @@ export async function loadSettingsPage(project: Project): Promise<{ data: Settin
   }
 }
 
-export type CatalogueRow = { name: string; offerId: string; title: string; imageLink: string | null; availability: string | null; status: ProductHealthStatus; issues: number; videos: string[]; paused: boolean };
+export type CatalogueRow = {
+  name: string;
+  offerId: string;
+  title: string;
+  imageLink: string | null;
+  availability: string | null;
+  status: ProductHealthStatus;
+  issues: number;
+  videos: string[];
+  paused: boolean;
+  /** Shopping results for the chosen period; null when Google has none for this product (or none were asked for) */
+  clicks: number | null;
+  impressions: number | null;
+  ctr: number | null;
+  conversions: number | null;
+};
 
-/** The Products tab: every product, slimmed for the browser (details load when one is opened). */
-export async function loadCatalogue(project: Project): Promise<{ data: { rows: CatalogueRow[]; truncated: boolean } | null; problem?: ShoppingProblem }> {
+/**
+ * The Products tab: every product, slimmed for the browser (details load when one is opened). With `perf`,
+ * each product also carries its clicks, impressions and conversions for that period (the 500 most clicked have them).
+ */
+export async function loadCatalogue(
+  project: Project,
+  perf?: { window: Window; method: MethodFilter; store?: StoreType },
+): Promise<{ data: { rows: CatalogueRow[]; truncated: boolean; hasMetrics: boolean } | null; problem?: ShoppingProblem }> {
   if (!project.merchantId) return { data: null };
   try {
     const token = await getGoogleAccessToken(project);
-    const { products, truncated } = await listMerchantProducts(token, project.merchantId);
-    const rows = products.map((p) => ({ name: p.name, offerId: p.offerId, title: p.title, imageLink: p.imageLink, availability: p.availability, status: p.status, issues: p.issues.length, videos: p.videoLinks, paused: p.paused }));
-    return { data: { rows, truncated } };
+    const [{ products, truncated }, results] = await Promise.all([
+      listMerchantProducts(token, project.merchantId),
+      perf ? loadShoppingPerformance(project, { window: perf.window, previous: null, method: perf.method, store: perf.store }) : Promise.resolve(null),
+    ]);
+    // A failed performance read (e.g. no reporting access) must not hide the catalogue
+    const byOffer = new Map((results?.data?.products ?? []).map((m) => [m.offerId, m]));
+    const rows = products.map((p) => {
+      const m = byOffer.get(p.offerId);
+      return {
+        name: p.name,
+        offerId: p.offerId,
+        title: p.title,
+        imageLink: p.imageLink,
+        availability: p.availability,
+        status: p.status,
+        issues: p.issues.length,
+        videos: p.videoLinks,
+        paused: p.paused,
+        clicks: m?.clicks ?? null,
+        impressions: m?.impressions ?? null,
+        ctr: m?.ctr ?? null,
+        conversions: m?.conversions ?? null,
+      };
+    });
+    return { data: { rows, truncated, hasMetrics: Boolean(results?.data) } };
   } catch (err) {
     return { data: null, problem: await merchantProblem(err, project) };
   }

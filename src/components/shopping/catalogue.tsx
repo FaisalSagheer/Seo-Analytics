@@ -27,6 +27,7 @@ import {
 } from "@/lib/merchant-products";
 import type { ProductDoc, ProductHealthStatus } from "@/lib/providers/google";
 import type { CatalogueRow } from "@/lib/shopping";
+import { formatNumber, formatPercent } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/shopping-labels";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { useCan } from "@/components/permissions-provider";
@@ -78,6 +79,7 @@ const httpsOnly = (u?: string | null) =>
   u && /^https:\/\//i.test(u) ? u : undefined;
 
 type Filter = "all" | ProductHealthStatus;
+type Sort = "default" | "clicks" | "impressions" | "conversions" | "issues";
 
 const DELETE_TEXT =
   "Products added through the API (like those added here) are deleted. Products from a feed or file can't be deleted from here, so they're paused on Google instead; remove them from the feed to delete them for good, or resume them here.";
@@ -91,26 +93,34 @@ export function Catalogue({
   projectId,
   rows,
   truncated,
+  hasMetrics = false,
 }: {
   projectId: string;
   rows: CatalogueRow[];
   truncated: boolean;
+  /** Show clicks, impressions, CTR and conversions for the page's period */
+  hasMetrics?: boolean;
 }) {
   const canEdit = useCan("merchant.manage");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<Sort>("default");
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return rows.filter(
+    const list = rows.filter(
       (r) =>
         (filter === "all" || r.status === filter) &&
         (!t ||
           r.title.toLowerCase().includes(t) ||
           r.offerId.toLowerCase().includes(t)),
     );
-  }, [rows, q, filter]);
+    if (sort === "default") return list;
+    // Products without figures sort last
+    const key = (r: CatalogueRow) => (sort === "issues" ? r.issues : (r[sort] ?? -1));
+    return [...list].sort((a, b) => key(b) - key(a));
+  }, [rows, q, filter, sort]);
   const pages = usePaged(shown);
   const count = (s: ProductHealthStatus) =>
     rows.filter((r) => r.status === s).length;
@@ -159,6 +169,26 @@ export function Catalogue({
             ]}
             onChange={setFilter}
           />
+          <Pick
+            label="Sort by"
+            className="sm:w-48"
+            value={sort}
+            options={[
+              { value: "default" as Sort, label: "Google's order" },
+              ...(hasMetrics
+                ? [
+                    { value: "clicks" as Sort, label: "Most clicks" },
+                    { value: "impressions" as Sort, label: "Most impressions" },
+                    { value: "conversions" as Sort, label: "Most conversions" },
+                  ]
+                : []),
+              { value: "issues" as Sort, label: "Most issues" },
+            ]}
+            onChange={(v) => {
+              setSort(v);
+              pages.setPage(0);
+            }}
+          />
           {canEdit && (
             <Button
               variant="outline"
@@ -187,8 +217,15 @@ export function Catalogue({
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead>Availability</TableHead>
                   <TableHead>Status</TableHead>
+                  {hasMetrics && (
+                    <>
+                      <TableHead className="text-right">Clicks</TableHead>
+                      <TableHead className="text-right">Impressions</TableHead>
+                      <TableHead className="text-right">CTR</TableHead>
+                      <TableHead className="text-right">Conversions</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-right">Issues</TableHead>
                   {canEdit && <TableHead className="w-28" />}
                 </TableRow>
@@ -219,12 +256,10 @@ export function Catalogue({
                           </span>
                           <span className="text-muted-foreground block text-xs">
                             {r.offerId}
+                            {r.availability ? ` · ${words(r.availability)}` : ""}
                           </span>
                         </span>
                       </button>
-                    </TableCell>
-                    <TableCell>
-                      {r.availability ? words(r.availability) : "—"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_BADGE[r.status]}>
@@ -236,6 +271,14 @@ export function Catalogue({
                         </Badge>
                       )}
                     </TableCell>
+                    {hasMetrics && (
+                      <>
+                        <TableCell className="text-right tabular-nums">{r.clicks == null ? "—" : formatNumber(r.clicks)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.impressions == null ? "—" : formatNumber(r.impressions)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.ctr == null ? "—" : formatPercent(r.ctr)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.conversions == null ? "—" : formatNumber(Math.round(r.conversions))}</TableCell>
+                      </>
+                    )}
                     <TableCell className="text-right tabular-nums">
                       {r.issues}
                     </TableCell>
