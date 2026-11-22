@@ -49,7 +49,7 @@ function buildSteps(present: (selector: string) => boolean, can: { admin: boolea
       selector: '[data-tour="google"]',
       side: "right",
       title: "Connect Google first",
-      content: "Google & API is where you connect your Google account. The numbers fill in once it's connected.",
+      content: "API keys let your own tools read this app's data. Connect Google under Project settings, and the numbers fill in once it's connected.",
     },
     ...(can.admin
       ? [

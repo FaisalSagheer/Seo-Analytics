@@ -70,7 +70,7 @@ export async function merchantProblem(err: unknown, project: Project): Promise<S
     };
   }
   if (/insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(message)) {
-    return { kind: "scope", message: "This project's Google connection doesn't include Merchant Center yet. Reconnect Google in Settings → Google & API." };
+    return { kind: "scope", message: "This project's Google connection doesn't include Merchant Center yet. Reconnect Google under Project settings → Google connection." };
   }
   if (/regist/i.test(message) && /(GCP|Cloud project|developer)/i.test(message)) {
     return {

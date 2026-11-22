@@ -86,7 +86,7 @@ export function GooglePropertyForm({
           {!connected ? (
             <p className="text-muted-foreground text-sm">
               No Google account with Search Console and Analytics access is linked yet.{" "}
-              <Link href="/settings" className="text-foreground underline underline-offset-4">
+              <Link href="#google-connection" className="text-foreground underline underline-offset-4">
                 Connect Google
               </Link>{" "}
               first.

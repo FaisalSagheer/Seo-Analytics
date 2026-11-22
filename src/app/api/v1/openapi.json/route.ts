@@ -13,7 +13,7 @@ export function GET(request: Request) {
       title: "Seo Engine API",
       version: "1.0.0",
       description:
-        "Read SEO reports and ranking history, and manage tracked keywords, for your projects. Authenticate with an API key from Settings → Google & API.",
+        "Read SEO reports and ranking history, and manage tracked keywords, for your projects. Authenticate with an API key from Settings → API keys.",
     },
     servers: [{ url: `${origin}/api/v1` }],
     security: [{ bearer: [] }],

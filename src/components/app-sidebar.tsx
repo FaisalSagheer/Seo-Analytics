@@ -165,13 +165,9 @@ export function AppSidebar({
           <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem data-tour="google">
-              <SidebarMenuButton
-                isActive={pathname === "/settings" && !current}
-                tooltip="Google & API"
-                render={<Link href="/settings" />}
-              >
+              <SidebarMenuButton isActive={pathname === "/settings" && !current} tooltip="API keys" render={<Link href="/settings" />}>
                 <SettingsIcon />
-                <span>Google & API</span>
+                <span>API keys</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             {role?.isAdmin && (

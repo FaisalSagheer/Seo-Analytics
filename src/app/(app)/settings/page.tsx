@@ -1,35 +1,26 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ApiKeysCard } from "@/components/settings/api-keys-card";
-import { GoogleCard } from "@/components/settings/google-card";
 import { db } from "@/lib/db";
-import { env, googleConfigured } from "@/lib/env";
-import { getGoogleAccount } from "@/lib/providers";
+import { env } from "@/lib/env";
 import { can, requireUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Google & API" };
+export const metadata: Metadata = { title: "API keys" };
 
-export default async function SettingsPage({ searchParams }: PageProps<"/settings">) {
+export default async function SettingsPage() {
   const user = await requireUser();
-  const googleInUse = (await searchParams).google === "in-use";
   const e = env();
-  const [canGoogle, canApiKeys] = await Promise.all([can("google.edit"), can("apikeys.create")]);
-  const [google, keys] = await Promise.all([
-    getGoogleAccount(user.id),
-    db.apiKey.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }),
-  ]);
+  const canApiKeys = await can("apikeys.create");
+  const keys = await db.apiKey.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
 
   return (
     <>
       <PageHeader
-        title="Google & API"
-        description="Connect your Google account and manage API access. A project can use its own Google service account instead, under Project settings."
+        title="API keys"
+        description="Keys that let your own tools read this app's data. Each key shows once when it's created."
       />
       <div className="flex max-w-3xl flex-col gap-6">
-        {!canGoogle && !canApiKeys && (
-          <p className="text-muted-foreground text-sm">Your role doesn&apos;t include connecting Google or creating API keys.</p>
-        )}
-        {canGoogle && <GoogleCard configured={googleConfigured()} connected={Boolean(google?.hasDataScopes)} linked={Boolean(google)} inUse={googleInUse} />}
+        {!canApiKeys && <p className="text-muted-foreground text-sm">Your role doesn&apos;t include creating API keys.</p>}
         {canApiKeys && (
           <ApiKeysCard
             baseUrl={e.APP_URL}

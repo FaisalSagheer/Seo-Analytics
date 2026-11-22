@@ -79,7 +79,13 @@ export const PERMISSION_LAYOUT: { area: string; groups: { label: string; pages: 
           { label: "Backlinks", create: "backlinks.create", delete: "backlinks.delete" },
         ],
       },
-      { label: "Projects", pages: [{ label: "Projects and project settings", create: "projects.create", edit: "projects.edit", delete: "projects.delete" }] },
+      {
+        label: "Projects",
+        pages: [
+          { label: "Projects and project settings", create: "projects.create", edit: "projects.edit", delete: "projects.delete" },
+          { label: "Google connection", edit: "google.edit" },
+        ],
+      },
     ],
   },
   {
@@ -117,7 +123,7 @@ export const PERMISSION_LAYOUT: { area: string; groups: { label: string; pages: 
   },
   {
     area: "Account",
-    groups: [{ label: "Google & API", pages: [{ label: "Google connection", edit: "google.edit" }, { label: "API keys", create: "apikeys.create" }] }],
+    groups: [{ label: "API", pages: [{ label: "API keys", create: "apikeys.create" }] }],
   },
 ];
 

@@ -29,8 +29,8 @@ export function ProblemAlert({ problem, projectId }: { problem: ShoppingProblem;
       )}
       {problem.kind === "scope" && (
         <AlertAction>
-          <Link href="/settings" className={buttonVariants({ size: "sm", variant: "outline" })}>
-            Google & API
+          <Link href={`/projects/${projectId}/settings#google-connection`} className={buttonVariants({ size: "sm", variant: "outline" })}>
+            Reconnect Google
           </Link>
         </AlertAction>
       )}

@@ -20,9 +20,12 @@ export function GoogleCard({
   connected,
   linked = false,
   inUse = false,
+  redirectTo,
 }: {
   configured: boolean;
   connected: boolean;
+  /** Where Google sends the user back to: the project whose settings hold this card */
+  redirectTo: string;
   /** A Google account is attached, whether or not it granted the data permissions */
   linked?: boolean;
   inUse?: boolean;
@@ -33,7 +36,7 @@ export function GoogleCard({
     startTransition(async () => {
       // Links (or re-consents) the Google account with read-only GSC + GA4 scopes
       // While signed in, the server attaches this Google account to the current user instead of switching user
-      await signIn("google", { redirectTo: "/settings" }, { scope: ["openid", "email", "profile", ...SCOPES].join(" "), prompt: "consent" });
+      await signIn("google", { redirectTo }, { scope: ["openid", "email", "profile", ...SCOPES].join(" "), prompt: "consent" });
     });
   }
 

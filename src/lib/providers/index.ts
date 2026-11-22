@@ -69,10 +69,10 @@ export async function getGoogleAccessToken(project: ProjectRef): Promise<string>
 async function getOwnerGoogleAccessToken(userId: string): Promise<string> {
   const g = await getGoogleAccount(userId);
   if (!g || !g.hasDataScopes) {
-    throw new ProviderNotConfiguredError("Give this project a Google service account in Project settings, or connect Google in Settings → Google & API.");
+    throw new ProviderNotConfiguredError("Give this project a Google service account in Project settings, or connect Google under Project settings → Google connection.");
   }
   const { account } = g;
-  const reconnect = () => new ProviderNotConfiguredError("Your Google connection has expired. Reconnect Google in Settings → Google & API.");
+  const reconnect = () => new ProviderNotConfiguredError("Your Google connection has expired. Reconnect Google under Project settings → Google connection.");
   // Tokens stored by the previous auth library were encrypted with its own key and can't be read
   const read = (value: string | null) => {
     if (!value) return null;
