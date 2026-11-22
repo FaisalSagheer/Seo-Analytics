@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { createRole, deleteRole, setDefaultRole, updateRole } from "@/lib/actions/team";
-import { PERMISSION_KEYS, PERMISSIONS, type Permission } from "@/lib/permissions";
+import { describePermissions, PERMISSION_LAYOUT, type Permission, type PermissionAction } from "@/lib/permissions";
 import type { RoleInput } from "@/lib/validations";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +85,7 @@ export function RolesCard({ roles }: { roles: RoleView[] }) {
               {role.description && <p className="text-muted-foreground text-sm">{role.description}</p>}
               {!role.isSystem && (
                 <p className="text-muted-foreground text-xs">
-                  {role.permissions.length ? role.permissions.map((p) => PERMISSIONS[p]).join(" · ") : "View only"}
+                  {role.permissions.length ? describePermissions(role.permissions) : "View only"}
                 </p>
               )}
             </div>
@@ -212,22 +212,47 @@ function RoleDialog({
             </Field>
             <FieldSet>
               <FieldLegend variant="label">Permissions</FieldLegend>
-              <FieldGroup className="gap-3">
-                {PERMISSION_KEYS.map((key) => (
-                  <Field key={key} orientation="horizontal">
-                    <Checkbox
-                      id={`perm-${key}`}
-                      checked={chosen.has(key)}
-                      onCheckedChange={(c) =>
-                        setDraft({ ...draft, permissions: c ? [...chosen, key] : [...chosen].filter((p) => p !== key) })
-                      }
-                    />
-                    <FieldLabel htmlFor={`perm-${key}`} className="font-normal">
-                      {PERMISSIONS[key]}
-                    </FieldLabel>
-                  </Field>
+              <p className="text-muted-foreground text-xs">Viewing a page needs no permission. Tick what this role can do on each page.</p>
+              <div className="flex max-h-80 flex-col gap-4 overflow-y-auto rounded-md border p-3">
+                {PERMISSION_LAYOUT.map((area) => (
+                  <div key={area.area} className="flex flex-col gap-2">
+                    <div className="grid grid-cols-[1fr_repeat(3,3.5rem)] items-center gap-x-2 border-b pb-1 text-sm font-semibold">
+                      <span>{area.area}</span>
+                      {(["create", "edit", "delete"] as PermissionAction[]).map((a) => (
+                        <span key={a} className="text-muted-foreground text-center text-xs font-normal capitalize">
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                    {area.groups.map((group) => (
+                      <div key={group.label} className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs font-medium uppercase">{group.label}</span>
+                        {group.pages.map((page) => (
+                          <div key={page.label} className="grid grid-cols-[1fr_repeat(3,3.5rem)] items-center gap-x-2 text-sm">
+                            <span>{page.label}</span>
+                            {(["create", "edit", "delete"] as PermissionAction[]).map((action) => {
+                              const key = page[action];
+                              return key ? (
+                                <span key={action} className="flex justify-center">
+                                  <Checkbox
+                                    aria-label={`${page.label}: ${action}`}
+                                    checked={chosen.has(key)}
+                                    onCheckedChange={(c) =>
+                                      setDraft({ ...draft, permissions: c ? [...chosen, key] : [...chosen].filter((p) => p !== key) })
+                                    }
+                                  />
+                                </span>
+                              ) : (
+                                <span key={action} />
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 ))}
-              </FieldGroup>
+              </div>
             </FieldSet>
           </FieldGroup>
           <DialogFooter>

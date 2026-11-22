@@ -64,7 +64,7 @@ const toSettings = (d: AutomaticImprovementsDoc): ImprovementSettings => {
 };
 
 export function AutomaticImprovementsCard({ projectId, doc }: { projectId: string; doc: AutomaticImprovementsDoc }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("auto-improvements.edit");
   const [saved] = useState(() => toSettings(doc));
   const [v, setV] = useState(saved);
   const [pending, run] = useWrite();
@@ -128,7 +128,9 @@ const sourceLabel = (s: ConversionSourceDoc) =>
   s.googleAnalyticsLink ? `Google Analytics property ${s.googleAnalyticsLink.propertyId}` : (s.merchantCenterDestination?.displayName ?? "Merchant Center tag");
 
 export function ConversionSources({ projectId, sources, gaPropertyId }: { projectId: string; sources: ConversionSourceDoc[]; gaPropertyId: string | null }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("conversions.create");
+  const canEdit = useCan("conversions.edit");
+  const canDelete = useCan("conversions.delete");
   const [pending, run] = useWrite();
   const [adding, setAdding] = useState<null | "ga" | "tag">(null);
   const [editing, setEditing] = useState<ConversionSourceDoc | null>(null);
@@ -151,7 +153,7 @@ export function ConversionSources({ projectId, sources, gaPropertyId }: { projec
                 <TableHead>Source</TableHead>
                 <TableHead>Attribution</TableHead>
                 <TableHead>Status</TableHead>
-                {canEdit && <TableHead className="w-24" />}
+                {(canEdit || canDelete) && <TableHead className="w-24" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -175,9 +177,9 @@ export function ConversionSources({ projectId, sources, gaPropertyId }: { projec
                     <TableCell>
                       <Badge variant={st.variant}>{st.label}</Badge>
                     </TableCell>
-                    {canEdit && (
+                    {(canEdit || canDelete) && (
                       <TableCell className="text-right">
-                        {tag && s.state !== "ARCHIVED" && s.controller !== "YOUTUBE_AFFILIATES" && (
+                        {canEdit && tag && s.state !== "ARCHIVED" && s.controller !== "YOUTUBE_AFFILIATES" && (
                           <Button
                             size="icon-sm"
                             variant="ghost"
@@ -190,7 +192,7 @@ export function ConversionSources({ projectId, sources, gaPropertyId }: { projec
                             <PencilIcon />
                           </Button>
                         )}
-                        {s.state !== "ARCHIVED" && s.controller !== "YOUTUBE_AFFILIATES" && (
+                        {canDelete && s.state !== "ARCHIVED" && s.controller !== "YOUTUBE_AFFILIATES" && (
                           <ConfirmDelete
                             triggerRender={<Button size="icon-sm" variant="ghost" aria-label={`Remove ${sourceLabel(s)}`} disabled={pending} />}
                             title={`Remove "${sourceLabel(s)}"?`}
@@ -210,7 +212,7 @@ export function ConversionSources({ projectId, sources, gaPropertyId }: { projec
             </TableBody>
           </Table>
         )}
-        {canEdit && (
+        {canCreate && (
           <div className="flex flex-wrap gap-2">
             {!hasGa && (
               <Button variant="outline" size="sm" onClick={() => setAdding("ga")}>
@@ -314,7 +316,8 @@ const HANDSHAKE: Record<string, { label: string; variant: "secondary" | "outline
 };
 
 export function AppsAndServices({ projectId, data }: { projectId: string; data: AppsPage }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("apps.create");
+  const canEdit = useCan("apps.edit");
   const [pending, run] = useWrite();
   const [email, setEmail] = useState("");
 
@@ -342,7 +345,7 @@ export function AppsAndServices({ projectId, data }: { projectId: string; data: 
               ))}
             </ul>
           )}
-          {canEdit && (
+          {canCreate && (
             <div className="flex flex-wrap items-end gap-2">
               <F label="Email that manages the Business Profile" className="w-full sm:w-80">
                 <Input aria-label="Business Profile email" type="email" value={email} disabled={pending} onChange={(e) => setEmail(e.target.value)} />

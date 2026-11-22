@@ -114,7 +114,7 @@ export function RankingsTable({ projectId, rows }: { projectId: string; rows: Ra
   const [pageFilter, setPageFilter] = useState<PageFilter>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "position", dir: 1 });
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const canEdit = useCan("keywords.manage");
+  const canEdit = useCan("rankings.delete");
 
   const tags = useMemo(() => [...new Set(rows.flatMap((r) => r.tags))].sort(), [rows]);
   const tagItems = [{ value: "all", label: "All tags" }, ...tags.map((t) => ({ value: t, label: t }))];

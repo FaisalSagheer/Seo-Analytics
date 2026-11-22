@@ -28,7 +28,7 @@ type Filter = "all" | "5" | "4" | "3" | "2" | "1" | "issues";
 
 /** Product reviews in Merchant Center: average rating, a filter by stars, and removing spam. */
 export function Reviews({ projectId, reviews }: { projectId: string; reviews: ProductReviewDoc[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("reviews.delete");
   const [pending, startTransition] = useTransition();
   const [filter, setFilter] = useState<Filter>("all");
   const rated = reviews.map((r) => ({ r, s: stars(r), issues: r.productReviewStatus?.itemLevelIssues ?? [] }));

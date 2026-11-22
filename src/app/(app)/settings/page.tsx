@@ -13,7 +13,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   const user = await requireUser();
   const googleInUse = (await searchParams).google === "in-use";
   const e = env();
-  const [canGoogle, canApiKeys] = await Promise.all([can("providers.manage"), can("apikeys.manage")]);
+  const [canGoogle, canApiKeys] = await Promise.all([can("google.edit"), can("apikeys.create")]);
   const [google, keys] = await Promise.all([
     getGoogleAccount(user.id),
     db.apiKey.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }),

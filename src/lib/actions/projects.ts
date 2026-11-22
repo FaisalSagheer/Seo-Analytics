@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { denied, requireProject, requireUser } from "@/lib/session";
+import { can, denied, requireProject, requireUser } from "@/lib/session";
 import { propertyChoiceDenied } from "@/lib/google-access";
 import { seedDemoProject } from "@/lib/demo/seed-project";
 import { env } from "@/lib/env";
@@ -79,7 +79,7 @@ export async function createDemoProject(): Promise<ActionResult<{ id: string }>>
 }
 
 export async function addKeywords(input: AddKeywordsInput): Promise<ActionResult<{ added: number }>> {
-  const blocked = await denied("keywords.manage");
+  const blocked = await denied("rankings.create");
   if (blocked) return blocked;
   const parsed = addKeywordsSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -98,7 +98,7 @@ export async function addKeywords(input: AddKeywordsInput): Promise<ActionResult
 }
 
 export async function deleteKeywords(input: DeleteKeywordsInput): Promise<ActionResult<{ deleted: number }>> {
-  const blocked = await denied("keywords.manage");
+  const blocked = await denied("rankings.delete");
   if (blocked) return blocked;
   const parsed = deleteKeywordsSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -109,11 +109,14 @@ export async function deleteKeywords(input: DeleteKeywordsInput): Promise<Action
 }
 
 export async function runSync(projectId: string, parts?: SyncPart[]): Promise<ActionResult<SyncResult>> {
-  const blocked = await denied("data.sync");
-  if (blocked) return blocked;
+  // Each part has its own permission; asking for both runs the ones the role may
+  const wanted: SyncPart[] = parts ?? ["rankings", "google"];
+  const needed = { rankings: "rankings.edit", google: "analytics.edit" } as const;
+  const allowed = (await Promise.all(wanted.map(async (part) => ((await can(needed[part])) ? part : null)))).filter((x): x is SyncPart => x != null);
+  if (!allowed.length) return fail("Your role doesn't allow this.");
   const { project } = await requireProject(projectId);
   try {
-    const result = await syncProject(project, parts);
+    const result = await syncProject(project, allowed);
     revalidatePath(`/projects/${projectId}`, "layout");
     return ok(result);
   } catch (err) {

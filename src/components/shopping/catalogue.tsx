@@ -101,7 +101,9 @@ export function Catalogue({
   /** Show clicks, impressions, CTR and conversions for the page's period */
   hasMetrics?: boolean;
 }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("products.create");
+  const canEdit = useCan("products.edit");
+  const canDelete = useCan("products.delete");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("default");
@@ -189,7 +191,7 @@ export function Catalogue({
               pages.setPage(0);
             }}
           />
-          {canEdit && (
+          {canCreate && (
             <Button
               variant="outline"
               className="sm:ml-auto"
@@ -227,7 +229,7 @@ export function Catalogue({
                     </>
                   )}
                   <TableHead className="text-right">Issues</TableHead>
-                  {canEdit && <TableHead className="w-28" />}
+                  {(canEdit || canDelete) && <TableHead className="w-28" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -282,9 +284,9 @@ export function Catalogue({
                     <TableCell className="text-right tabular-nums">
                       {r.issues}
                     </TableCell>
-                    {canEdit && (
+                    {(canEdit || canDelete) && (
                       <TableCell className="text-right whitespace-nowrap">
-                        {r.paused && (
+                        {canEdit && r.paused && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -300,15 +302,17 @@ export function Catalogue({
                             Resume
                           </Button>
                         )}
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label={`Edit ${r.title}`}
-                          onClick={() => setOpen(r.name)}
-                        >
-                          <PencilIcon />
-                        </Button>
-                        {!r.paused && (
+                        {canEdit && (
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={`Edit ${r.title}`}
+                            onClick={() => setOpen(r.name)}
+                          >
+                            <PencilIcon />
+                          </Button>
+                        )}
+                        {canDelete && !r.paused && (
                           <ConfirmDelete
                             triggerRender={
                               <Button
@@ -514,7 +518,8 @@ function ProductPanel({
   name: string;
   onGone: () => void;
 }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("products.edit");
+  const canDelete = useCan("products.delete");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm | null>(null);
@@ -652,10 +657,12 @@ function ProductPanel({
               >
                 <ProductFields value={form} onChange={setForm} />
               </fieldset>
-              {canEdit && (
+              {(canEdit || canDelete) && (
                 <>
-                  <Problems list={problems} />
+                  {canEdit && <Problems list={problems} />}
                   <div className="flex flex-wrap gap-2">
+                    {canEdit && (
+                      <>
                     <Button
                       disabled={pending || !dirty || problems.length > 0}
                       onClick={() =>
@@ -694,7 +701,9 @@ function ProductPanel({
                         Revert my edits
                       </ConfirmDelete>
                     )}
-                    {
+                      </>
+                    )}
+                    {canDelete && (
                       <ConfirmDelete
                         triggerRender={
                           <Button variant="outline" disabled={pending} />
@@ -723,7 +732,7 @@ function ProductPanel({
                       >
                         Delete product
                       </ConfirmDelete>
-                    }
+                    )}
                   </div>
                 </>
               )}

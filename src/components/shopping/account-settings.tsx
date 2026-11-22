@@ -60,7 +60,7 @@ const toInput = (name: string, i: BusinessInfoDoc): BusinessInfoInput => ({
 });
 
 export function BusinessInfoCard({ projectId, accountName, info }: { projectId: string; accountName: string; info: BusinessInfoDoc }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("store-info.edit");
   const [saved] = useState(() => toInput(accountName, info));
   const [v, setV] = useState(saved);
   const [pending, run] = useWrite();
@@ -134,7 +134,7 @@ export function BusinessInfoCard({ projectId, accountName, info }: { projectId: 
 // ---- homepage
 
 export function HomepageCard({ projectId, homepage }: { projectId: string; homepage: HomepageDoc }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("store-info.edit");
   const [uri, setUri] = useState(homepage.uri ?? "");
   const [pending, run] = useWrite();
   const [taken, setTaken] = useState(false);
@@ -249,7 +249,9 @@ function RightsPicker({ value, onChange }: { value: AccessRight[]; onChange: (r:
 }
 
 export function PeopleCard({ projectId, users }: { projectId: string; users: UserDoc[] | null }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("people.create");
+  const canEdit = useCan("people.edit");
+  const canDelete = useCan("people.delete");
   const [pending, run] = useWrite();
   const [editing, setEditing] = useState<{ name?: string; email: string; rights: AccessRight[] } | null>(null);
   const admins = (users ?? []).filter((u) => u.accessRights?.includes("ADMIN")).length;
@@ -278,7 +280,7 @@ export function PeopleCard({ projectId, users }: { projectId: string; users: Use
                 <TableHead>Email</TableHead>
                 <TableHead>Access</TableHead>
                 <TableHead>Status</TableHead>
-                {canEdit && <TableHead className="w-24" />}
+                {(canEdit || canDelete) && <TableHead className="w-24" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -289,11 +291,14 @@ export function PeopleCard({ projectId, users }: { projectId: string; users: Use
                     <TableCell className="font-medium">{emailOf(u)}</TableCell>
                     <TableCell>{rightsLabel(u.accessRights)}</TableCell>
                     <TableCell>{u.state === "PENDING" ? <Badge variant="outline">Invited</Badge> : <Badge variant="secondary">Active</Badge>}</TableCell>
-                    {canEdit && (
+                    {(canEdit || canDelete) && (
                       <TableCell className="text-right">
-                        <Button size="icon-sm" variant="ghost" aria-label={`Change access for ${emailOf(u)}`} onClick={() => setEditing({ name: u.name, email: emailOf(u), rights: u.accessRights ?? [] })}>
-                          <PencilIcon />
-                        </Button>
+                        {canEdit && (
+                          <Button size="icon-sm" variant="ghost" aria-label={`Change access for ${emailOf(u)}`} onClick={() => setEditing({ name: u.name, email: emailOf(u), rights: u.accessRights ?? [] })}>
+                            <PencilIcon />
+                          </Button>
+                        )}
+                        {canDelete && (
                         <ConfirmDelete
                           triggerRender={<Button size="icon-sm" variant="ghost" aria-label={`Remove ${emailOf(u)}`} disabled={pending || lastAdmin} />}
                           title={`Remove ${emailOf(u)}?`}
@@ -307,6 +312,7 @@ export function PeopleCard({ projectId, users }: { projectId: string; users: Use
                         >
                           <Trash2Icon />
                         </ConfirmDelete>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
@@ -315,7 +321,7 @@ export function PeopleCard({ projectId, users }: { projectId: string; users: Use
             </TableBody>
           </Table>
         )}
-        {canEdit && users != null && (
+        {canCreate && users != null && (
           <Button variant="outline" size="sm" className="self-start" onClick={() => setEditing({ email: "", rights: ["STANDARD"] })}>
             <PlusIcon data-icon="inline-start" />
             Add person

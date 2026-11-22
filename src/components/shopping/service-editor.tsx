@@ -21,7 +21,7 @@ const SHIPMENT_TYPES = [
 
 function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   // A read-only view sits in a disabled fieldset, so its toggles can't be clicked: show it all open.
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("shipping.edit");
   const [open, setOpen] = useState(defaultOpen || !canEdit);
   return (
     <div className="rounded-md border">
@@ -246,7 +246,7 @@ export function ServiceEditor({
   regions: Regions;
   warehouses: Warehouse[];
 }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("shipping.edit");
   const [open, setOpen] = useState(!value.serviceName || !canEdit);
   const cur = value.currencyCode;
   const local = value.shipmentType === "LOCAL_DELIVERY";

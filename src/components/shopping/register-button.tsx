@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 /** One-time registration of this app with the project's Merchant Center account (needs Admin there). */
 export function RegisterMerchantButton({ projectId }: { projectId: string }) {
-  const allowed = useCan("providers.manage");
+  const allowed = useCan("google.edit");
   const [pending, startTransition] = useTransition();
   if (!allowed) return null;
   return (

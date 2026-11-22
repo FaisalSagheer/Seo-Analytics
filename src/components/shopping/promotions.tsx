@@ -62,7 +62,8 @@ const isOver = (p: PromotionDoc) => {
 
 /** Promotions shown with products on Google, and a form to start a new one. */
 export function Promotions({ projectId, promotions }: { projectId: string; promotions: Row[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("promotions.create");
+  const canEdit = useCan("promotions.edit");
   const [pending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const pages = usePaged(promotions);
@@ -154,7 +155,7 @@ export function Promotions({ projectId, promotions }: { projectId: string; promo
             <TablePager page={pages.page} total={promotions.length} onPage={pages.setPage} />
           </>
         )}
-        {canEdit && (
+        {canCreate && (
           <Button variant="outline" size="sm" className="self-start" onClick={() => setAdding(true)}>
             <PlusIcon data-icon="inline-start" />
             New promotion

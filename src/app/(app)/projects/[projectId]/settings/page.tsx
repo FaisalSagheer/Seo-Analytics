@@ -21,7 +21,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
     db.rankSnapshot.count({ where: { keyword: { projectId } } }),
     db.auditRun.count({ where: { projectId } }),
     db.searchConsoleDaily.count({ where: { projectId } }),
-    can("providers.manage"),
+    can("google.edit"),
   ]);
 
   let access: AccessRow[] | null = null;

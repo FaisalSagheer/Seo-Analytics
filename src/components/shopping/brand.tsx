@@ -25,7 +25,7 @@ const LABELS: { key: IdentityKey; label: string }[] = [
 
 /** Brand: identity labels shown with the store, and the brands across the catalogue. */
 export function Brand({ projectId, data }: { projectId: string; data: BrandPage }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("brand.edit");
   const [pending, startTransition] = useTransition();
   const initial = {
     labels: Object.fromEntries(LABELS.map((l) => [l.key, data.identity[l.key]?.identityDeclaration === "SELF_IDENTIFIES_AS"])) as Record<IdentityKey, boolean>,

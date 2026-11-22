@@ -7,7 +7,7 @@ import { fail, ok, type ActionResult } from "@/lib/actions/result";
 
 /** Crawls the project's own site (up to 50 pages) and stores the findings. */
 export async function runSiteAudit(projectId: string): Promise<ActionResult<{ runId: string }>> {
-  const blocked = await denied("data.sync");
+  const blocked = await denied("audit.create");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
   if (project.isDemo) return fail("Demo projects point at a fake domain, so there's no real site to crawl.");

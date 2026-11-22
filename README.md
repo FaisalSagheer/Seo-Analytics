@@ -66,7 +66,7 @@ The client never signs in. You (or they) set it up once:
 4. In Seo Engine, open the project's **Project settings → Google access**, paste the JSON key (or choose the `.json` file) and click **Add key**. It is checked by signing in to Google and listing what the account can see, then stored encrypted. The service account's email is shown so it can be copied.
 5. Pick the Search Console site and GA4 property under **Google properties** on the same page.
 
-Anyone whose role has the "Connect Google" permission (admins always) can add, replace or remove a project's key. If a stored key stops working, that project's sync reports an error. It never falls back to the owner's Google account, so one client's data can't end up in another's project.
+Anyone whose role has the **Google connection → Edit** permission (admins always) can add, replace or remove a project's key. If a stored key stops working, that project's sync reports an error. It never falls back to the owner's Google account, so one client's data can't end up in another's project.
 
 ### Option 2: your own Google account (OAuth)
 
@@ -113,7 +113,7 @@ It needs the project's GA4 property (see above) and fills in on **Sync Google** 
 
 Search Console shows who links to you, but Google offers no API for it, so **Backlinks** takes the export. In Search Console open **Links**, press **Export external links**, choose **Download CSV** (or Excel, then save as CSV), and upload the ZIP or the CSV files on the project's **Backlinks** page. The files can be in any language and use commas, semicolons or tabs. Each table is recognised by what it holds: top linking sites, top linked pages and top linking text. A file that is none of these (for example the internal links table) is skipped with a note.
 
-Every upload is a snapshot with the date you exported it. The latest list of linking sites is compared with the one before it to show **New sites**, **Lost sites** and the change per site, and a chart appears once you have two uploads. Import again every month or so. Search Console only exports your top links, so a site that drops out can be a lost link or just one that fell below the cut. The last 24 imports are kept, and a client role needs the **Run data syncs** permission to upload or delete one. The data is also at `GET /api/v1/projects/{id}/backlinks`.
+Every upload is a snapshot with the date you exported it. The latest list of linking sites is compared with the one before it to show **New sites**, **Lost sites** and the change per site, and a chart appears once you have two uploads. Import again every month or so. Search Console only exports your top links, so a site that drops out can be a lost link or just one that fell below the cut. The last 24 imports are kept, and a role needs **Backlinks → Create** to upload and **Backlinks → Delete** to remove one. The data is also at `GET /api/v1/projects/{id}/backlinks`.
 
 ## Shopping (Merchant Center)
 
@@ -128,7 +128,7 @@ Setup for each project:
 
 Up to 5,000 products are read for Product health, and answers are reused for 5 minutes.
 
-**Shipping & returns.** The **Shipping & returns** tab edits the account's shipping settings: services (delivery, local delivery, collection point), countries, currency, minimum order value, handling and transit days, cutoff times, business days, transit-time tables, warehouses, carrier rates, and rates as one value or as tables by price, weight, items or region with subtables. Saving replaces the shipping settings in Merchant Center in one go; if they were changed in Merchant Center meanwhile, nothing is overwritten and the latest version is loaded. The same tab manages regions (postal codes or geotargets) and return policies (Google can't update a policy, so an edit replaces it). Shopping is laid out in the sidebar like Merchant Center's own menu. Changes need the **Manage Merchant Center** permission (Admins have it) and Admin or Standard access in Merchant Center; everyone else sees a read-only view.
+**Shipping & returns.** The **Shipping & returns** tab edits the account's shipping settings: services (delivery, local delivery, collection point), countries, currency, minimum order value, handling and transit days, cutoff times, business days, transit-time tables, warehouses, carrier rates, and rates as one value or as tables by price, weight, items or region with subtables. Saving replaces the shipping settings in Merchant Center in one go; if they were changed in Merchant Center meanwhile, nothing is overwritten and the latest version is loaded. The same tab manages regions (postal codes or geotargets) and return policies (Google can't update a policy, so an edit replaces it). Shopping is laid out in the sidebar like Merchant Center's own menu. Changes need the page's own Create, Edit or Delete permission under **Merchant Center** in a role (Admins have them all) and Admin or Standard access in Merchant Center; everyone else sees a read-only view.
 
 **Marketing methods.** Shows each program (free listings, Shopping ads, checkout and others) with what it still needs, and turns eligible ones on or off.
 
@@ -157,7 +157,7 @@ Every page also has a short tour of its own (what the page is for, its filters, 
 Open a project's **Site audit** page and click **Run audit**. It crawls the domain from the homepage and the sitemap, up to 50 pages, respecting `robots.txt`, and needs no API key. Results show a health score, what to fix grouped by issue, and a filterable table of pages. The last five runs per project are kept. Requests refuse private and loopback addresses, so the crawler can't be pointed at internal hosts.
 
 
-**URL inspection.** On **Site audit**, type any page of the site into **URL inspection**, or click **Inspect** on a crawled page. It asks Search Console how Google sees that URL: whether it's on Google and why not, indexing and robots.txt, the last crawl, Google's chosen canonical next to yours (with a warning when they differ), sitemaps, mobile usability, rich results, and a link to the same view in Search Console. It needs the project's Search Console site, accepts only URLs inside that property, and is available to roles with **Run data syncs**. Google allows about 2,000 inspections per site a day, so each project is limited to 200 an hour, and an answer is reused for 5 minutes.
+**URL inspection.** On **Site audit**, type any page of the site into **URL inspection**, or click **Inspect** on a crawled page. It asks Search Console how Google sees that URL: whether it's on Google and why not, indexing and robots.txt, the last crawl, Google's chosen canonical next to yours (with a warning when they differ), sitemaps, mobile usability, rich results, and a link to the same view in Search Console. It needs the project's Search Console site, accepts only URLs inside that property, and is available to roles with **Site audit → Create**. Google allows about 2,000 inspections per site a day, so each project is limited to 200 an hour, and an answer is reused for 5 minutes.
 
 ## Deploying on Vercel
 
@@ -239,5 +239,6 @@ src/app/api/cron/sync/      scheduled sync endpoint
 ## License
 
 MIT
-#   S e o - A n a l y t i c s  
+#   S e o - A n a l y t i c s 
+ 
  

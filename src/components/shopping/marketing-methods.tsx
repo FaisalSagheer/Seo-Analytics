@@ -92,7 +92,7 @@ function ProgramCard({
   projectId: string;
   program: ProgramDoc;
 }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("marketing-methods.edit");
   const [pending, startTransition] = useTransition();
   const info = infoOf(program);
   const on = program.state === "ENABLED";

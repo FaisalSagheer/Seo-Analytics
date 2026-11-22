@@ -18,7 +18,7 @@ const saveSchema = z.object({ projectId: z.string().min(1), keyJson: z.string().
 export type SaveProjectGoogleInput = z.input<typeof saveSchema>;
 
 export async function saveProjectGoogle(input: SaveProjectGoogleInput): Promise<ActionResult<{ email: string; sites: number; properties: number }>> {
-  const blocked = await denied("providers.manage");
+  const blocked = await denied("google.edit");
   if (blocked) return blocked;
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return zodError(parsed.error);
@@ -55,7 +55,7 @@ export async function saveProjectGoogle(input: SaveProjectGoogleInput): Promise<
 }
 
 export async function removeProjectGoogle(projectId: string): Promise<ActionResult> {
-  const blocked = await denied("providers.manage");
+  const blocked = await denied("google.edit");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
   await db.projectCredential.deleteMany({ where: { projectId: project.id, provider: "GOOGLE" } });

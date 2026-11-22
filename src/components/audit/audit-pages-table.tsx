@@ -32,7 +32,7 @@ const BADGE: Record<Severity, "destructive" | "secondary" | "outline"> = { error
 const ORDER: Record<Severity, number> = { error: 0, warning: 1, notice: 2 };
 
 export function AuditPagesTable({ pages, origin, inspectProjectId }: { pages: AuditPageRow[]; origin: string; inspectProjectId?: string }) {
-  const canInspect = useCan("data.sync") && Boolean(inspectProjectId);
+  const canInspect = useCan("audit.create") && Boolean(inspectProjectId);
   const [filter, setFilter] = useState<Severity | "all">("all");
   const [query, setQuery] = useState("");
 

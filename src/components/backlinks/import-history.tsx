@@ -14,7 +14,7 @@ import { formatDate, formatNumber } from "@/lib/format";
 type Row = { id: string; asOf: string; counts: Record<"SITE" | "PAGE" | "TEXT", number> };
 
 export function LinkImportHistory({ projectId, imports }: { projectId: string; imports: Row[] }) {
-  const allowed = useCan("data.sync");
+  const allowed = useCan("backlinks.delete");
   const [pending, startTransition] = useTransition();
 
   return (

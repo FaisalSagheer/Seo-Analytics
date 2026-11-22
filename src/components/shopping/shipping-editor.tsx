@@ -168,7 +168,7 @@ export function ShippingEditor({
   initial: ShippingSettings;
   regions: { id: string; label: string }[];
 }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("shipping.edit");
   const [saved, setSaved] = useState(initial);
   const [doc, setDoc] = useState(initial);
   const [pending, startTransition] = useTransition();

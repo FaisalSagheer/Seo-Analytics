@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteProject, updateProject } from "@/lib/actions/projects";
 import type { ProjectInput } from "@/lib/validations";
+import { useCan } from "@/components/permissions-provider";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ProjectFields } from "@/components/projects/project-fields";
 import { formatNumber } from "@/lib/format";
@@ -16,6 +17,7 @@ export type ProjectCounts = { keywords: number; rankChecks: number; audits: numb
 
 export function ProjectSettingsForm({ projectId, initial, counts }: { projectId: string; initial: ProjectInput; counts: ProjectCounts }) {
   const router = useRouter();
+  const canDelete = useCan("projects.delete");
   const [draft, setDraft] = useState<ProjectInput>(initial);
   const [pending, startTransition] = useTransition();
 
@@ -57,6 +59,7 @@ export function ProjectSettingsForm({ projectId, initial, counts }: { projectId:
         </form>
       </Card>
 
+      {canDelete && (
       <Card>
         <CardHeader>
           <CardTitle>Delete project</CardTitle>
@@ -83,6 +86,7 @@ export function ProjectSettingsForm({ projectId, initial, counts }: { projectId:
           </ConfirmDelete>
         </CardFooter>
       </Card>
+      )}
     </>
   );
 }

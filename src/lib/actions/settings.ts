@@ -42,7 +42,7 @@ export async function listGoogleProperties(projectId: string): Promise<
 }
 
 export async function createApiKey(input: ApiKeyInput): Promise<ActionResult<{ key: string }>> {
-  const blocked = await denied("apikeys.manage");
+  const blocked = await denied("apikeys.create");
   if (blocked) return blocked;
   const user = await requireUser();
   const parsed = apiKeySchema.safeParse(input);
@@ -66,7 +66,7 @@ export async function revokeApiKey(id: string): Promise<ActionResult> {
  * Google asks for once before the Merchant API answers. Needs Admin access to that account.
  */
 export async function registerMerchantCenter(projectId: string, merchantIdInput?: string): Promise<ActionResult<{ saved: boolean }>> {
-  const blocked = await denied("providers.manage");
+  const blocked = await denied("google.edit");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
   // The account list stays empty until the app is registered, so the ID can be typed in

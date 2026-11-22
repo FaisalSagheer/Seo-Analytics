@@ -13,8 +13,10 @@ const PART_LABELS: Record<SyncPart, string> = { rankings: "Rankings", google: "S
 
 export function SyncButton({ projectId, parts, label = "Refresh data" }: { projectId: string; parts?: SyncPart[]; label?: string }) {
   const [pending, startTransition] = useTransition();
-  const allowed = useCan("data.sync");
-  if (!allowed) return null;
+  const canRankings = useCan("rankings.edit");
+  const canGoogle = useCan("analytics.edit");
+  const wanted = parts ?? ["rankings", "google"];
+  if (!(wanted.includes("rankings") && canRankings) && !(wanted.includes("google") && canGoogle)) return null;
 
   return (
     <Button

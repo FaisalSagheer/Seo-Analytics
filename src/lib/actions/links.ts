@@ -15,7 +15,7 @@ export type ImportSummary = { importId: string; imported: { kind: LinkKind; labe
 
 /** Stores one upload of Search Console's Links report: its ZIP, or the CSVs from it. */
 export async function importLinks(formData: FormData): Promise<ActionResult<ImportSummary>> {
-  const blocked = await denied("data.sync");
+  const blocked = await denied("backlinks.create");
   if (blocked) return blocked;
   const projectId = String(formData.get("projectId") ?? "");
   if (!projectId) return fail("Missing project.");
@@ -63,7 +63,7 @@ export async function importLinks(formData: FormData): Promise<ActionResult<Impo
 }
 
 export async function deleteLinkImport(projectId: string, importId: string): Promise<ActionResult> {
-  const blocked = await denied("data.sync");
+  const blocked = await denied("backlinks.delete");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
   await db.linkImport.deleteMany({ where: { id: importId, projectId: project.id } });

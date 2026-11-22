@@ -216,7 +216,10 @@ function PolicyForm({ value, onChange, isNew }: { value: ReturnPolicy; onChange:
 
 /** Return policies: Google has no update, so editing replaces the policy. */
 export function ReturnPolicies({ projectId, policies }: { projectId: string; policies: ReturnPolicy[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("shipping.create");
+  const canEdit = useCan("shipping.edit");
+  const canDelete = useCan("shipping.delete");
+  const hasActions = canEdit || canDelete;
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<{ replace?: string; policy: ReturnPolicy } | null>(null);
   const problems = editing ? checkReturnPolicy(editing.policy) : [];
@@ -258,13 +261,16 @@ export function ReturnPolicies({ projectId, policies }: { projectId: string; pol
                 {(p.seasonalOverrides ?? []).length > 0 && <Badge variant="secondary">{p.seasonalOverrides!.length} seasonal override(s)</Badge>}
               </div>
             </div>
-            {canEdit && (
+            {hasActions && (
               <div className="flex gap-1">
+                {canEdit && (
                 <Button size="sm" variant="ghost" onClick={() => setEditing({ replace: p.name, policy: structuredClone(p) })}>
                   <PencilIcon data-icon="inline-start" />
                   Edit
                 </Button>
-                <ConfirmDelete
+                )}
+                {canDelete && (
+<ConfirmDelete
                   triggerRender={<Button size="sm" variant="ghost" disabled={pending} />}
                   title={`Delete the "${p.label || "return"}" policy?`}
                   description="Shoppers in these countries will no longer see return details from this policy."
@@ -284,11 +290,12 @@ export function ReturnPolicies({ projectId, policies }: { projectId: string; pol
                   <Trash2Icon data-icon="inline-start" />
                   Delete
                 </ConfirmDelete>
+)}
               </div>
             )}
           </div>
         ))}
-        {canEdit && (
+        {canCreate && (
           <Button
             variant="outline"
             size="sm"

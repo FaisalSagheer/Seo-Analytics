@@ -21,7 +21,7 @@ type Filter = "all" | "with" | "without";
 
 /** Product videos: which products have them, and adding or changing the links. */
 export function VideoAssets({ projectId, rows }: { projectId: string; rows: CatalogueRow[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("video-assets.edit");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<{ row: CatalogueRow; text: string } | null>(null);

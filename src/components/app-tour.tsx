@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { NextStep, NextStepProvider, useNextStep, type CardComponentProps, type Step } from "nextstepjs";
 import { markPageTourSeen, markTourSeen } from "@/lib/actions/tour";
+import { MERCHANT_PERMISSIONS } from "@/lib/permissions";
 import { PAGE_TOURS, pageKey } from "@/lib/tour-pages";
 import { useViewerRole } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
@@ -221,7 +222,7 @@ export function AppTour({ tourSeen, pageToursSeen, children }: { tourSeen: boole
   const [welcomePath, setWelcomePath] = useState<string | null>(null);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const admin = Boolean(role?.isAdmin);
-  const merchantEdit = Boolean(role?.permissions.includes("merchant.manage"));
+  const merchantEdit = Boolean(role?.permissions.some((k) => MERCHANT_PERMISSIONS.includes(k)));
 
   // Which sidebar targets exist: measured after each navigation, so the welcome tour matches what's on screen
   useEffect(() => {

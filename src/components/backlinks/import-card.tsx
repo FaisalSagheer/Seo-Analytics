@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
 export function LinkImportCard({ projectId, domain, today }: { projectId: string; domain: string; today: string }) {
-  const allowed = useCan("data.sync");
+  const allowed = useCan("backlinks.create");
   const form = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [names, setNames] = useState<string[]>([]);

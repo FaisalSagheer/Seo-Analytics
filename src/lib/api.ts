@@ -22,7 +22,7 @@ export async function authenticate(request: Request) {
   if (!owner?.isActive) return null;
   // A key acts as its owner, so it stops working the moment their role loses API access
   const role = await resolveRole(key.userId);
-  if (!role.permissions.includes("apikeys.manage")) return null;
+  if (!role.permissions.includes("apikeys.create")) return null;
   // Best-effort; a failed timestamp write must not fail the request
   db.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   return { userId: key.userId, role };

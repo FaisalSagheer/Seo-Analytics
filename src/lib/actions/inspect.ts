@@ -9,7 +9,7 @@ import { fail, ok, type ActionResult } from "@/lib/actions/result";
 
 /** Asks Search Console how Google sees one URL of the project's site. */
 export async function inspectUrl(projectId: string, input: string): Promise<ActionResult<{ url: string; result: UrlInspection }>> {
-  const blocked = await denied("data.sync");
+  const blocked = await denied("audit.create");
   if (blocked) return blocked;
   const { project } = await requireProject(projectId);
   if (project.isDemo) return fail("Demo projects have no Search Console site to inspect.");

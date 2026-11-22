@@ -86,7 +86,10 @@ function UploadSummary({ row }: { row: FeedRow }) {
 
 /** Data sources: where products, promotions and inventory come from, with each file feed's last upload. */
 export function Feeds({ projectId, feeds }: { projectId: string; feeds: FeedRow[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("feeds.create");
+  const canEdit = useCan("feeds.edit");
+  const canDelete = useCan("feeds.delete");
+  const hasActions = canEdit || canDelete;
   const [pending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const pages = usePaged(feeds);
@@ -115,7 +118,7 @@ export function Feeds({ projectId, feeds }: { projectId: string; feeds: FeedRow[
                   <TableHead>Data source</TableHead>
                   <TableHead>Input</TableHead>
                   <TableHead>Last upload</TableHead>
-                  {canEdit && <TableHead className="w-48" />}
+                  {hasActions && <TableHead className="w-48" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -146,21 +149,22 @@ export function Feeds({ projectId, feeds }: { projectId: string; feeds: FeedRow[
                       <TableCell className="align-top">
                         <UploadSummary row={d} />
                       </TableCell>
-                      {canEdit && (
+                      {hasActions && (
                         <TableCell className="text-right align-top">
                           <div className="flex flex-wrap justify-end gap-1">
-                            {fetchable && !paused && (
+                            {canEdit && fetchable && !paused && (
                               <Button size="sm" variant="outline" disabled={pending} onClick={() => write(() => fetchFeedNow(projectId, d.name!), "Fetch started. The upload status updates when Google finishes.")}>
                                 <RefreshCwIcon data-icon="inline-start" />
                                 Fetch now
                               </Button>
                             )}
-                            {fetchable && (
+                            {canEdit && fetchable && (
                               <Button size="sm" variant="ghost" disabled={pending} onClick={() => write(() => setFeedSchedule(projectId, d.name!, paused), paused ? "Schedule resumed." : "Schedule paused.")}>
                                 {paused ? "Resume" : "Pause"}
                               </Button>
                             )}
-                            <ConfirmDelete
+                            {canDelete && (
+<ConfirmDelete
                               triggerRender={<Button size="icon-sm" variant="ghost" aria-label={`Delete ${d.displayName || d.dataSourceId}`} disabled={pending} />}
                               title={`Delete "${d.displayName || d.dataSourceId}"?`}
                               description={
@@ -179,6 +183,7 @@ export function Feeds({ projectId, feeds }: { projectId: string; feeds: FeedRow[
                             >
                               <Trash2Icon />
                             </ConfirmDelete>
+)}
                           </div>
                         </TableCell>
                       )}
@@ -190,7 +195,7 @@ export function Feeds({ projectId, feeds }: { projectId: string; feeds: FeedRow[
             <TablePager page={pages.page} total={feeds.length} onPage={pages.setPage} />
           </>
         )}
-        {canEdit && (
+        {canCreate && (
           <Button variant="outline" size="sm" className="self-start" onClick={() => setAdding(true)}>
             <PlusIcon data-icon="inline-start" />
             Add scheduled feed

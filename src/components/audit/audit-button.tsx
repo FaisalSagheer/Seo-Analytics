@@ -10,7 +10,7 @@ import { useCan } from "@/components/permissions-provider";
 
 export function AuditButton({ projectId, label = "Run audit" }: { projectId: string; label?: string }) {
   const [pending, startTransition] = useTransition();
-  const allowed = useCan("data.sync");
+  const allowed = useCan("audit.create");
   if (!allowed) return null;
 
   return (

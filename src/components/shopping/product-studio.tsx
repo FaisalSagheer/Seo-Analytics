@@ -32,7 +32,7 @@ const TONES = [
 
 /** Product Studio: AI titles, descriptions and image edits for one product at a time. */
 export function ProductStudio({ projectId, rows }: { projectId: string; rows: CatalogueRow[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canEdit = useCan("product-studio.edit");
   const [q, setQ] = useState("");
   const [product, setProduct] = useState<(ProductDoc & { ours: boolean }) | null>(null);
   const [loading, startLoading] = useTransition();

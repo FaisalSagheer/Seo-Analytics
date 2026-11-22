@@ -22,7 +22,7 @@ import { useCan } from "@/components/permissions-provider";
 import { Textarea } from "@/components/ui/textarea";
 
 export function AddKeywordsDialog({ projectId }: { projectId: string }) {
-  const allowed = useCan("keywords.manage");
+  const allowed = useCan("rankings.create");
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<AddKeywordsInput>({ projectId, phrases: "", tags: "" });

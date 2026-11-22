@@ -29,7 +29,7 @@ export function GooglePropertyForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const canRegister = useCan("providers.manage");
+  const canRegister = useCan("google.edit");
   const [registering, startRegister] = useTransition();
   const [reloads, setReloads] = useState(0);
 

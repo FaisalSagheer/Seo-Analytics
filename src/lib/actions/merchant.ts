@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { denied, requireProject } from "@/lib/session";
+import type { Permission } from "@/lib/permissions";
 import { propertyChoiceDenied } from "@/lib/google-access";
 import { getGoogleAccessToken } from "@/lib/providers";
 import {
@@ -60,9 +61,9 @@ import { checkPromotion, toPromotion, type PromotionForm } from "@/lib/merchant-
 import { attributeValue, changedFields, checkProduct, inputSegment, toForm, validOfferId, type ProductForm } from "@/lib/merchant-products";
 import { fail, ok, type ActionResult } from "@/lib/actions/result";
 
-/** Every Merchant Center write: the permission, the project, its account, then the token. */
-async function writeContext(projectId: string) {
-  const blocked = await denied("merchant.manage");
+/** Every Merchant Center write: the permission for that page and action, the project, its account, then the token. */
+async function writeContext(projectId: string, permission: Permission) {
+  const blocked = await denied(permission);
   if (blocked) return { error: blocked };
   const { project } = await requireProject(projectId);
   if (!project.merchantId) return { error: fail("Choose a Merchant Center account in Project settings first.") };
@@ -90,7 +91,7 @@ export async function saveShippingSettings(
   projectId: string,
   settings: ShippingSettings,
 ): Promise<ActionResult<{ settings: ShippingSettings; conflict: boolean }>> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "shipping.edit");
   if ("error" in ctx) return ctx.error!;
   try {
     const regions = await listRegions(ctx.token, ctx.merchantId);
@@ -141,7 +142,7 @@ export async function addRegion(projectId: string, regionId: string, input: Regi
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(regionId)) return fail("The region ID can use letters, numbers, - and _ (up to 64).");
   const { body, error } = regionBody(input);
   if (error) return fail(error);
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "shipping.create");
   if ("error" in ctx) return ctx.error!;
   try {
     await createRegion(ctx.token, ctx.merchantId, regionId, body);
@@ -155,7 +156,7 @@ export async function addRegion(projectId: string, regionId: string, input: Regi
 export async function editRegion(projectId: string, name: string, input: RegionInput): Promise<ActionResult> {
   const { body, error } = regionBody(input);
   if (error) return fail(error);
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "shipping.edit");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(name, ctx.merchantId, "regions")) return fail("That region isn't part of this project's Merchant Center account.");
   try {
@@ -168,7 +169,7 @@ export async function editRegion(projectId: string, name: string, input: RegionI
 }
 
 export async function removeRegion(projectId: string, name: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "shipping.delete");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(name, ctx.merchantId, "regions")) return fail("That region isn't part of this project's Merchant Center account.");
   try {
@@ -198,7 +199,7 @@ const forCreate = (p: ReturnPolicy): ReturnPolicy => {
 export async function saveReturnPolicy(projectId: string, policy: ReturnPolicy, replaceName?: string): Promise<ActionResult> {
   const problems = checkReturnPolicy(policy);
   if (problems.length) return fail(problems.join(" "));
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, replaceName ? "shipping.edit" : "shipping.create");
   if ("error" in ctx) return ctx.error!;
   if (replaceName && !ownedBy(replaceName, ctx.merchantId, "onlineReturnPolicies")) return fail("That return policy isn't part of this project's Merchant Center account.");
   const body = forCreate(policy);
@@ -230,7 +231,7 @@ export async function saveReturnPolicy(projectId: string, policy: ReturnPolicy, 
 }
 
 export async function removeReturnPolicy(projectId: string, name: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "shipping.delete");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(name, ctx.merchantId, "onlineReturnPolicies")) return fail("That return policy isn't part of this project's Merchant Center account.");
   try {
@@ -258,7 +259,7 @@ export type BusinessInfoInput = {
 
 /** Updates the business name (the account's name), address and customer service. (The business phone is verified in Merchant Center itself.) */
 export async function saveBusinessInfo(projectId: string, input: BusinessInfoInput): Promise<ActionResult<BusinessInfoDoc>> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "store-info.edit");
   if ("error" in ctx) return ctx.error!;
   const cs = input.customerService;
   if (cs.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cs.email.trim())) return fail("Enter a valid customer service email.");
@@ -297,7 +298,7 @@ export async function saveBusinessInfo(projectId: string, input: BusinessInfoInp
 
 /** Changes the store's homepage URL. Changing it drops the claim, so it's claimed again afterwards if it was claimed. */
 export async function saveHomepage(projectId: string, uri: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "store-info.edit");
   if ("error" in ctx) return ctx.error!;
   if (!/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(uri.trim())) return fail("Enter the store's full URL, e.g. https://example.com.");
   try {
@@ -311,7 +312,7 @@ export async function saveHomepage(projectId: string, uri: string): Promise<Acti
 
 /** Claims (or releases) the homepage. `overwrite` takes the claim from another account. */
 export async function setHomepageClaim(projectId: string, claim: boolean, overwrite = false): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "store-info.edit");
   if ("error" in ctx) return ctx.error!;
   try {
     if (claim) await claimHomepage(ctx.token, ctx.merchantId, overwrite);
@@ -325,7 +326,7 @@ export async function setHomepageClaim(projectId: string, claim: boolean, overwr
 
 /** Turns a program (free listings, Shopping ads, …) on or off. */
 export async function toggleProgram(projectId: string, programName: string, enable: boolean): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "marketing-methods.edit");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(programName, ctx.merchantId, "programs")) return fail("That program isn't in this account.");
   try {
@@ -339,7 +340,7 @@ export async function toggleProgram(projectId: string, programName: string, enab
 
 /** Invites someone to the Merchant Center account. */
 export async function addMerchantUser(projectId: string, email: string, rights: AccessRight[]): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "people.create");
   if ("error" in ctx) return ctx.error!;
   const e = email.trim().toLowerCase();
   if (!/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(e)) return fail("Enter a valid email address.");
@@ -355,7 +356,7 @@ export async function addMerchantUser(projectId: string, email: string, rights: 
 }
 
 export async function changeMerchantUser(projectId: string, userName: string, rights: AccessRight[]): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "people.edit");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(userName, ctx.merchantId, "users")) return fail("That person isn't in this account.");
   const r = cleanRights(rights);
@@ -370,7 +371,7 @@ export async function changeMerchantUser(projectId: string, userName: string, ri
 }
 
 export async function removeMerchantUser(projectId: string, userName: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "people.delete");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(userName, ctx.merchantId, "users")) return fail("That person isn't in this account.");
   try {
@@ -432,7 +433,7 @@ async function linkFirst(token: string, primaryName: string, editsName: string) 
  * the values go into the app's supplemental source, which overrides only those attributes.
  */
 export async function saveProductEdits(projectId: string, name: string, before: ProductForm, after: ProductForm): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "products.edit");
   if ("error" in ctx) return ctx.error!;
   if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
   const problems = checkProduct(after, { isNew: false });
@@ -478,7 +479,7 @@ async function overrideAttributes(token: string, merchantId: string, name: strin
 
 /** Sets a product's video links (an empty list falls back to the feed's). */
 export async function saveProductVideos(projectId: string, name: string, links: string[]): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "video-assets.edit");
   if ("error" in ctx) return ctx.error!;
   if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
   const clean = [...new Set(links.map((l) => l.trim()).filter(Boolean))];
@@ -497,7 +498,7 @@ export async function saveProductVideos(projectId: string, name: string, links: 
 
 /** Drops every edit made here, so the product shows its feed's values again. */
 export async function revertProductEdits(projectId: string, name: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "products.edit");
   if ("error" in ctx) return ctx.error!;
   if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
   try {
@@ -521,7 +522,7 @@ export type NewProduct = { offerId: string; contentLanguage: string; feedLabel: 
 
 /** Adds a product to the app's own API source (created on first use). */
 export async function addProduct(projectId: string, np: NewProduct): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "products.create");
   if ("error" in ctx) return ctx.error!;
   const offerId = np.offerId;
   const lang = np.contentLanguage.trim().toLowerCase();
@@ -551,7 +552,7 @@ export async function addProduct(projectId: string, np: NewProduct): Promise<Act
  * deleted through the API (the feed would add it back), so it's paused on Google until resumed.
  */
 export async function deleteProduct(projectId: string, name: string): Promise<ActionResult<{ paused: boolean }>> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "products.delete");
   if ("error" in ctx) return ctx.error!;
   if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
   try {
@@ -574,7 +575,7 @@ export async function deleteProduct(projectId: string, name: string): Promise<Ac
 
 /** Shows a paused product on Google again (falls back to the feed's pause setting). */
 export async function resumeProduct(projectId: string, name: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "products.edit");
   if ("error" in ctx) return ctx.error!;
   if (!productOf(name, ctx.merchantId)) return fail("That product isn't in this account.");
   try {
@@ -591,7 +592,7 @@ export async function resumeProduct(projectId: string, name: string): Promise<Ac
 
 /** Asks Google to fetch a scheduled file feed now, instead of waiting for its schedule. */
 export async function fetchFeedNow(projectId: string, dsName: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "feeds.edit");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
   try {
@@ -605,7 +606,7 @@ export async function fetchFeedNow(projectId: string, dsName: string): Promise<A
 
 /** Pauses or resumes a scheduled fetch. */
 export async function setFeedSchedule(projectId: string, dsName: string, enabled: boolean): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "feeds.edit");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
   try {
@@ -640,7 +641,7 @@ const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"
 
 /** Adds a primary product feed that Google fetches from a URL on a schedule. */
 export async function addScheduledFeed(projectId: string, f: NewFeed): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "feeds.create");
   if ("error" in ctx) return ctx.error!;
   const lang = f.contentLanguage.trim().toLowerCase();
   const label = f.feedLabel.trim().toUpperCase();
@@ -682,7 +683,7 @@ export async function addScheduledFeed(projectId: string, f: NewFeed): Promise<A
 
 /** Deletes a data source, and with a primary one every product in it. */
 export async function removeFeed(projectId: string, dsName: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "feeds.delete");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(dsName, ctx.merchantId, "dataSources")) return fail("That feed isn't in this account.");
   try {
@@ -703,7 +704,7 @@ const PROMOTIONS_SOURCE = "Seo Engine promotions";
  * promotion data source per country and language, which the app creates on first use.
  */
 export async function savePromotion(projectId: string, form: PromotionForm): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "promotions.create");
   if ("error" in ctx) return ctx.error!;
   const problems = checkPromotion(form);
   if (problems.length) return fail(problems.join(" "));
@@ -724,7 +725,7 @@ export async function savePromotion(projectId: string, form: PromotionForm): Pro
 
 /** Google can't delete promotions; ending one sends it again with an end time of now. */
 export async function endPromotion(projectId: string, name: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "promotions.edit");
   if ("error" in ctx) return ctx.error!;
   if (!new RegExp(`^accounts/${ctx.merchantId}/promotions/[^/\\s]+$`).test(name)) return fail("That promotion isn't in this account.");
   try {
@@ -750,7 +751,7 @@ export async function endPromotion(projectId: string, name: string): Promise<Act
 
 /** Removes a product review from Merchant Center (e.g. spam). It's gone from Google, not from where it was written. */
 export async function removeProductReview(projectId: string, reviewName: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "reviews.delete");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(reviewName, ctx.merchantId, "productReviews")) return fail("That review isn't in this account.");
   try {
@@ -768,7 +769,7 @@ export type ImprovementSettings = { price: boolean; availability: boolean; stric
 
 /** Lets Google fix prices, availability, condition, images and shipping from the store's website. */
 export async function saveAutomaticImprovements(projectId: string, s: ImprovementSettings): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "auto-improvements.edit");
   if ("error" in ctx) return ctx.error!;
   try {
     await updateAutomaticImprovements(
@@ -821,7 +822,7 @@ function checkAttribution(model: AttributionModel, days: number) {
 
 /** Links a Google Analytics property, or adds a Merchant Center tag conversion source. */
 export async function addConversionSource(projectId: string, src: NewConversionSource): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "conversions.create");
   if ("error" in ctx) return ctx.error!;
   let doc;
   if (src.kind === "ga") {
@@ -852,7 +853,7 @@ export async function addConversionSource(projectId: string, src: NewConversionS
 
 /** Changes the attribution of a Merchant Center tag source (Analytics links take theirs from Analytics). */
 export async function updateConversionAttribution(projectId: string, name: string, model: AttributionModel, lookbackDays: number): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "conversions.edit");
   if ("error" in ctx) return ctx.error!;
   if (!sourceOf(name, ctx.merchantId)) return fail("That conversion source isn't in this account.");
   const bad = checkAttribution(model, lookbackDays);
@@ -873,7 +874,7 @@ export async function updateConversionAttribution(projectId: string, name: strin
 
 /** Archives a tag source (restorable in Merchant Center for 30 days) or removes an Analytics link. */
 export async function removeConversionSource(projectId: string, name: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "conversions.delete");
   if ("error" in ctx) return ctx.error!;
   if (!sourceOf(name, ctx.merchantId)) return fail("That conversion source isn't in this account.");
   try {
@@ -889,7 +890,7 @@ export async function removeConversionSource(projectId: string, name: string): P
 
 /** Asks to link the Business Profile managed by this email; its owner approves it in Business Profile. */
 export async function linkBusinessProfile(projectId: string, email: string): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "apps.create");
   if ("error" in ctx) return ctx.error!;
   const e = email.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return fail("Enter the email address that manages the Business Profile.");
@@ -904,7 +905,7 @@ export async function linkBusinessProfile(projectId: string, email: string): Pro
 
 /** Approves or rejects a link another service (Google Ads, an agency, …) asked for. */
 export async function decideServiceLink(projectId: string, name: string, approve: boolean): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "apps.edit");
   if ("error" in ctx) return ctx.error!;
   if (!ownedBy(name, ctx.merchantId, "services")) return fail("That service isn't linked to this account.");
   try {
@@ -932,7 +933,7 @@ export type StudioText = { title: { text: string; summary: string | null } | nul
 
 /** Suggests a title and description for a product from its attributes. */
 export async function studioSuggestText(projectId: string, productName: string, tone: string, language: string): Promise<ActionResult<StudioText>> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "product-studio.edit");
   if ("error" in ctx) return ctx.error!;
   if (!productOf(productName, ctx.merchantId)) return fail("That product isn't in this account.");
   if (language && !/^[a-z]{2}$/.test(language)) return fail("The language must be a 2-letter code, e.g. en.");
@@ -960,7 +961,7 @@ export async function studioEditImage(
   tool: "remove" | "background" | "upscale",
   backgroundDescription?: string,
 ): Promise<ActionResult<{ src: string }>> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "product-studio.edit");
   if ("error" in ctx) return ctx.error!;
   if (!/^https:\/\/[^\s]+$/i.test(imageUri)) return fail("The image must be an https:// link.");
   if (!["remove", "background", "upscale"].includes(tool)) return fail("Choose an image tool.");
@@ -982,7 +983,7 @@ const snake = (k: string) => k.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase());
 
 /** Sets which identity labels the store claims, and whether Google may use them in promotions. */
 export async function saveBusinessIdentity(projectId: string, labels: Partial<Record<IdentityKey, boolean>>, promotionsConsent: boolean): Promise<ActionResult> {
-  const ctx = await writeContext(projectId);
+  const ctx = await writeContext(projectId, "brand.edit");
   if ("error" in ctx) return ctx.error!;
   const doc: Record<string, unknown> = { promotionsConsent: promotionsConsent ? "PROMOTIONS_CONSENT_GIVEN" : "PROMOTIONS_CONSENT_DENIED" };
   for (const k of IDENTITY_KEYS) doc[k] = { identityDeclaration: labels[k] ? "SELF_IDENTIFIES_AS" : "DOES_NOT_SELF_IDENTIFY_AS" };

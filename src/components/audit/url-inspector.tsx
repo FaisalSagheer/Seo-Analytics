@@ -158,7 +158,7 @@ function useInspection(projectId: string) {
 
 /** The "Inspect a URL" box at the top of the Site audit page. */
 export function UrlInspector({ projectId, property }: { projectId: string; property: string }) {
-  const allowed = useCan("data.sync");
+  const allowed = useCan("audit.create");
   const [url, setUrl] = useState("");
   const { pending, run, dialog } = useInspection(projectId);
   if (!allowed) return null;
@@ -196,7 +196,7 @@ export function UrlInspector({ projectId, property }: { projectId: string; prope
 
 /** A per-page Inspect button for the audit table. */
 export function InspectButton({ projectId, url }: { projectId: string; url: string }) {
-  const allowed = useCan("data.sync");
+  const allowed = useCan("audit.create");
   const { pending, run, dialog } = useInspection(projectId);
   if (!allowed) return null;
   return (

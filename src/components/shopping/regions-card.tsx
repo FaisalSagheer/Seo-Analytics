@@ -49,7 +49,10 @@ const toInput = (d: Draft): RegionInput => ({
 
 /** Regions: postal-code or geotarget areas that rate tables and transit tables refer to. */
 export function RegionsCard({ projectId, regions, inUse }: { projectId: string; regions: Region[]; inUse: string[] }) {
-  const canEdit = useCan("merchant.manage");
+  const canCreate = useCan("shipping.create");
+  const canEdit = useCan("shipping.edit");
+  const canDelete = useCan("shipping.delete");
+  const hasActions = canEdit || canDelete;
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<{ name?: string; draft: Draft } | null>(null);
 
@@ -80,7 +83,7 @@ export function RegionsCard({ projectId, regions, inUse }: { projectId: string; 
                 <TableHead>Region</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Shipping</TableHead>
-                {canEdit && <TableHead className="w-24" />}
+                {hasActions && <TableHead className="w-24" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -92,14 +95,15 @@ export function RegionsCard({ projectId, regions, inUse }: { projectId: string; 
                   </TableCell>
                   <TableCell>{typeOf(r)}</TableCell>
                   <TableCell>{r.shippingEligible === false ? <Badge variant="outline">Not eligible</Badge> : <Badge variant="secondary">Eligible</Badge>}</TableCell>
-                  {canEdit && (
+                  {hasActions && (
                     <TableCell className="text-right">
-                      {!r.radiusArea && (
+                      {canEdit && !r.radiusArea && (
                         <Button size="icon-sm" variant="ghost" aria-label={`Edit ${r.displayName || idOf(r)}`} onClick={() => setEditing({ name: r.name, draft: toDraft(r) })}>
                           <PencilIcon />
                         </Button>
                       )}
-                      <ConfirmDelete
+                      {canDelete && (
+<ConfirmDelete
                         triggerRender={<Button size="icon-sm" variant="ghost" aria-label={`Delete ${r.displayName || idOf(r)}`} disabled={pending} />}
                         title={`Delete region "${r.displayName || idOf(r)}"?`}
                         description={
@@ -121,6 +125,7 @@ export function RegionsCard({ projectId, regions, inUse }: { projectId: string; 
                       >
                         <Trash2Icon />
                       </ConfirmDelete>
+)}
                     </TableCell>
                   )}
                 </TableRow>
@@ -128,7 +133,7 @@ export function RegionsCard({ projectId, regions, inUse }: { projectId: string; 
             </TableBody>
           </Table>
         )}
-        {canEdit && (
+        {canCreate && (
           <Button variant="outline" size="sm" className="self-start" onClick={() => setEditing({ draft: toDraft() })}>
             <PlusIcon data-icon="inline-start" />
             Add region
