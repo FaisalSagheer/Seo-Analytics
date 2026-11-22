@@ -13,7 +13,7 @@ export const PERMISSIONS = {
   "data.sync": "Run data syncs",
   "providers.manage": "Connect Google (Search Console and GA4)",
   "apikeys.manage": "Create and use API keys",
-  "merchant.manage": "Manage Merchant Center (shipping, returns, products, feeds, promotions)",
+  "merchant.manage": "Manage Merchant Center (products, shipping, feeds, promotions, store settings, people and access)",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
