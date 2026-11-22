@@ -8,6 +8,7 @@ import { getViewerRole, requireUser } from "@/lib/session";
 import { PermissionsProvider } from "@/components/permissions-provider";
 import { FilterPendingArea } from "@/components/dashboard/filter-pending";
 import { AppTour } from "@/components/app-tour";
+import { AssistantSphere } from "@/components/assistant/assistant-sphere";
 
 /**
  * The signed-in shell is per-user (session + project list). SidebarProvider and
@@ -39,6 +40,7 @@ async function AppShell({ children }: { children: React.ReactNode }) {
           <FilterPendingArea>{children}</FilterPendingArea>
         </div>
       </SidebarInset>
+      <AssistantSphere />
     </SidebarProvider>
     </AppTour>
     </PermissionsProvider>

@@ -57,6 +57,8 @@ export const LIMITS = {
   resetComplete: { max: 10, window: 60 * 60 },
   /** URL inspections per project; Google allows about 2,000 per site a day */
   inspect: { max: 200, window: 60 * 60 },
+  /** Gemini suggestions per project; each one is a paid call */
+  assistant: { max: 30, window: 60 * 60 },
   /** Requests with a missing or wrong API key */
 } as const;
 
