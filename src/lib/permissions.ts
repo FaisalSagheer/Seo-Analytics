@@ -53,9 +53,8 @@ export const PERMISSIONS = {
   "conversions.edit": "Change conversion attribution",
   "conversions.delete": "Remove conversion sources",
   "auto-improvements.edit": "Change automatic improvements",
-  // Account
+  // Google
   "google.edit": "Connect Google (Search Console, GA4) and register Merchant Center",
-  "apikeys.create": "Create and use API keys",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -121,10 +120,6 @@ export const PERMISSION_LAYOUT: { area: string; groups: { label: string; pages: 
       },
     ],
   },
-  {
-    area: "Account",
-    groups: [{ label: "API", pages: [{ label: "API keys", create: "apikeys.create" }] }],
-  },
 ];
 
 /** Every Merchant Center permission, for "can this role change the store at all?". */
@@ -140,7 +135,8 @@ const LEGACY: Record<string, Permission[]> = {
   "keywords.manage": ["rankings.create", "rankings.delete"],
   "data.sync": ["analytics.edit", "rankings.edit", "audit.create", "backlinks.create", "backlinks.delete"],
   "providers.manage": ["google.edit"],
-  "apikeys.manage": ["apikeys.create"],
+  // API keys were removed, so this grants nothing now
+  "apikeys.manage": [],
   "merchant.manage": MERCHANT_PERMISSIONS,
 };
 

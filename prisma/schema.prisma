@@ -438,6 +438,8 @@ enum Provider {
   BING
   /// A Google service account key (Search Console + GA4), stored per project
   GOOGLE
+  /// A Gemini API key from Google AI Studio, stored per project
+  GEMINI
 }
 
 /// GA4 sessions that arrived from other websites, per day and referring site. The closest free

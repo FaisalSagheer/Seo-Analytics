@@ -9,7 +9,6 @@ An open source, self-hosted SEO dashboard that needs no paid SEO API. Track your
 - **Per-client Google access:** a client can hand over a Google service account key for their project, so they never have to sign in
 - **Demo mode:** six months of generated sample data, plus a one-click "Explore the demo" sign-in
 - **Sign-in:** email and password, and optionally Google
-- **REST API:** API keys for scripts and agents, with an OpenAPI spec at `/api/v1/openapi.json`
 
 Stack: Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Recharts, Prisma 7 + MySQL, NextAuth (Auth.js v5), Zod.
 
@@ -72,7 +71,7 @@ Anyone whose role has the **Google connection → Edit** permission (admins alwa
 
 1. Create an **OAuth client ID** (Web application) in the same Cloud project, with this redirect URI: `{APP_URL}/api/auth/callback/google`. While the consent screen is in "Testing", add your Google account as a test user.
 2. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the server.
-3. In **Google & API**, click **Connect Google**. This asks for read-only `webmasters.readonly` and `analytics.readonly` access with offline consent, so the daily sync can refresh the token.
+3. In a project's **Project settings**, click **Connect Google**. This asks for read-only `webmasters.readonly` and `analytics.readonly` access with offline consent, so the daily sync can refresh the token.
 4. In each project's **Project settings**, pick the Search Console site and the GA4 property.
 
 GA4 is filtered to `sessionDefaultChannelGroup = Organic Search`, and conversions use GA4's `keyEvents` metric.
@@ -85,21 +84,19 @@ Search Console reports the **average position** your pages were shown at for a q
 
 ## Team, roles and client access
 
-Each user has one role. A role decides what they can change (for example create projects, edit settings or manage API keys), and whether they **see every project**:
+Each user has one role. A role decides what they can change (for example create projects, edit settings or connect Google), and whether they **see every project**:
 
 - The **Demo** role belongs to the public demo account (`DEMO_MODE`): it sees only its own sample project.
 - **See every project** is on by default, so the Admin, Editor and Viewer roles, and any role you create, see all projects.
 - **Turn it off** for a client role. That role sees only the projects it's been added to. Open a project's **Project settings → Who can see this project** and tick the people who should see it. The team's own admins always see everything.
 
-A client's API key follows the same rules: it lists only the projects they can see, and any other project returns 404.
-
 **Forgotten passwords.** The sign-in page has **Forgot password?**. Enter the email and, when email is set up (`SMTP_HOST` and `SMTP_FROM`), a one-time link valid for an hour is sent. The page answers the same way whether or not the address has an account. The link sets a new password, marks the address as verified and signs the account out everywhere else. Without email, or when someone can't receive it, an admin clicks **Reset password** next to the member on **Team & roles** and passes on the link shown there. Deactivated accounts get nothing.
 
-**Rate limits.** Failed sign-ins are limited to 8 per account and 60 per address in 15 minutes (a successful sign-in clears the account's count). Sign-ups and invitation attempts are limited to 10 and 20 per address an hour, password reset requests to 3 per address and 10 per visitor an hour, and requests with a wrong API key to 100 per 15 minutes. Counters are kept in the database, so they hold across restarts and several instances, and they store only hashes, never email addresses. Set `TRUSTED_PROXY_HOPS` to match your proxy setup or every visitor may share one limit.
+**Rate limits.** Failed sign-ins are limited to 8 per account and 60 per address in 15 minutes (a successful sign-in clears the account's count). Sign-ups and invitation attempts are limited to 10 and 20 per address an hour, password reset requests to 3 per address and 10 per visitor an hour. Counters are kept in the database, so they hold across restarts and several instances, and they store only hashes, never email addresses. Set `TRUSTED_PROXY_HOPS` to match your proxy setup or every visitor may share one limit.
 
 **Inviting people.** On **Team & roles**, click **Invite someone**, enter the email and pick the role. When email is set up (`SMTP_HOST` and `SMTP_FROM`), the invitation is emailed. Otherwise, or if sending fails, the one-time link is shown once for you to copy. Links are valid for 7 days. The person opens it, sets their name and password, and is signed in with that role. An invite works even when public sign-up is turned off (`ALLOW_SIGNUP="false"`), and the link only works for the invited email. Revoke a pending invitation from the same page.
 
-**Deactivating people.** On **Team & roles**, **Deactivate** blocks sign-in and API keys at once, including sessions that are already open, and keeps everything the person created. **Reactivate** restores access. You can't deactivate your own account.
+**Deactivating people.** On **Team & roles**, **Deactivate** blocks sign-in at once, including sessions that are already open, and keeps everything the person created. **Reactivate** restores access. You can't deactivate your own account.
 
 To give a client their own login: create a role with **See every project** turned off, invite them with the client role, then tick their projects under each project's **Who can see this project**.
 
@@ -113,7 +110,7 @@ It needs the project's GA4 property (see above) and fills in on **Sync Google** 
 
 Search Console shows who links to you, but Google offers no API for it, so **Backlinks** takes the export. In Search Console open **Links**, press **Export external links**, choose **Download CSV** (or Excel, then save as CSV), and upload the ZIP or the CSV files on the project's **Backlinks** page. The files can be in any language and use commas, semicolons or tabs. Each table is recognised by what it holds: top linking sites, top linked pages and top linking text. A file that is none of these (for example the internal links table) is skipped with a note.
 
-Every upload is a snapshot with the date you exported it. The latest list of linking sites is compared with the one before it to show **New sites**, **Lost sites** and the change per site, and a chart appears once you have two uploads. Import again every month or so. Search Console only exports your top links, so a site that drops out can be a lost link or just one that fell below the cut. The last 24 imports are kept, and a role needs **Backlinks → Create** to upload and **Backlinks → Delete** to remove one. The data is also at `GET /api/v1/projects/{id}/backlinks`.
+Every upload is a snapshot with the date you exported it. The latest list of linking sites is compared with the one before it to show **New sites**, **Lost sites** and the change per site, and a chart appears once you have two uploads. Import again every month or so. Search Console only exports your top links, so a site that drops out can be a lost link or just one that fell below the cut. The last 24 imports are kept, and a role needs **Backlinks → Create** to upload and **Backlinks → Delete** to remove one.
 
 ## Shopping (Merchant Center)
 
@@ -194,26 +191,6 @@ npm start            # listens on PORT (default 3000)
 
 Put it behind a reverse proxy (Caddy, nginx) with HTTPS, set `APP_URL` to the public URL, and keep a process manager such as pm2 or systemd running `npm start`.
 
-## API
-
-Create a key in **Google & API**, then **API keys**. Send it as a bearer token:
-
-```bash
-curl -H "Authorization: Bearer bsk_..." http://localhost:3000/api/v1/projects
-```
-
-| Method | Path | What it returns |
-|---|---|---|
-| GET | `/api/v1/projects` | Your projects |
-| GET | `/api/v1/projects/{id}/report?days=28` | Totals, daily GSC + GA4 + ranking series, top movers |
-| GET | `/api/v1/projects/{id}/rankings?days=90&keyword=&tag=` | Ranking history per keyword |
-| GET | `/api/v1/projects/{id}/referrals?days=28` | Sites and pages that sent visitors, with new and gone-quiet sites |
-| GET | `/api/v1/projects/{id}/keywords` | Tracked keywords |
-| POST | `/api/v1/projects/{id}/keywords` | Track keywords: `{ "keywords": [...], "tags": [...] }` |
-| GET | `/api/v1/openapi.json` | OpenAPI 3.1 spec (no auth needed) |
-
-Keys are stored only as SHA-256 hashes, can be revoked, and reach only the projects their user can see.
-
 ## How the numbers are calculated
 
 - **Visibility**: for each tracked keyword, the expected CTR at its current position times its search volume (every keyword counts equally when no volume is known), divided by the same sum if every keyword ranked #1. 100% means #1 everywhere.
@@ -232,7 +209,6 @@ src/lib/sync.ts             rankings / google sync
 src/lib/queries.ts          reads and report building
 src/lib/actions/            server actions (zod-validated)
 src/app/(app)/              dashboard pages
-src/app/api/v1/             public REST API
 src/app/api/cron/sync/      scheduled sync endpoint
 ```
 

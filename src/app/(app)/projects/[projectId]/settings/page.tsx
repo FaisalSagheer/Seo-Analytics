@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { GooglePropertyForm } from "@/components/projects/google-property-form";
 import { ProjectAccessCard, type AccessRow } from "@/components/projects/project-access-card";
 import { ProjectGoogleCard } from "@/components/projects/project-google-card";
+import { ProjectGeminiCard } from "@/components/projects/project-gemini-card";
 import { DeleteProjectCard, ProjectSettingsForm } from "@/components/projects/project-settings-form";
 import { GoogleCard } from "@/components/settings/google-card";
 import { db } from "@/lib/db";
@@ -19,9 +20,10 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
   const { project } = await requireProject(projectId);
   const user = await requireUser();
   const viewer = await getViewerRole();
-  const [google, account, keywords, rankChecks, audits, gscDays, canGoogle] = await Promise.all([
+  const [google, account, gemini, keywords, rankChecks, audits, gscDays, canGoogle] = await Promise.all([
     getGoogleSource(project),
     getGoogleAccount(user.id),
+    db.projectCredential.findUnique({ where: { projectId_provider: { projectId, provider: "GEMINI" } }, select: { login: true } }),
     db.keyword.count({ where: { projectId } }),
     db.rankSnapshot.count({ where: { keyword: { projectId } } }),
     db.auditRun.count({ where: { projectId } }),
@@ -82,6 +84,7 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
           />
         )}
         {!project.isDemo && canGoogle && <ProjectGoogleCard projectId={project.id} source={google.source} email={google.email} />}
+        <ProjectGeminiCard projectId={project.id} hint={gemini?.login ?? null} />
         {access && <ProjectAccessCard projectId={project.id} rows={access} />}
         <DeleteProjectCard projectId={project.id} name={project.name} domain={project.domain} counts={{ keywords, rankChecks, audits, gscDays }} />
       </div>

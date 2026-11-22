@@ -58,7 +58,6 @@ export const LIMITS = {
   /** URL inspections per project; Google allows about 2,000 per site a day */
   inspect: { max: 200, window: 60 * 60 },
   /** Requests with a missing or wrong API key */
-  apiFail: { max: 100, window: 15 * 60 },
 } as const;
 
 export function waitMessage(retryAfter: number) {

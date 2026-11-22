@@ -2,14 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { generateApiKey } from "@/lib/crypto";
-import { can, denied, requireProject, requireUser } from "@/lib/session";
+import { can, denied, requireProject } from "@/lib/session";
 import { getGoogleAccessToken } from "@/lib/providers";
 import { propertyChoiceDenied } from "@/lib/google-access";
 import { listGa4Properties, listGscSites, listMerchantAccounts, registerMerchantGcp } from "@/lib/providers/google";
 import { merchantProblem } from "@/lib/shopping";
-import { apiKeySchema, type ApiKeyInput } from "@/lib/validations";
-import { fail, ok, zodError, type ActionResult } from "@/lib/actions/result";
+import { fail, ok, type ActionResult } from "@/lib/actions/result";
 
 // The property picker lists what this project's Google access can see: its own service account, else the owner's connection
 export async function listGoogleProperties(projectId: string): Promise<
@@ -39,26 +37,6 @@ export async function listGoogleProperties(projectId: string): Promise<
   } catch (err) {
     return fail(err);
   }
-}
-
-export async function createApiKey(input: ApiKeyInput): Promise<ActionResult<{ key: string }>> {
-  const blocked = await denied("apikeys.create");
-  if (blocked) return blocked;
-  const user = await requireUser();
-  const parsed = apiKeySchema.safeParse(input);
-  if (!parsed.success) return zodError(parsed.error);
-  const { raw, prefix, hashed } = generateApiKey();
-  await db.apiKey.create({ data: { userId: user.id, name: parsed.data.name, prefix, hashedKey: hashed } });
-  revalidatePath("/settings");
-  // Shown once; only the hash is stored
-  return ok({ key: raw });
-}
-
-export async function revokeApiKey(id: string): Promise<ActionResult> {
-  const user = await requireUser();
-  await db.apiKey.updateMany({ where: { id, userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
-  revalidatePath("/settings");
-  return ok(undefined);
 }
 
 /**

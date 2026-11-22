@@ -281,7 +281,7 @@ function RoleDialog({
                 </div>
               </div>
               <div className="grid items-start gap-4 lg:grid-cols-2">
-                {[["Your website", "Account"], ["Merchant Center"]].map((names) => (
+                {[["Your website"], ["Merchant Center"]].map((names) => (
                   <div key={names[0]} className="flex flex-col gap-4">
                     {PERMISSION_LAYOUT.filter((a) => names.includes(a.area)).map((area) => (
                       <AreaCard key={area.area} area={area} keys={areaKeys(area)} chosen={chosen} setMany={setMany} />

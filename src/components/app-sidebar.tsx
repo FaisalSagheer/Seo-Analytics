@@ -15,7 +15,6 @@ import {
   ChevronsUpDownIcon,
   CompassIcon,
   FolderIcon,
-  KeyRoundIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   PlusIcon,
@@ -23,7 +22,6 @@ import {
   ShoppingBagIcon,
   SparklesIcon,
   Settings2Icon,
-  SettingsIcon,
   UsersIcon,
 } from "lucide-react";
 import { signOut as authSignOut } from "next-auth/react";
@@ -139,7 +137,7 @@ export function AppSidebar({
             {current && allowed("projects.edit") && (
               <SidebarGroup className="mt-auto pb-0">
                 <SidebarMenu>
-                  <SidebarMenuItem>
+                  <SidebarMenuItem data-tour="google">
                     <SidebarMenuButton isActive={pathname.startsWith(`/projects/${current.id}/settings`)} tooltip="Project settings" render={<Link href={`/projects/${current.id}/settings`} />}>
                       <Settings2Icon />
                       <span>Project settings</span>
@@ -161,31 +159,19 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroup>
         )}
-        <SidebarGroup className={current && allowed("projects.edit") ? undefined : "mt-auto"}>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem data-tour="google">
-              <SidebarMenuButton isActive={pathname === "/settings" && !current} tooltip="API keys" render={<Link href="/settings" />}>
-                <SettingsIcon />
-                <span>API keys</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {role?.isAdmin && (
+        {role?.isAdmin && (
+          <SidebarGroup className={current && allowed("projects.edit") ? undefined : "mt-auto"}>
+            <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarMenu>
               <SidebarMenuItem data-tour="team">
                 <SidebarMenuButton isActive={pathname === "/team"} tooltip="Team & roles" render={<Link href="/team" />}>
                   <UsersIcon />
                   <span>Team & roles</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            )}
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip="API docs" render={<Link href="/api/v1/openapi.json" target="_blank" />}>
-                <KeyRoundIcon />
-                <span>API reference</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

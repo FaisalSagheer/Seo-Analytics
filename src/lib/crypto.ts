@@ -24,8 +24,3 @@ export function decrypt(payload: string): string {
 export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
-
-export function generateApiKey() {
-  const raw = `bsk_${randomBytes(24).toString("base64url")}`;
-  return { raw, prefix: raw.slice(0, 8), hashed: sha256(raw) };
-}

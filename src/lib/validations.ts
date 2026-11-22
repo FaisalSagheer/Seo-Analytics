@@ -95,10 +95,6 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;
 
-export const apiKeySchema = z.object({
-  name: z.string().trim().min(1, "Name the key").max(60),
-});
-export type ApiKeyInput = z.input<typeof apiKeySchema>;
 
 export const roleSchema = z.object({
   name: z.string().trim().min(1, "Name the role").max(40),

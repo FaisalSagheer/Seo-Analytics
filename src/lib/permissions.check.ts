@@ -12,7 +12,7 @@ for (const a of PERMISSION_LAYOUT) for (const g of a.groups) for (const p of g.p
 // Old roles keep exactly what they had
 assert.deepEqual(sanitizePermissions(["keywords.manage"]), ["rankings.create", "rankings.delete"]);
 assert.deepEqual(sanitizePermissions(["data.sync"]).sort(), ["analytics.edit", "audit.create", "backlinks.create", "backlinks.delete", "rankings.edit"]);
-assert.deepEqual(sanitizePermissions(["providers.manage", "apikeys.manage"]), ["google.edit", "apikeys.create"]);
+assert.deepEqual(sanitizePermissions(["providers.manage", "apikeys.manage"]), ["google.edit"]);
 assert.deepEqual([...sanitizePermissions(["merchant.manage"])].sort(), [...MERCHANT_PERMISSIONS].sort());
 assert.deepEqual(sanitizePermissions(["projects.create", "research.use", "made.up", 5, null]), ["projects.create"]);
 assert.deepEqual(sanitizePermissions("nope"), []);

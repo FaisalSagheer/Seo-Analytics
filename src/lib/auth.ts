@@ -102,7 +102,7 @@ async function linkGoogle(account: Account, profile: Profile | undefined): Promi
 
   let userId: string;
   if (current) {
-    if (existing && existing.userId !== current.id) return "/settings?google=in-use";
+    if (existing && existing.userId !== current.id) return "/projects?google=in-use";
     userId = current.id;
   } else if (existing) {
     userId = existing.userId;

@@ -13,9 +13,6 @@ export const PAGE_TOURS: Record<string, PageTour> = {
     intro: "All your websites. Open one to see its search, traffic and shopping data.",
     tip: "Use the project switcher at the top of the sidebar to move between websites quickly.",
   },
-  account: {
-    intro: "Connect your Google account and manage API keys. Do this first: the numbers fill in once Google is connected.",
-  },
   team: {
     intro: "Add people to the team and choose what each role is allowed to do.",
   },
@@ -149,7 +146,6 @@ export const PAGE_TOURS: Record<string, PageTour> = {
 /** Which page tour applies to a URL path, or null when the page has none. */
 export function pageKey(pathname: string): string | null {
   if (pathname === "/projects") return "projects";
-  if (pathname === "/settings") return "account";
   if (pathname === "/team") return "team";
   const m = pathname.match(/^\/projects\/[^/]+(?:\/(.*))?$/);
   if (!m) return null;

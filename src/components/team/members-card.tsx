@@ -56,7 +56,7 @@ export function MembersCard({ members, roles, action }: { members: MemberView[];
       <CardHeader>
         <CardTitle>Members</CardTitle>
         <CardDescription>
-          Everyone who has an account. A role change applies on their next page load. Deactivating blocks sign-in and API keys at once, and keeps
+          Everyone who has an account. A role change applies on their next page load. Deactivating blocks sign-in at once, and keeps
           everything they created.
         </CardDescription>
         {action && <CardAction>{action}</CardAction>}
@@ -106,7 +106,7 @@ export function MembersCard({ members, roles, action }: { members: MemberView[];
                     <ConfirmDelete
                       triggerRender={<Button size="sm" variant="ghost" disabled={pending} />}
                       title={`Deactivate ${m.name}?`}
-                      description="They can't sign in, and their API keys stop working. Their projects, keywords and history stay in place."
+                      description="They can't sign in. Their projects, keywords and history stay in place."
                       details={[
                         { label: "Name", value: m.name },
                         { label: "Email", value: m.email },
