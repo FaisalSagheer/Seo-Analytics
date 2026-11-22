@@ -20,10 +20,64 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { PagedList } from "@/components/performance/table-pager";
+
+type Area = (typeof PERMISSION_LAYOUT)[number];
+const ACTIONS: PermissionAction[] = ["create", "edit", "delete"];
+const COLS = "grid grid-cols-[minmax(0,1fr)_repeat(3,3.25rem)] items-center";
+const areaKeys = (area: Area) => area.groups.flatMap((g) => g.pages.flatMap((p) => ACTIONS.map((a) => p[a]).filter((k): k is Permission => k != null)));
+
+/** One area of the sidebar as a card: its pages with a Create, Edit and Delete box each. */
+function AreaCard({ area, keys, chosen, setMany }: { area: Area; keys: Permission[]; chosen: Set<Permission>; setMany: (keys: Permission[], on: boolean) => void }) {
+  const all = keys.every((k) => chosen.has(k));
+  return (
+    <div className="overflow-hidden rounded-xl border">
+      <div className="bg-muted/40 flex items-center justify-between border-b px-4 py-3">
+        <h4 className="text-sm font-semibold">{area.area}</h4>
+        <Button type="button" size="xs" variant="ghost" onClick={() => setMany(keys, !all)}>
+          {all ? "Clear section" : "Mark all"}
+        </Button>
+      </div>
+      <div className={`${COLS} text-muted-foreground bg-muted/20 border-b px-4 py-2 text-[11px] font-medium`}>
+        <span>Feature</span>
+        {ACTIONS.map((a) => (
+          <span key={a} className="text-center capitalize">
+            {a}
+          </span>
+        ))}
+      </div>
+      {area.groups.map((group) => (
+        <div key={group.label} className="border-b py-2 last:border-b-0">
+          <div className="text-muted-foreground px-4 py-1 text-[10px] font-semibold tracking-wider uppercase">{group.label}</div>
+          {group.pages.map((page) => (
+            <div key={page.label} className={`${COLS} hover:bg-muted/40 px-4 py-2`}>
+              <span className="pr-2 text-sm leading-snug">{page.label}</span>
+              {ACTIONS.map((action) => {
+                const key = page[action];
+                return (
+                  <span key={action} className="flex justify-center">
+                    {key ? (
+                      <Checkbox
+                        aria-label={`${page.label}: ${action}`}
+                        checked={chosen.has(key)}
+                        onCheckedChange={(c) => setMany([key], c === true)}
+                      />
+                    ) : (
+                      <span className="bg-border size-1 rounded-full" />
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export type RoleView = {
   id: string;
@@ -153,8 +207,6 @@ function RoleDialog({
   const [draft, setDraft] = useState<RoleInput>(initial);
   const [pending, startTransition] = useTransition();
   const chosen = new Set(draft.permissions);
-  const areaKeys = (area: (typeof PERMISSION_LAYOUT)[number]) =>
-    area.groups.flatMap((g) => g.pages.flatMap((p) => [p.create, p.edit, p.delete].filter((k): k is Permission => k != null)));
   const setMany = (keys: Permission[], on: boolean) =>
     setDraft({ ...draft, permissions: on ? [...new Set([...chosen, ...keys])] : [...chosen].filter((p) => !keys.includes(p)) });
 
@@ -178,101 +230,67 @@ function RoleDialog({
       }}
     >
       <DialogTrigger render={children} />
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <form onSubmit={submit} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>Tick what this role can change, and whether it sees every project.</DialogDescription>
           </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="role-name">Name</FieldLabel>
-              <Input id="role-name" value={draft.name} maxLength={40} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="role-description">Description</FieldLabel>
-              <Input
-                id="role-description"
-                placeholder="Optional"
-                value={draft.description}
-                maxLength={255}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              />
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox
-                id="role-see-all"
-                checked={draft.seeAllProjects}
-                onCheckedChange={(c) => setDraft({ ...draft, seeAllProjects: c === true })}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor="role-see-all" className="font-normal">
-                  See every project
-                </FieldLabel>
-                <FieldDescription>
-                  Off for client roles: members see only the projects they&apos;ve been added to, on each project&apos;s settings page.
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-            <FieldSet>
-              <FieldLegend variant="label">Permissions</FieldLegend>
-              <p className="text-muted-foreground text-xs">Viewing a page needs no permission. Tick what this role can do on each page.</p>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => setMany(PERMISSION_KEYS, true)}>
-                  Mark all
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setMany(PERMISSION_KEYS, false)}>
-                  Clear all
-                </Button>
+          <div className="flex flex-col gap-5">
+            <div className="grid gap-4 md:grid-cols-12">
+              <Field className="md:col-span-5">
+                <FieldLabel htmlFor="role-name">Role title</FieldLabel>
+                <Input id="role-name" placeholder="e.g. SEO Specialist" value={draft.name} maxLength={40} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              </Field>
+              <Field className="md:col-span-7">
+                <FieldLabel htmlFor="role-description">Description</FieldLabel>
+                <Input
+                  id="role-description"
+                  placeholder="Optional: what this role is responsible for"
+                  value={draft.description}
+                  maxLength={255}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                />
+              </Field>
+            </div>
+            <label htmlFor="role-see-all" className="hover:bg-muted/50 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5">
+              <Checkbox id="role-see-all" className="mt-0.5" checked={draft.seeAllProjects} onCheckedChange={(c) => setDraft({ ...draft, seeAllProjects: c === true })} />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">See every project</span>
+                <span className="text-muted-foreground text-xs">
+                  Turn off for client roles: members see only the projects they&apos;ve been added to, on each project&apos;s settings page.
+                </span>
+              </span>
+            </label>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold">Permissions</h3>
+                    <Badge variant="secondary">{chosen.size} selected</Badge>
+                  </div>
+                  <p className="text-muted-foreground mt-0.5 text-xs">Viewing a page needs no permission. Tick what this role can do on each page.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => setMany(PERMISSION_KEYS, true)}>
+                    Mark all
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setMany(PERMISSION_KEYS, false)}>
+                    Clear all
+                  </Button>
+                </div>
               </div>
-              <div className="grid items-start gap-6 rounded-md border p-4 lg:grid-cols-3">
-                {PERMISSION_LAYOUT.map((area) => (
-                  <div key={area.area} className="flex min-w-0 flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2 text-sm font-semibold">
-                      {area.area}
-                      <Button type="button" size="xs" variant="ghost" onClick={() => setMany(areaKeys(area), !areaKeys(area).every((k) => chosen.has(k)))}>
-                        {areaKeys(area).every((k) => chosen.has(k)) ? "Clear" : "Mark all"}
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,2.75rem)] items-center gap-x-2 border-b pb-1 text-xs">
-                      <span />
-                      {(["create", "edit", "delete"] as PermissionAction[]).map((a) => (
-                        <span key={a} className="text-muted-foreground text-center capitalize">
-                          {a}
-                        </span>
-                      ))}
-                    </div>
-                    {area.groups.map((group) => (
-                      <div key={group.label} className="flex flex-col gap-1">
-                        <span className="text-muted-foreground text-xs font-medium uppercase">{group.label}</span>
-                        {group.pages.map((page) => (
-                          <div key={page.label} className="grid grid-cols-[minmax(0,1fr)_repeat(3,2.75rem)] items-center gap-x-2 text-sm">
-                            <span>{page.label}</span>
-                            {(["create", "edit", "delete"] as PermissionAction[]).map((action) => {
-                              const key = page[action];
-                              return key ? (
-                                <span key={action} className="flex justify-center">
-                                  <Checkbox
-                                    aria-label={`${page.label}: ${action}`}
-                                    checked={chosen.has(key)}
-                                    onCheckedChange={(c) =>
-                                      setDraft({ ...draft, permissions: c ? [...chosen, key] : [...chosen].filter((p) => p !== key) })
-                                    }
-                                  />
-                                </span>
-                              ) : (
-                                <span key={action} />
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
+              <div className="grid items-start gap-4 lg:grid-cols-2">
+                {[["Your website", "Account"], ["Merchant Center"]].map((names) => (
+                  <div key={names[0]} className="flex flex-col gap-4">
+                    {PERMISSION_LAYOUT.filter((a) => names.includes(a.area)).map((area) => (
+                      <AreaCard key={area.area} area={area} keys={areaKeys(area)} chosen={chosen} setMany={setMany} />
                     ))}
                   </div>
                 ))}
               </div>
-            </FieldSet>
-          </FieldGroup>
+            </div>
+          </div>
           <DialogFooter>
             <Button type="submit" disabled={pending || !draft.name.trim()}>
               {pending && <Spinner data-icon="inline-start" />}
