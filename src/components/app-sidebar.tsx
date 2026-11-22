@@ -176,6 +176,15 @@ export function AppSidebar({
                 <span>API reference</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {/* Last in the list: it belongs to the open project, so it only shows on a project page */}
+            {current && allowed("projects.edit") && (
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={pathname.startsWith(`/projects/${current.id}/settings`)} tooltip="Project settings" render={<Link href={`/projects/${current.id}/settings`} />}>
+                  <Settings2Icon />
+                  <span>Project settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
@@ -246,7 +255,7 @@ type NavEntry = {
 
 // Each product area is split into groups, like Merchant Center's own menu. Pages that do the same kind of
 // job sit in one group: traffic reports (Performance, Reports, Referrals) together, the SEO tools
-// (Rankings, Site audit, Backlinks) together.
+// (Rankings, Site audit, Backlinks) together. Project settings sits at the end of the Account list.
 const PROJECT_NAV: NavEntry[] = [
   { label: "Overview", icon: LayoutDashboardIcon, segment: "" },
   {
@@ -268,7 +277,6 @@ const PROJECT_NAV: NavEntry[] = [
       { segment: "backlinks", label: "Backlinks" },
     ],
   },
-  { label: "Project settings", icon: Settings2Icon, segment: "settings", permission: "projects.edit" },
 ];
 
 // Shopping, laid out like Merchant Center's menu. Summary, Online store and Physical stores are one page
