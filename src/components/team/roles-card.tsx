@@ -225,18 +225,19 @@ function RoleDialog({
                   Clear all
                 </Button>
               </div>
-              <div className="grid max-h-[28rem] gap-4 overflow-y-auto rounded-md border p-3 lg:grid-cols-3">
+              <div className="grid items-start gap-6 rounded-md border p-4 lg:grid-cols-3">
                 {PERMISSION_LAYOUT.map((area) => (
                   <div key={area.area} className="flex min-w-0 flex-col gap-2">
-                    <div className="grid grid-cols-[1fr_repeat(3,3.5rem)] items-center gap-x-2 border-b pb-1 text-sm font-semibold">
-                      <span className="flex items-center gap-2">
-                        {area.area}
-                        <Button type="button" size="xs" variant="ghost" onClick={() => setMany(areaKeys(area), !areaKeys(area).every((k) => chosen.has(k)))}>
-                          {areaKeys(area).every((k) => chosen.has(k)) ? "Clear" : "Mark all"}
-                        </Button>
-                      </span>
+                    <div className="flex items-center justify-between gap-2 text-sm font-semibold">
+                      {area.area}
+                      <Button type="button" size="xs" variant="ghost" onClick={() => setMany(areaKeys(area), !areaKeys(area).every((k) => chosen.has(k)))}>
+                        {areaKeys(area).every((k) => chosen.has(k)) ? "Clear" : "Mark all"}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,2.75rem)] items-center gap-x-2 border-b pb-1 text-xs">
+                      <span />
                       {(["create", "edit", "delete"] as PermissionAction[]).map((a) => (
-                        <span key={a} className="text-muted-foreground text-center text-xs font-normal capitalize">
+                        <span key={a} className="text-muted-foreground text-center capitalize">
                           {a}
                         </span>
                       ))}
@@ -245,7 +246,7 @@ function RoleDialog({
                       <div key={group.label} className="flex flex-col gap-1">
                         <span className="text-muted-foreground text-xs font-medium uppercase">{group.label}</span>
                         {group.pages.map((page) => (
-                          <div key={page.label} className="grid grid-cols-[1fr_repeat(3,3.5rem)] items-center gap-x-2 text-sm">
+                          <div key={page.label} className="grid grid-cols-[minmax(0,1fr)_repeat(3,2.75rem)] items-center gap-x-2 text-sm">
                             <span>{page.label}</span>
                             {(["create", "edit", "delete"] as PermissionAction[]).map((action) => {
                               const key = page[action];
