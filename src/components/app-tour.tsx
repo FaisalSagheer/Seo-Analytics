@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { NextStep, NextStepProvider, useNextStep, type CardComponentProps, type Step } from "nextstepjs";
+import { NextStep, NextStepProvider, useNextStep, type ArrowComponentProps, type CardComponentProps, type Step } from "nextstepjs";
 import { markPageTourSeen, markTourSeen } from "@/lib/actions/tour";
 import { MERCHANT_PERMISSIONS } from "@/lib/permissions";
 import { PAGE_TOURS, pageKey } from "@/lib/tour-pages";
@@ -102,6 +102,23 @@ function TourCard({ step, currentStep, totalSteps, nextStep, prevStep, skipTour,
       {arrow}
     </div>
   );
+}
+
+/**
+ * The card's pointer: a small diamond in the card's colour, joined to its border. It sits a fixed
+ * distance from the card's edge, so a wide target (the page header) can't push it off a corner.
+ */
+function TourArrow({ side }: ArrowComponentProps) {
+  const s = side ?? "";
+  const base = "bg-popover absolute size-3 border-border";
+  // Full class names, so Tailwind sees them
+  const x = s.endsWith("left") ? "left-6" : s.endsWith("right") ? "right-6" : "left-1/2 -translate-x-1/2";
+  const y = s.endsWith("top") ? "top-6" : s.endsWith("bottom") ? "bottom-6" : "top-1/2 -translate-y-1/2";
+  if (s.startsWith("bottom")) return <span aria-hidden className={`${base} -top-1.5 rotate-45 border-t border-l ${x}`} />;
+  if (s.startsWith("top")) return <span aria-hidden className={`${base} -bottom-1.5 rotate-45 border-r border-b ${x}`} />;
+  if (s.startsWith("right")) return <span aria-hidden className={`${base} -left-1.5 rotate-45 border-b border-l ${y}`} />;
+  if (s.startsWith("left")) return <span aria-hidden className={`${base} -right-1.5 rotate-45 border-t border-r ${y}`} />;
+  return null;
 }
 
 const visible = (selector: string) => {
@@ -269,7 +286,7 @@ export function AppTour({ tourSeen, pageToursSeen, children }: { tourSeen: boole
         onSkip={(_, tour) => finish(tour)}
         shadowOpacity="0.45"
         cardTransition={{ duration: 0.25 }}
-        arrowStyle={{ color: "var(--popover)" }}
+        arrowComponent={TourArrow}
         disableConsoleLogs
       >
         <TourController tourSeen={tourSeen} ready={present != null} seenPages={seenPages} welcomePath={welcomePath} setActiveKey={setActiveKey} pageSteps={pageSteps} setPageSteps={setPageSteps}>
