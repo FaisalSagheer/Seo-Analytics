@@ -103,7 +103,7 @@ export const PERMISSION_LAYOUT: { area: string; groups: { label: string; pages: 
         ],
       },
       {
-        label: "Settings",
+        label: "Business settings",
         pages: [
           { label: "Business info", edit: "store-info.edit" },
           { label: "Data sources", create: "feeds.create", edit: "feeds.edit", delete: "feeds.delete" },

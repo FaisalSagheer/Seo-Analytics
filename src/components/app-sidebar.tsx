@@ -136,6 +136,18 @@ export function AppSidebar({
           <>
             <GroupedNav title={current.domain} base={`/projects/${current.id}`} items={PROJECT_NAV} pathname={pathname} allowed={allowed} />
             <GroupedNav title="Merchant Center" titleTourId="merchant" base={`/projects/${current.id}/shopping`} items={MERCHANT_NAV} pathname={pathname} allowed={allowed} />
+            {current && allowed("projects.edit") && (
+              <SidebarGroup className="mt-auto pb-0">
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={pathname.startsWith(`/projects/${current.id}/settings`)} tooltip="Project settings" render={<Link href={`/projects/${current.id}/settings`} />}>
+                      <Settings2Icon />
+                      <span>Project settings</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroup>
+            )}
           </>
         ) : (
           <SidebarGroup>
@@ -149,7 +161,7 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroup>
         )}
-        <SidebarGroup className="mt-auto">
+        <SidebarGroup className={current && allowed("projects.edit") ? undefined : "mt-auto"}>
           <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem data-tour="google">
@@ -176,15 +188,6 @@ export function AppSidebar({
                 <span>API reference</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {/* Last in the list: it belongs to the open project, so it only shows on a project page */}
-            {current && allowed("projects.edit") && (
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={pathname.startsWith(`/projects/${current.id}/settings`)} tooltip="Project settings" render={<Link href={`/projects/${current.id}/settings`} />}>
-                  <Settings2Icon />
-                  <span>Project settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
@@ -255,7 +258,7 @@ type NavEntry = {
 
 // Each product area is split into groups, like Merchant Center's own menu. Pages that do the same kind of
 // job sit in one group: traffic reports (Performance, Reports, Referrals) together, the SEO tools
-// (Rankings, Site audit, Backlinks) together. Project settings sits at the end of the Account list.
+// (Rankings, Site audit, Backlinks) together. Project settings sits just above the Account group.
 const PROJECT_NAV: NavEntry[] = [
   { label: "Overview", icon: LayoutDashboardIcon, segment: "" },
   {
@@ -321,7 +324,7 @@ const MERCHANT_NAV: NavEntry[] = [
     ],
   },
   {
-    label: "Settings",
+    label: "Business settings",
     icon: StoreIcon,
     children: [
       { segment: "settings", label: "Business info" },
