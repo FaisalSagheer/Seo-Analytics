@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { createRole, deleteRole, setDefaultRole, updateRole } from "@/lib/actions/team";
-import { describePermissions, PERMISSION_LAYOUT, type Permission, type PermissionAction } from "@/lib/permissions";
+import { describePermissions, PERMISSION_KEYS, PERMISSION_LAYOUT, type Permission, type PermissionAction } from "@/lib/permissions";
 import type { RoleInput } from "@/lib/validations";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { Badge } from "@/components/ui/badge";
@@ -153,6 +153,10 @@ function RoleDialog({
   const [draft, setDraft] = useState<RoleInput>(initial);
   const [pending, startTransition] = useTransition();
   const chosen = new Set(draft.permissions);
+  const areaKeys = (area: (typeof PERMISSION_LAYOUT)[number]) =>
+    area.groups.flatMap((g) => g.pages.flatMap((p) => [p.create, p.edit, p.delete].filter((k): k is Permission => k != null)));
+  const setMany = (keys: Permission[], on: boolean) =>
+    setDraft({ ...draft, permissions: on ? [...new Set([...chosen, ...keys])] : [...chosen].filter((p) => !keys.includes(p)) });
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -174,7 +178,7 @@ function RoleDialog({
       }}
     >
       <DialogTrigger render={children} />
-      <DialogContent>
+      <DialogContent className="sm:max-w-5xl">
         <form onSubmit={submit} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -213,11 +217,24 @@ function RoleDialog({
             <FieldSet>
               <FieldLegend variant="label">Permissions</FieldLegend>
               <p className="text-muted-foreground text-xs">Viewing a page needs no permission. Tick what this role can do on each page.</p>
-              <div className="flex max-h-80 flex-col gap-4 overflow-y-auto rounded-md border p-3">
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => setMany(PERMISSION_KEYS, true)}>
+                  Mark all
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setMany(PERMISSION_KEYS, false)}>
+                  Clear all
+                </Button>
+              </div>
+              <div className="grid max-h-[28rem] gap-4 overflow-y-auto rounded-md border p-3 lg:grid-cols-3">
                 {PERMISSION_LAYOUT.map((area) => (
-                  <div key={area.area} className="flex flex-col gap-2">
+                  <div key={area.area} className="flex min-w-0 flex-col gap-2">
                     <div className="grid grid-cols-[1fr_repeat(3,3.5rem)] items-center gap-x-2 border-b pb-1 text-sm font-semibold">
-                      <span>{area.area}</span>
+                      <span className="flex items-center gap-2">
+                        {area.area}
+                        <Button type="button" size="xs" variant="ghost" onClick={() => setMany(areaKeys(area), !areaKeys(area).every((k) => chosen.has(k)))}>
+                          {areaKeys(area).every((k) => chosen.has(k)) ? "Clear" : "Mark all"}
+                        </Button>
+                      </span>
                       {(["create", "edit", "delete"] as PermissionAction[]).map((a) => (
                         <span key={a} className="text-muted-foreground text-center text-xs font-normal capitalize">
                           {a}
